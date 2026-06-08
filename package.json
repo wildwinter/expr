@@ -1,0 +1,33 @@
+{
+  "name": "@wildwinter/expr",
+  "version": "0.1.0",
+  "description": "Agnostic expression engine: parse, unparse, evaluate, and serialise a small condition/effect expression language. Scopes and built-in functions are injected via a Dialect.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ian Thomas",
+  "keywords": ["expression", "parser", "evaluator", "ast", "dsl", "conditions"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
