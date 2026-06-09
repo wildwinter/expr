@@ -1,0 +1,30 @@
+name: Publish
+
+# Publishes @wildwinter/expr to GitHub Packages (private; visibility follows the
+# private repo) when a GitHub Release is published. Bump the version in
+# package.json before tagging - GitHub Packages rejects republishing a version.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
