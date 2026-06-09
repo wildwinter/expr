@@ -1,13 +1,15 @@
 name: Publish
 
-# Publishes @wildwinter/expr to GitHub Packages (private; visibility follows the
-# private repo) when a GitHub Release is published. Bump the package version in
-# packages/expr/package.json before tagging - GitHub Packages rejects
-# republishing a version.
+# Publishes the @wildwinter packages (expr, then scoperegistry) to GitHub
+# Packages (private; visibility follows the private repo) when a GitHub Release
+# is published. Bump the package version(s) in packages/*/package.json before
+# tagging - GitHub Packages rejects republishing an existing version.
 #
 # This is a workspaces monorepo; `npm ci` installs every package, then we build
-# + test + publish the expr package specifically. When @wildwinter/scoperegistry
-# is ready to publish, add an equivalent step (or a matrix) for it.
+# + test all of them and publish each package whose current version is not yet
+# on the registry. scoperegistry is published AFTER expr (it depends on it), and
+# each publish is guarded so a release that only bumps one package does not fail
+# trying to republish the unchanged one.
 
 on:
   release:
@@ -27,9 +29,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck -w packages/expr
-      - run: npm run build -w packages/expr
-      - run: npm test -w packages/expr
-      - run: npm publish -w packages/expr
+      - run: npm run typecheck --workspaces --if-present
+      - run: npm run build --workspaces --if-present
+      - run: npm test --workspaces --if-present
+      # Publish expr first (scoperegistry depends on it), then scoperegistry.
+      # Skip whichever version is already published so partial releases pass.
+      - name: Publish @wildwinter/expr
+        run: |
+          VER=$(node -p "require('./packages/expr/package.json').version")
+          if npm view "@wildwinter/expr@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/expr@$VER already published; skipping."
+          else
+            npm publish -w packages/expr
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish @wildwinter/scoperegistry
+        run: |
+          VER=$(node -p "require('./packages/scoperegistry/package.json').version")
+          if npm view "@wildwinter/scoperegistry@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/scoperegistry@$VER already published; skipping."
+          else
+            npm publish -w packages/scoperegistry
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
