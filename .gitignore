@@ -1,6 +1,8 @@
 node_modules
 dist
+packages/*/dist
 coverage
+packages/*/coverage
 *.log
 .DS_Store
 .vitest

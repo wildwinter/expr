@@ -1,8 +1,13 @@
 name: Publish
 
 # Publishes @wildwinter/expr to GitHub Packages (private; visibility follows the
-# private repo) when a GitHub Release is published. Bump the version in
-# package.json before tagging - GitHub Packages rejects republishing a version.
+# private repo) when a GitHub Release is published. Bump the package version in
+# packages/expr/package.json before tagging - GitHub Packages rejects
+# republishing a version.
+#
+# This is a workspaces monorepo; `npm ci` installs every package, then we build
+# + test + publish the expr package specifically. When @wildwinter/scoperegistry
+# is ready to publish, add an equivalent step (or a matrix) for it.
 
 on:
   release:
@@ -22,9 +27,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
-      - run: npm publish
+      - run: npm run typecheck -w packages/expr
+      - run: npm run build -w packages/expr
+      - run: npm test -w packages/expr
+      - run: npm publish -w packages/expr
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

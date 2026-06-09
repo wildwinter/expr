@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExprNode, ScalarValue } from "./ast.js";
-import type { Dialect, EvalContext } from "./dialect.js";
+import type { Dialect, EvalContext, ScopeResolver } from "./dialect.js";
 
 export class EvalError extends Error {
   constructor(message: string) {
@@ -32,13 +32,18 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
       case "string": return n.value;
 
       case "scopedvar": {
-        const props = ctx.scopes[n.scope];
-        if (props === undefined) {
+        const scope = ctx.scopes[n.scope];
+        if (scope === undefined) {
           // Scope context absent -> graceful false. (A scope the dialect knows
           // about but the context didn't populate, or an unknown scope.)
           return false;
         }
-        const val = props[n.name];
+        // A scope is either a static bag or a host resolver ({ get }). Bag values
+        // are always ScalarValue (never functions), so a `get` function reliably
+        // distinguishes a resolver.
+        const val = typeof (scope as ScopeResolver).get === "function"
+          ? (scope as ScopeResolver).get(n.name)
+          : (scope as Record<string, ScalarValue>)[n.name];
         if (val === undefined) {
           // Property not declared on the present scope. Policy decides: "false"
           // for back-compat scopes, "throw" for scopes where a missing key is a

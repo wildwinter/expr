@@ -29,7 +29,7 @@ export type {
   BinaryOp, UnaryOp, ScalarValue,
 } from "./ast.js";
 export type {
-  Dialect, ScopeDef, FunctionDef, EvalContext, EvalHelpers, ReturnType,
+  Dialect, ScopeDef, FunctionDef, EvalContext, EvalHelpers, ReturnType, ScopeResolver,
 } from "./dialect.js";
 
 /** A compiled expression envelope: canonical source + pre-derived tagged-tuple AST. */

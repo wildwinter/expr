@@ -1,69 +1,32 @@
-# @wildwinter/expr
+# @wildwinter packages
 
-A small, **agnostic expression engine** - parse, unparse, evaluate, and serialise a
-condition/effect expression language. The grammar, operators, and evaluator are fixed and
-generic; the **scope tokens and built-in functions are injected via a `Dialect`**, so the same
-core powers different host projects.
+Monorepo (npm workspaces) for the shared `@wildwinter` packages used by Patter
+and Storylet Studio.
 
-It was extracted from [Storylet Studio](https://github.com/storylet-studio)'s expression engine
-and generalised so that both Storylet Studio and [Patter](https://patterkit.com) can share it.
-Zero runtime dependencies; ESM + CJS + types.
+- **[`packages/expr`](packages/expr)** — `@wildwinter/expr`: the agnostic
+  expression engine (parse / evaluate / validate / serialise). Stateless,
+  zero-dependency, portable. Scopes and functions are injected via a `Dialect`;
+  state is supplied via an `EvalContext` (a static bag, or a host resolver).
+- **`packages/scoperegistry`** — `@wildwinter/scoperegistry` (in progress): the
+  scope registry / runtime state container that sits on top of `expr`. Owns the
+  world-state (owned bags + foreign resolvers), save/load, and the
+  `scopeRegistrySpec` interop format; produces the `EvalContext` / `ExpressionSchema`
+  that `expr` consumes. Depends on `@wildwinter/expr`; `expr` never depends on it.
 
-```ts
-import { parse, evaluate, unparse, compile, type Dialect } from "@wildwinter/expr";
+## Layout
 
-const dialect: Dialect = {
-  defaultScope: "shared",                 // bare @name -> @shared.name
-  scopes: [{ token: "shared" }, { token: "scene" }, { token: "flow" }],
-  functions: {
-    max: {
-      minArgs: 2, maxArgs: 2, returnType: "number",
-      eval: (args, h) => Math.max(h.evaluate(args[0]) as number, h.evaluate(args[1]) as number),
-    },
-  },
-};
-
-const node = parse("@hp < 10 and @scene.alarm", dialect);
-evaluate(node, { scopes: { shared: { hp: 5 }, scene: { alarm: true } } }, dialect); // true
-unparse(node, { defaultScope: "shared" });            // "@hp < 10 and @scene.alarm"
-compile("@hp > 0", dialect);                          // { src, ast: ["bin", ">", ...] }  (bundle form)
+```
+packages/expr/          @wildwinter/expr (published to GitHub Packages, private)
+packages/scoperegistry/ @wildwinter/scoperegistry
 ```
 
-## The language
+## Develop
 
-- **Literals:** `true` / `false`, numbers (`42`, `3.14`), strings (`'x'` or `"x"`). A bare
-  identifier with no `(` is sugar for a string (`@season == winter`).
-- **Property refs:** `@name` (the dialect's default scope) or `@scope.name`. Names are lowercased.
-- **Operators:** `and` `or` `not` (short-circuit; aliases `&&` `||` `!`), comparisons
-  `== != > >= < <=` (`=` is an alias for `==`), arithmetic `+ - * /` (`+` also concatenates
-  strings).
-- **Functions:** dialect-supplied. A function may declare `flagDeltaArgs` so its trailing args
-  parse as `+flag` / `-flag` (reaching `eval` as `flagdelta` nodes).
-
-## API
-
-- `parse(src, dialect): ExprNode` - text to AST (throws `ParseError`).
-- `unparse(node, { defaultScope? }): string` - AST to canonical text (round-trip stable).
-- `evaluate(node, ctx, dialect): ScalarValue` - walk the AST against `ctx.scopes` + `ctx.host`.
-- `serialiseAst(node) / deserialiseAst(node)` - to/from the compact tagged-tuple bundle form.
-- `compile(src, dialect): { src, ast }` - parse + serialise (the publish/compile step).
-
-### Dialect
-
-```ts
-interface ScopeDef    { token: string; missing?: "false" | "throw" }   // missing-prop policy; default "false"
-interface FunctionDef {
-  minArgs: number; maxArgs?: number;
-  returnType: "boolean" | "number" | "string" | "flags" | "unknown";
-  flagDeltaArgs?: boolean;
-  eval(rawArgs: ExprNode[], h: { evaluate; ctx }): ScalarValue;         // raw args; call h.evaluate(arg) as needed
-}
-interface Dialect     { scopes: ScopeDef[]; defaultScope: string; functions: Record<string, FunctionDef> }
+```sh
+npm install            # installs all workspaces
+npm test               # test every package
+npm run build          # build every package
 ```
 
-A scope absent from the context resolves to `false`. A property missing from a *present* scope
-follows that scope's `missing` policy.
-
-## License
-
-MIT (c) Ian Thomas.
+Publishing is per-package via the release workflow (`.github/workflows/publish.yml`):
+bump the package's version, then cut a GitHub Release.

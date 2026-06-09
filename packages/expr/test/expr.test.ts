@@ -122,3 +122,44 @@ describe("evaluate - scope resolution", () => {
     expect(evaluate(parse("@scene.alarm", patter), ctx({ scene: {} }), patter)).toBe(false); // prop missing, policy "false"
   });
 });
+
+// Resolver-backed scopes - a scope can be read through a host `{ get }` resolver
+// (the basis for foreign scopes), not just a static bag. Backward-compatible.
+describe("resolver-backed scopes", () => {
+  const D: Dialect = {
+    defaultScope: "shared",
+    scopes: [{ token: "shared" }, { token: "game" }],
+    functions: {},
+  };
+
+  it("reads a scope value through a { get } resolver", () => {
+    const game = { get: (n: string) => (n === "gold" ? 42 : undefined) };
+    expect(evaluate(parse("@game.gold", D), ctx({ game }), D)).toBe(42);
+  });
+
+  it("a resolver returning undefined applies the missing policy (false by default)", () => {
+    const game = { get: () => undefined };
+    expect(evaluate(parse("@game.nope", D), ctx({ game }), D)).toBe(false);
+  });
+
+  it("honours a 'throw' missing policy on a resolver scope", () => {
+    const T: Dialect = { ...D, scopes: [{ token: "game", missing: "throw" }] };
+    const game = { get: () => undefined };
+    expect(() => evaluate(parse("@game.x", T), ctx({ game }), T)).toThrow(EvalError);
+  });
+
+  it("an absent resolver scope is graceful-false", () => {
+    expect(evaluate(parse("@game.gold", D), ctx({}), D)).toBe(false);
+  });
+
+  it("mixes a static bag and a resolver in one expression", () => {
+    const game = { get: (n: string) => (n === "gold" ? 10 : undefined) };
+    expect(evaluate(parse("@shared.hp + @game.gold", D), ctx({ shared: { hp: 5 }, game }), D)).toBe(15);
+  });
+
+  it("treats a bag with a property literally named 'get' as a bag, not a resolver", () => {
+    // The bag's `get` is a number (a ScalarValue), not a function, so it is not
+    // mistaken for a resolver.
+    expect(evaluate(parse("@shared.get", D), ctx({ shared: { get: 7 } }), D)).toBe(7);
+  });
+});

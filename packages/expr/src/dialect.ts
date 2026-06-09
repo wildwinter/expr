@@ -29,12 +29,29 @@ export interface ScopeDef {
   missing?: "false" | "throw";
 }
 
+/**
+ * A scope backed by a host resolver rather than a static bag - the basis for
+ * *foreign* scopes (e.g. `@game` / `@world`) whose values live in a host or
+ * another engine and are read (and optionally written) at runtime. The
+ * evaluator treats a missing property the same as a bag does (the scope's
+ * missing-policy decides false-vs-throw). A scope entirely absent from the
+ * EvalContext still resolves to false regardless.
+ */
+export interface ScopeResolver {
+  /** Read a property's value, or undefined if the scope does not have it. */
+  get(name: string): ScalarValue | undefined;
+  /** Write a property (omit for a read-only scope). The core never calls this;
+   *  it is for host/runtime effect application (e.g. a state container's `set`). */
+  set?(name: string, value: ScalarValue): void;
+}
+
 export interface EvalContext {
   /**
-   * Property values per scope token. Keys are lowercase property names. A scope
-   * absent from this map resolves to false (graceful) for any reference.
+   * Values per scope token, either a static **bag** (keys are lowercase property
+   * names) or a host **resolver** (`{ get }`). A scope absent from this map
+   * resolves to false (graceful) for any reference.
    */
-  scopes: Record<string, Record<string, ScalarValue> | undefined>;
+  scopes: Record<string, Record<string, ScalarValue> | ScopeResolver | undefined>;
   /**
    * Arbitrary host callbacks/values a Dialect's functions read at eval time
    * (e.g. a PRNG, tag lookups). The core never inspects this; the Dialect's
