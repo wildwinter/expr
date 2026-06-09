@@ -28,6 +28,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          # Inject GitHub Packages auth from NODE_AUTH_TOKEN at runtime, so the
+          # committed .npmrc carries no token line (which would shadow a local
+          # token for anyone running npm in this repo).
+          registry-url: https://npm.pkg.github.com
+          scope: '@wildwinter'
       - run: npm ci
       - run: npm run typecheck --workspaces --if-present
       - run: npm run build --workspaces --if-present
