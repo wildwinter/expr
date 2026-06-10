@@ -21,7 +21,7 @@
 // on the registry (the old silent no-op - now a loud failure).
 
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const PACKAGES = {
   expr:          { dir: "packages/expr",          pkg: "@wildwinter/expr",          tag: (v) => `v${v}` },
@@ -31,8 +31,25 @@ const PACKAGES = {
 const sh   = (cmd) => execSync(cmd, { encoding: "utf8" }).trim();
 const run  = (cmd) => execSync(cmd, { stdio: "inherit" });
 const fail = (msg) => { console.error(`release: ${msg}`); process.exit(1); };
-const versionOf = (dir) =>
-  JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), "utf8")).version;
+const pkgPath = (dir) => new URL(`../${dir}/package.json`, import.meta.url);
+const readPkg = (dir) => JSON.parse(readFileSync(pkgPath(dir), "utf8"));
+const versionOf = (dir) => readPkg(dir).version;
+
+// Does version `v` satisfy a simple `^x.y.z` caret range? We only ever write
+// caret ranges between these workspaces, so a hand-rolled check beats pulling
+// in semver. Caret semantics: the leftmost non-zero component is pinned.
+//   ^1.2.3 -> >=1.2.3 <2.0.0     ^0.3.0 -> >=0.3.0 <0.4.0     ^0.0.3 -> ==0.0.3
+const caretSatisfies = (range, v) => {
+  const m = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(range);
+  if (!m) return true; // not a plain caret range - leave it alone
+  const [a, b, c] = m.slice(1).map(Number);
+  const [x, y, z] = v.split(".").map(Number);
+  if (x !== a) return false;
+  if (a > 0) return y > b || (y === b && z >= c);
+  if (y !== b) return false;
+  if (b > 0) return z >= c;
+  return z === c;
+};
 
 const [pkgArg, bump] = process.argv.slice(2);
 const target = PACKAGES[pkgArg ?? ""];
@@ -73,10 +90,30 @@ if (published === after) {
   fail(`${target.pkg}@${after} is already on the registry; bump to a newer version.`);
 }
 
+// Keep dependent workspaces in lockstep. A minor/major bump of `target.pkg`
+// can push its new version outside a dependant's caret range (e.g. ^0.3.0
+// stops satisfying 0.4.0). The workspace link then silently breaks and CI
+// falls back to the registry - which is exactly what failed the 0.3.0 cut.
+// Re-point any out-of-range dependant at `^${after}` and relink the tree.
+const synced = [];
+for (const [name, { dir }] of Object.entries(PACKAGES)) {
+  if (name === pkgArg) continue;
+  const pkg = readPkg(dir);
+  const range = pkg.dependencies?.[target.pkg];
+  if (!range || caretSatisfies(range, after)) continue;
+  pkg.dependencies[target.pkg] = `^${after}`;
+  writeFileSync(pkgPath(dir), JSON.stringify(pkg, null, 2) + "\n");
+  synced.push({ name, dir, from: range });
+  console.log(`release: ${name} now requires ${target.pkg}@^${after} (was ${range})`);
+}
+if (synced.length) {
+  run("npm install --package-lock-only --ignore-scripts"); // relink the lockfile to the new range
+}
+
 const tag = target.tag(after);
 console.log(`release: ${target.pkg} ${before} -> ${after} (tag ${tag})`);
 
-run(`git add ${target.dir}/package.json package-lock.json`);
+run(`git add ${target.dir}/package.json package-lock.json${synced.map((s) => ` ${s.dir}/package.json`).join("")}`);
 run(`git commit -m ${JSON.stringify(`chore(release): ${target.pkg}@${after}`)}`);
 run("git push");
 
