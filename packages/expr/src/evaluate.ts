@@ -100,8 +100,8 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
         const right = rec(n.right);
 
         switch (n.op) {
-          case "==": return left === right;
-          case "!=": return left !== right;
+          case "==": return valueEquals(left, right);
+          case "!=": return !valueEquals(left, right);
           case ">":  assertNumbers(left, right, ">");  return (left as number) >  (right as number);
           case ">=": assertNumbers(left, right, ">="); return (left as number) >= (right as number);
           case "<":  assertNumbers(left, right, "<");  return (left as number) <  (right as number);
@@ -122,6 +122,25 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
   };
 
   return rec(node);
+}
+
+/**
+ * Equality for `==` / `!=`. Primitives compare by value (JS `===`); arrays
+ * (the flags value type) compare element-wise by value, in order. Plain
+ * `===` on arrays would be reference equality - two distinct arrays with the
+ * same contents would never be equal, and a fresh array (e.g. from a scope
+ * read or a function result) would never equal another. Mixed array/non-array
+ * operands are unequal. Matches the value-equality the Unreal and Unity
+ * runtimes implement for flags.
+ */
+function valueEquals(a: ScalarValue, b: ScalarValue): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  return a === b;
 }
 
 function assertNumbers(l: ScalarValue, r: ScalarValue, op: string): void {

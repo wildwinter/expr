@@ -97,6 +97,24 @@ describe("evaluate - operators", () => {
     expect(evaluate(parse("@name == bob", patter), ctx({ shared: { name: "bob" } }), patter)).toBe(true);
   });
 
+  it("== / != compare arrays (flags) by value, not by reference", () => {
+    // Two DISTINCT arrays with identical contents must be ==. Plain JS === would
+    // be reference equality (false). Order matters; differing contents are !=.
+    const same = ctx({ shared: { a: ["x", "y"], b: ["x", "y"] } });
+    expect(evaluate(parse("@a == @b", patter), same, patter)).toBe(true);
+    expect(evaluate(parse("@a != @b", patter), same, patter)).toBe(false);
+
+    const diffOrder = ctx({ shared: { a: ["x", "y"], b: ["y", "x"] } });
+    expect(evaluate(parse("@a == @b", patter), diffOrder, patter)).toBe(false);
+
+    const diffLen = ctx({ shared: { a: ["x"], b: ["x", "y"] } });
+    expect(evaluate(parse("@a == @b", patter), diffLen, patter)).toBe(false);
+
+    // Array vs non-array operands are never equal.
+    const mixed = ctx({ shared: { a: ["x"], b: "x" } });
+    expect(evaluate(parse("@a == @b", patter), mixed, patter)).toBe(false);
+  });
+
   it("short-circuits and / or", () => {
     // right side references a throwing function; left determines result so it must not run
     const boom: Dialect = { ...patter, functions: { ...patter.functions, boom: { minArgs: 0, returnType: "boolean", eval() { throw new EvalError("should not run"); } } } };
