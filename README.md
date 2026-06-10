@@ -16,8 +16,8 @@ and Storylet Studio.
 ## Layout
 
 ```
-packages/expr/          @wildwinter/expr (published to GitHub Packages, private)
-packages/scoperegistry/ @wildwinter/scoperegistry
+packages/expr/          @wildwinter/expr (published to public npm)
+packages/scoperegistry/ @wildwinter/scoperegistry (published to public npm)
 ```
 
 ## Develop

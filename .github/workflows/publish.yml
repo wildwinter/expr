@@ -1,18 +1,23 @@
 name: Publish
 
-# Publishes the @wildwinter packages (expr, then scoperegistry) to GitHub
-# Packages (private; visibility follows the private repo) when a GitHub Release
-# is published. Cut releases with `npm run release:expr -- patch` (etc.) - that
-# script bumps package.json, commits, pushes, and tags in one step, so the
-# released tag always points at a fresh, not-yet-published version. (Tagging a
-# version that's already on the registry would make this workflow a silent
-# no-op: every publish step below skips an already-published version.)
+# Publishes the @wildwinter packages (expr, then scoperegistry) to the public
+# npm registry (npmjs.org) when a GitHub Release is published. Cut releases with
+# `npm run release:expr -- patch` (etc.) - that script bumps package.json,
+# commits, pushes, and tags in one step, so the released tag always points at a
+# fresh, not-yet-published version. (Tagging a version that's already on the
+# registry would make this workflow a silent no-op: every publish step below
+# skips an already-published version.)
 #
-# This is a workspaces monorepo; `npm ci` installs every package, then we build
-# + test all of them and publish each package whose current version is not yet
-# on the registry. scoperegistry is published AFTER expr (it depends on it), and
-# each publish is guarded so a release that only bumps one package does not fail
-# trying to republish the unchanged one.
+# This is a workspaces monorepo; `npm ci` installs every package (the two
+# @wildwinter packages resolve to each other locally via workspaces, not the
+# registry), then we build + test all of them and publish each package whose
+# current version is not yet on npm. scoperegistry is published AFTER expr (it
+# depends on it), and each publish is guarded so a release that only bumps one
+# package does not fail trying to republish the unchanged one.
+#
+# Requires an NPM_TOKEN repo secret: an npm automation token for an account with
+# publish rights to the @wildwinter scope on npmjs.org. The packages publish
+# publicly via `publishConfig.access: public`.
 
 on:
   release:
@@ -20,7 +25,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
@@ -31,10 +35,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          # Inject GitHub Packages auth from NODE_AUTH_TOKEN at runtime, so the
-          # committed .npmrc carries no token line (which would shadow a local
-          # token for anyone running npm in this repo).
-          registry-url: https://npm.pkg.github.com
+          # Inject npm auth from NODE_AUTH_TOKEN at runtime, so the committed
+          # .npmrc carries no token line (which would shadow a local token for
+          # anyone running npm in this repo).
+          registry-url: https://registry.npmjs.org
           scope: '@wildwinter'
       - run: npm ci
       - run: npm run typecheck --workspaces --if-present
@@ -51,7 +55,7 @@ jobs:
             npm publish -w packages/expr
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish @wildwinter/scoperegistry
         run: |
           VER=$(node -p "require('./packages/scoperegistry/package.json').version")
@@ -61,4 +65,4 @@ jobs:
             npm publish -w packages/scoperegistry
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

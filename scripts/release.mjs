@@ -1,7 +1,7 @@
 // Cut a GitHub Release for the @wildwinter monorepo, with the version bump
 // baked into the command. Publishing is automated: creating the Release
 // triggers .github/workflows/publish.yml, which publishes every package whose
-// package.json version is not yet on GitHub Packages.
+// package.json version is not yet on the public npm registry (npmjs.org).
 //
 // The publish workflow is VERSION-driven, not tag-driven: it skips any package
 // whose current version is already on the registry. So a release that doesn't
@@ -62,9 +62,12 @@ run(`npm version ${JSON.stringify(bump)} --no-git-tag-version --workspace ${targ
 const after = versionOf(target.dir);
 if (after === before) fail(`version unchanged (still ${before}) - nothing to release.`);
 
-// Loud guard against the silent no-op: a version already on the registry would
-// be skipped by the publish workflow. Revert the bump and stop.
-const published = sh(`npm view ${target.pkg}@${after} version 2>/dev/null || true`);
+// Loud guard against the silent no-op: a version already on the public npm
+// registry would be skipped by the publish workflow. Revert the bump and stop.
+// Force the public registry for the @wildwinter scope here, overriding any
+// local .npmrc scope mapping (e.g. a GitHub Packages consumer mapping), so the
+// check targets the same registry the workflow publishes to.
+const published = sh(`npm view ${target.pkg}@${after} version --@wildwinter:registry=https://registry.npmjs.org 2>/dev/null || true`);
 if (published === after) {
   run(`git checkout -- ${target.dir}/package.json package-lock.json`);
   fail(`${target.pkg}@${after} is already on the registry; bump to a newer version.`);
