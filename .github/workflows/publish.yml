@@ -2,8 +2,11 @@ name: Publish
 
 # Publishes the @wildwinter packages (expr, then scoperegistry) to GitHub
 # Packages (private; visibility follows the private repo) when a GitHub Release
-# is published. Bump the package version(s) in packages/*/package.json before
-# tagging - GitHub Packages rejects republishing an existing version.
+# is published. Cut releases with `npm run release:expr -- patch` (etc.) - that
+# script bumps package.json, commits, pushes, and tags in one step, so the
+# released tag always points at a fresh, not-yet-published version. (Tagging a
+# version that's already on the registry would make this workflow a silent
+# no-op: every publish step below skips an already-published version.)
 #
 # This is a workspaces monorepo; `npm ci` installs every package, then we build
 # + test all of them and publish each package whose current version is not yet

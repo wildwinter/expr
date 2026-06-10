@@ -5,12 +5,16 @@
   "description": "Monorepo for the @wildwinter shared packages: expr (the agnostic expression engine) and scoperegistry (the scope registry / runtime state container that sits on top of it).",
   "license": "MIT",
   "author": "Ian Thomas",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "release": "node scripts/release.mjs"
+    "release": "node scripts/release.mjs",
+    "release:expr": "node scripts/release.mjs expr",
+    "release:scoperegistry": "node scripts/release.mjs scoperegistry"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
