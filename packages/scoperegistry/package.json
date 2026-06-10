@@ -31,6 +31,6 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@wildwinter/expr": "^0.2.0"
+    "@wildwinter/expr": "^0.3.0"
   }
 }
