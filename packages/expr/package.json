@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/expr",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Agnostic expression engine: parse, unparse, evaluate, and serialise a small condition/effect expression language. Scopes and built-in functions are injected via a Dialect.",
   "type": "module",
   "license": "MIT",
