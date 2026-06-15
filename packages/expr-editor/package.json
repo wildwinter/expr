@@ -1,0 +1,37 @@
+{
+  "name": "@wildwinter/expr-editor",
+  "version": "0.1.0",
+  "description": "Framework-neutral (vanilla TS + DOM) visual editor for @wildwinter/expr expressions: a hybrid pill-strip + AND/OR tree builder with a raw-text fallback, property picker, and live validation. Scopes, properties and functions come from an injected Dialect + ExpressionSchema, so any expr-based authoring tool can mount it.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ian Thomas",
+  "repository": { "type": "git", "url": "git+https://github.com/wildwinter/expr.git", "directory": "packages/expr-editor" },
+  "keywords": ["expression", "editor", "condition", "ast", "ui", "wildwinter"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": ["*.css"],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@wildwinter/expr": "^0.3.0"
+  }
+}

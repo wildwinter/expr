@@ -1,0 +1,172 @@
+/* @wildwinter/expr-editor — styles. Colours come from the host's design tokens
+   (var(--accent) etc.) when present, with neutral fallbacks for standalone use.
+   Pill-type hues are overridable via the --exed-* variables. */
+
+/* The --exed-* tokens must apply to the mount host (.exed-root), the floating popovers (.exed-pop,
+   appended to document.body OUTSIDE the host), AND read-only pill previews (.exed-preview, dropped
+   into host chrome like an inspector row) - otherwise those pills lose the variables and render with
+   a transparent background. They resolve the host's --surface etc. from :root via the cascade. */
+.exed-root, .exed-pop, .exed-preview {
+  --exed-line: var(--line, #d8d2c4);
+  --exed-surface: var(--surface, #fff);
+  --exed-bg: var(--bg, #f6f3ec);
+  --exed-ink: var(--ink, #2b2b2b);
+  --exed-soft: var(--ink-soft, #555);
+  --exed-muted: var(--muted, #8a8270);
+  --exed-accent: var(--accent, #8a5a34);
+  --exed-var: var(--exed-accent);
+  --exed-bool: #5a7d3c;
+  --exed-number: #3a6ea5;
+  --exed-string: #9a7d1e;
+  --exed-tag: #9a4d6e;
+  --exed-func: #3a8a8a;
+  --exed-flagpos: #4a7d52;
+  --exed-flagneg: #a55142;
+  --exed-err: #b3261e;
+  --exed-radius: 6px;
+}
+.exed-root {
+  font: 0.82rem var(--font-ui, system-ui, sans-serif);
+  color: var(--exed-ink);
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+
+/* raw-text fallback */
+.exed-rawwrap { display: flex; flex-direction: column; gap: 0.3rem; }
+.exed-raw { width: 100%; box-sizing: border-box; font: 0.82rem var(--font-mono, monospace); color: var(--exed-ink); background: var(--exed-bg); border: 1px solid var(--exed-line); border-radius: var(--exed-radius); padding: 0.45rem 0.55rem; resize: vertical; }
+.exed-raw:focus { outline: none; border-color: var(--exed-accent); }
+
+/* pills */
+.exed-pill {
+  display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap;
+  border: 0; border-radius: var(--exed-radius); padding: 0.08rem 0.42rem; margin: 0.06rem 0;
+  font: 600 0.78rem var(--font-ui, system-ui, sans-serif); color: #fff; line-height: 1.5;
+}
+.exed-pill:hover { filter: brightness(1.08); }
+.exed-pill-var { background: var(--exed-var); }
+.exed-pill-bool { background: var(--exed-bool); }
+.exed-pill-number { background: var(--exed-number); }
+.exed-pill-string { background: var(--exed-string); }
+.exed-pill-tag { background: var(--exed-tag); }
+.exed-pill-node { background: var(--exed-tag); }
+.exed-pill-func { background: var(--exed-func); }
+
+/* read-only pill previews (inspector rows): pills as in the editor, but inert - a click falls
+   through to the wrapping "open editor" control. */
+.exed-preview { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.12rem; pointer-events: none; }
+.exed-preview-effects { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+.exed-preview-eff { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.12rem; }
+.exed-preview-raw { font: 0.76rem var(--font-mono, monospace); color: var(--exed-muted); }
+.exed-pill-flagpos { background: var(--exed-flagpos); }
+.exed-pill-flagneg { background: var(--exed-flagneg); }
+.exed-pill-op { background: transparent; color: var(--exed-soft); font-weight: 700; padding: 0.08rem 0.3rem; }
+.exed-op-structural { color: var(--exed-muted); }
+.exed-pill-err { box-shadow: 0 0 0 2px var(--exed-err); text-decoration: line-through; }
+.exed-pill-always { background: var(--exed-bg); color: var(--exed-muted); border: 1px dashed var(--exed-line); font-weight: 500; }
+.exed-pill-placeholder { background: transparent; color: var(--exed-muted); border: 1px dashed var(--exed-line); font-style: italic; font-weight: 500; }
+.exed-pill-placeholder:hover { color: var(--exed-accent); border-color: var(--exed-accent); }
+.exed-paren, .exed-comma { color: var(--exed-muted); }
+.exed-call, .exed-unary, .exed-binary { display: inline-flex; align-items: center; gap: 0.1rem; flex-wrap: wrap; }
+
+/* flat body */
+.exed-flat { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.15rem; padding: 0.3rem; border: 1px solid var(--exed-line); border-radius: var(--exed-radius); background: var(--exed-surface); }
+
+/* tree */
+.exed-tree { display: flex; flex-direction: column; gap: 0.3rem; }
+.exed-group { border: 1px solid var(--exed-line); border-radius: var(--exed-radius); background: var(--exed-surface); }
+.exed-grouphead { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--exed-line); background: color-mix(in oklab, var(--exed-accent) 5%, transparent); }
+.exed-grouplabel, .exed-flip { font: 700 0.68rem var(--font-ui, system-ui); letter-spacing: 0.04em; color: var(--exed-accent); }
+.exed-flip { background: none; border: 1px solid transparent; border-radius: 5px; cursor: pointer; padding: 0.05rem 0.35rem; }
+.exed-flip:hover { border-color: var(--exed-accent); }
+.exed-groupbody { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.4rem; }
+.exed-group-or > .exed-grouphead { background: color-mix(in oklab, var(--exed-number) 8%, transparent); }
+
+/* per-child row: left-gutter AND/OR connector + the clause content */
+.exed-child { display: flex; align-items: baseline; gap: 0.3rem; }
+.exed-child > .exed-row, .exed-child > .exed-group, .exed-child > .exed-placeholder { flex: 1 1 auto; min-width: 0; }
+.exed-connector { flex: 0 0 auto; min-width: 2.2rem; text-align: right; font: 700 0.62rem var(--font-ui, system-ui); letter-spacing: 0.05em; color: var(--exed-soft); }
+
+.exed-row { display: flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.3rem; border-radius: var(--exed-radius); }
+.exed-row:hover { background: color-mix(in oklab, var(--exed-accent) 5%, transparent); }
+.exed-rowcontent { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.15rem; flex: 1; }
+.exed-not { font: 700 0.64rem var(--font-ui, system-ui); color: var(--exed-flagneg); letter-spacing: 0.04em; }
+.exed-rowacts { display: flex; gap: 0.15rem; margin-left: auto; }
+.exed-rowbtn { background: none; border: 1px solid transparent; border-radius: 4px; color: var(--exed-muted); cursor: pointer; font: 600 0.66rem var(--font-ui, system-ui); padding: 0.05rem 0.3rem; }
+.exed-rowbtn:hover { color: var(--exed-accent); border-color: var(--exed-line); }
+.exed-rowbtn.danger:hover { color: var(--exed-err); border-color: var(--exed-err); }
+
+.exed-addbar { display: flex; gap: 0.3rem; }
+.exed-add { background: none; border: 1px dashed var(--exed-line); border-radius: var(--exed-radius); color: var(--exed-muted); cursor: pointer; font: 600 0.7rem var(--font-ui, system-ui); padding: 0.15rem 0.5rem; }
+.exed-add:hover { color: var(--exed-accent); border-color: var(--exed-accent); }
+.exed-placeholder { width: 100%; text-align: left; background: none; border: 1px dashed var(--exed-line); border-radius: var(--exed-radius); color: var(--exed-muted); cursor: pointer; font: italic 0.74rem var(--font-ui, system-ui); padding: 0.2rem 0.5rem; }
+.exed-placeholder:hover { color: var(--exed-accent); border-color: var(--exed-accent); }
+
+/* validation messages */
+.exed-msgs { display: flex; flex-direction: column; gap: 0.15rem; }
+.exed-msg { font: 0.72rem var(--font-ui, system-ui); }
+.exed-msg-error { color: var(--exed-err); }
+.exed-msg-warning { color: #9a7d1e; }
+
+/* popover */
+.exed-pop { position: absolute; z-index: 1000; background: var(--exed-surface); border: 1px solid var(--exed-line); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 0.35rem; min-width: 9rem; max-width: 20rem; }
+.exed-menu { display: flex; flex-direction: column; gap: 0.1rem; }
+.exed-menu-head { font: 700 0.64rem var(--font-ui, system-ui); text-transform: uppercase; letter-spacing: 0.05em; color: var(--exed-muted); padding: 0.2rem 0.3rem; }
+.exed-hint { font: italic 0.72rem var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.1rem 0.3rem; }
+.exed-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; text-align: left; width: 100%; background: none; border: 0; border-radius: 5px; cursor: pointer; color: var(--exed-ink); font: 0.8rem var(--font-ui, system-ui); padding: 0.3rem 0.4rem; }
+.exed-opt:hover { background: color-mix(in oklab, var(--exed-accent) 12%, transparent); }
+.exed-opt.sel { background: color-mix(in oklab, var(--exed-accent) 18%, transparent); color: var(--exed-accent); font-weight: 600; }
+.exed-opt.danger:hover { background: color-mix(in oklab, var(--exed-err) 14%, transparent); color: var(--exed-err); }
+.exed-opt.disabled { opacity: 0.4; cursor: not-allowed; }
+.exed-opt.disabled:hover { background: none; }
+.exed-opt-name { font-weight: 600; }
+.exed-opt-type { font: 0.66rem var(--font-mono, monospace); color: var(--exed-muted); }
+.exed-opt-purpose { font-size: 0.7rem; color: var(--exed-muted); }
+.exed-field-row { display: flex; gap: 0.3rem; align-items: center; }
+
+/* value wizard (guided operand → operator → operand) */
+.exed-vwiz { display: flex; flex-direction: column; gap: 0.3rem; min-width: 12rem; }
+.exed-vwiz-head { display: flex; align-items: center; gap: 0.3rem; border-bottom: 1px solid var(--exed-line); padding-bottom: 0.3rem; }
+.exed-vwiz-title { font: 600 0.72rem var(--font-ui, system-ui); color: var(--exed-ink); }
+.exed-vwiz-mono { font-family: var(--font-mono, monospace); color: var(--exed-accent); }
+.exed-vwiz-back { background: none; border: 0; cursor: pointer; color: var(--exed-muted); font-size: 0.85rem; padding: 0 0.2rem; border-radius: 4px; }
+.exed-vwiz-back:hover { color: var(--exed-accent); }
+.exed-vwiz-body { display: flex; flex-direction: column; gap: 0.1rem; }
+.exed-vwiz-other { background: none; border: 0; cursor: pointer; color: var(--exed-muted); font: 0.72rem var(--font-ui, system-ui); text-align: left; padding: 0.25rem 0.4rem; margin-top: 0.15rem; }
+.exed-vwiz-other:hover { color: var(--exed-accent); }
+.exed-field-cap, .exed-picker-scope { font: 700 0.64rem var(--font-ui, system-ui); text-transform: uppercase; letter-spacing: 0.05em; color: var(--exed-muted); padding: 0.2rem 0.3rem 0.1rem; }
+.exed-input { font: 0.82rem var(--font-ui, system-ui); color: var(--exed-ink); background: var(--exed-bg); border: 1px solid var(--exed-line); border-radius: 5px; padding: 0.25rem 0.4rem; flex: 1; min-width: 6rem; }
+.exed-input:focus { outline: none; border-color: var(--exed-accent); }
+.exed-btn { background: var(--exed-accent); color: #fff; border: 0; border-radius: 5px; cursor: pointer; font: 600 0.72rem var(--font-ui, system-ui); padding: 0.25rem 0.55rem; }
+.exed-btn:disabled { opacity: 0.45; cursor: default; }
+.exed-picker { display: flex; flex-direction: column; gap: 0.3rem; min-width: 13rem; }
+.exed-picker-list { max-height: 16rem; overflow: auto; display: flex; flex-direction: column; }
+.exed-picker-foot { border-top: 1px solid var(--exed-line); padding-top: 0.2rem; }
+
+/* --- Effects editor (mountEffectsEditor) — a list of set / emit effects, each
+   value/arg an embedded flat pill editor. Reuses the pill + popover chrome. */
+.exed-effects-root { display: flex; flex-direction: column; gap: 0.4rem; }
+.exed-effect-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.exed-effect-empty { font: italic 0.74rem var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.1rem 0.2rem; }
+.exed-effect { border: 1px solid var(--exed-line); border-radius: var(--exed-radius); padding: 0.35rem 0.45rem; background: var(--exed-bg); display: flex; flex-direction: column; gap: 0.25rem; }
+/* a `set` is one line: [target] = [value inline] [actions] (storylets ExpressionField layout) */
+.exed-effect-set { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 0.3rem; }
+.exed-effect-set > .exed-effect-value { flex: 1 1 auto; min-width: 0; padding-left: 0; }
+.exed-effect-head { display: flex; align-items: center; gap: 0.3rem; }
+.exed-effect-eq { color: var(--exed-muted); font: 600 0.8rem var(--font-mono, monospace); }
+.exed-effect-kw { color: var(--exed-func); font: 600 0.72rem var(--font-mono, monospace); }
+.exed-pill-prop { background: var(--exed-var); }
+.exed-pill-event { background: var(--exed-string); } /* a host event name is free author text - reads as a string, not a function */
+.exed-effect-acts { display: flex; gap: 0.1rem; margin-left: auto; }
+.exed-eff-icon { background: none; border: 0; cursor: pointer; color: var(--exed-muted); border-radius: 4px; font-size: 0.78rem; line-height: 1; padding: 0.12rem 0.28rem; }
+.exed-eff-icon:hover { color: var(--exed-accent); background: color-mix(in oklab, var(--exed-accent) 12%, transparent); }
+.exed-eff-icon.danger:hover { color: var(--exed-err); background: color-mix(in oklab, var(--exed-err) 14%, transparent); }
+/* the value: a clickable pill strip that opens the guided wizard */
+.exed-effect-value { padding-left: 0.2rem; }
+/* the "+ term" chip on a value's pill strip: a quiet dashed affordance, like the tree add-bar */
+.exed-addterm { margin-left: 0.25rem; }
+.exed-effect-args { display: flex; flex-direction: column; gap: 0.2rem; padding-left: 0.2rem; }
+.exed-effect-arg { display: flex; align-items: flex-start; gap: 0.25rem; }
+.exed-effect-arg .exed-effect-value { flex: 1; }
+.exed-effect-addbar { display: flex; gap: 0.35rem; }
+.exed-eff-add { background: none; border: 1px dashed var(--exed-line); border-radius: var(--exed-radius); color: var(--exed-muted); cursor: pointer; font: 600 0.7rem var(--font-ui, system-ui); padding: 0.15rem 0.5rem; }
+.exed-eff-add:hover { color: var(--exed-accent); border-color: var(--exed-accent); }
