@@ -102,6 +102,20 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
   }
 }
 
+/**
+ * The +set / −unset toggle shared by every flag editor (the add-flag chip and
+ * the per-pill flag editor). Two flex buttons themed emerald / rose via
+ * --exed-flagpos / --exed-flagneg, matching the flag-delta pill colours.
+ */
+export function signToggle(current: "+" | "-", onPick: (s: "+" | "-") => void): HTMLElement {
+  const row = el("div", "exed-sign");
+  (["+", "-"] as const).forEach((s) => {
+    const cls = `exed-signbtn${s === current ? (s === "+" ? " sel-pos" : " sel-neg") : ""}`;
+    row.append(button(cls, s === "+" ? "+ set" : "− unset", () => onPick(s)));
+  });
+  return row;
+}
+
 const deleteOrUnwrapNot = (ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "unary" }): ExprNode | null =>
   // clicking the NOT pill strips it (keeps the operand)
   setNodeAt(ctx.getAst(), path, node.operand);
@@ -189,11 +203,7 @@ function flagEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "flagd
   ctx.openPopover(anchor, (close) => {
     const wrap = el("div", "exed-menu");
     wrap.append(el("div", "exed-menu-head", ["Flag set?"]));
-    const signRow = el("div", "exed-field-row");
-    for (const s of ["+", "-"] as const) {
-      signRow.append(button(`exed-opt${s === node.sign ? " sel" : ""}`, s === "+" ? "+ set" : "− unset", () => { replace(ctx, path, flagDelta(s, node.name)); close(); }));
-    }
-    wrap.append(signRow);
+    wrap.append(signToggle(node.sign, (s) => { replace(ctx, path, flagDelta(s, node.name)); close(); }));
     const names = (entry?.enumValues ?? []).filter((n) => !used.includes(n));
     if (names.length) {
       wrap.append(el("div", "exed-menu-head", ["Flag"]));

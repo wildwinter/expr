@@ -12,7 +12,7 @@ import { validateSource } from "./validate.js";
 import { ARITHMETIC_OPS, BINARY_LABEL } from "./ops.js";
 import type { CatalogueEntry } from "./schema.js";
 import { el, button, textField, openPopover, type Popover } from "./dom.js";
-import { renderNode, propertyPicker } from "./flat.js";
+import { renderNode, propertyPicker, signToggle } from "./flat.js";
 import { renderTree, clauseMenu, requestFocusForInsert } from "./treeview.js";
 import type { EditCtx, FunctionTemplateSpec } from "./types.js";
 
@@ -240,15 +240,10 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
         let sign: "+" | "-" = "+";
         const wrap = el("div", "exed-menu");
         wrap.append(el("div", "exed-menu-head", ["Add flag"]));
-        const signRow = el("div", "exed-field-row");
-        const drawSign = (): void => {
-          signRow.replaceChildren(
-            button(`exed-opt${sign === "+" ? " sel" : ""}`, "+ set", () => { sign = "+"; drawSign(); }),
-            button(`exed-opt${sign === "-" ? " sel" : ""}`, "− unset", () => { sign = "-"; drawSign(); }),
-          );
-        };
+        const signHost = el("div");
+        const drawSign = (): void => { signHost.replaceChildren(signToggle(sign, (s) => { sign = s; drawSign(); })); };
         drawSign();
-        wrap.append(signRow);
+        wrap.append(signHost);
         const commit = (name: string): void => {
           const delta = flagDelta(sign, name);
           emit(toSrc(call

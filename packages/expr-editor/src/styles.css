@@ -122,6 +122,12 @@
 .exed-opt-type { font: 0.66rem var(--font-mono, monospace); color: var(--exed-muted); }
 .exed-opt-purpose { font-size: 0.7rem; color: var(--exed-muted); }
 .exed-field-row { display: flex; gap: 0.3rem; align-items: center; }
+/* +set / −unset flag sign toggle - emerald / rose active, matching the flag pills. */
+.exed-sign { display: flex; gap: 0.3rem; }
+.exed-signbtn { flex: 1; text-align: center; border: 0; border-radius: 5px; cursor: pointer; padding: 0.25rem 0.5rem; font: 600 0.75rem var(--font-mono, monospace); background: var(--exed-bg); color: var(--exed-soft); }
+.exed-signbtn:hover { background: color-mix(in oklab, var(--exed-accent) 12%, transparent); }
+.exed-signbtn.sel-pos { background: var(--exed-flagpos); color: #fff; }
+.exed-signbtn.sel-neg { background: var(--exed-flagneg); color: #fff; }
 
 /* value wizard (guided operand → operator → operand) */
 .exed-vwiz { display: flex; flex-direction: column; gap: 0.3rem; min-width: 12rem; }
