@@ -7,7 +7,7 @@
 
 import { unparse } from "@wildwinter/expr";
 import type { ExprNode, BinaryOp, Dialect, ExpressionSchema, AstPath } from "@wildwinter/expr";
-import { boolLit, binary, numLit, scopedVar, strLit } from "./ast.js";
+import { boolLit, binary, numLit, scopedVar, strLit, callNode, flagDelta } from "./ast.js";
 import { validateSource } from "./validate.js";
 import { ARITHMETIC_OPS, BINARY_LABEL } from "./ops.js";
 import type { CatalogueEntry } from "./schema.js";
@@ -60,6 +60,13 @@ export interface ExpressionEditorOptions {
    *  placeholder pill (a root string literal) rather than the condition
    *  clause-menu empty state. Pairs with mode:"flat". */
   valueField?: boolean;
+  /** Flat compact editor for a `set_flags(@target, +a, -b)` value whose target is
+   *  implied by context (an outcome row's target column). Renders only the
+   *  flag-delta pills plus an "+ flag" chip, hiding the function name and target
+   *  arg. `target` is the name-form ref of the flags property (e.g. "@quests");
+   *  it seeds the call on the first flag add. Pairs with mode:"flat", and set
+   *  requireNonEmpty so the last flag can't be removed. */
+  flagValue?: { target: string };
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
   /** Notified when the author starts (true) / stops (false) editing inside a popover
@@ -126,8 +133,15 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
     host.replaceChildren();
     const v = validateSource(src, opts.schema, opts.dialect);
 
-    if (raw || v.unparseable) {
+    const flagCompact = !!opts.flagValue && (opts.mode ?? "tree") === "flat";
+    const astIsFlagCall = v.ast?.kind === "call" && (v.ast.name === "set_flags" || v.ast.name === "check_flags");
+
+    if (raw || v.unparseable || (flagCompact && !!v.ast && !astIsFlagCall)) {
+      // Raw for unparseable input, or a flag-value field holding a non-flag-call
+      // expression (hand-typed) that the compact view can't represent.
       host.append(rawArea());
+    } else if (flagCompact) {
+      host.append(flagValueBody(astIsFlagCall ? (v.ast as ExprNode & { kind: "call" }) : null));
     } else if (!src.trim() || !v.ast) {
       host.append(opts.valueField ? valueEmptyState() : emptyState());
     } else {
@@ -188,6 +202,45 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
   function valueEmptyState(): HTMLElement {
     const ctx = buildCtx(strLit(""));
     return el("div", "exed-flat", [renderNode(strLit(""), [], ctx)]);
+  }
+
+  /** Parse a name-form property ref ("@name" / "@scope.name") to a scopedvar. */
+  function parseRef(ref: string): ExprNode {
+    const bare = ref.replace(/^@/, "");
+    const dot = bare.indexOf(".");
+    return dot >= 0 ? scopedVar(bare.slice(0, dot), bare.slice(dot + 1)) : scopedVar(defaultScope, bare);
+  }
+
+  // Compact flags value: render a set_flags(@target, +a, -b) call as only its
+  // flag-delta pills (reusing the flat flag-delta editor) plus an "+ flag" chip.
+  // The function name and target arg are hidden - the target is implied by the
+  // row's target column. An empty value shows just the chip, which seeds the call.
+  function flagValueBody(call: (ExprNode & { kind: "call" }) | null): HTMLElement {
+    const wrap = el("div", "exed-flat exed-flagvalue");
+    if (call) {
+      const ctx = buildCtx(call);
+      call.args.forEach((arg, i) => {
+        if (arg.kind === "flagdelta") wrap.append(renderNode(arg, ["args", i], ctx));
+      });
+      wrap.append(addFlagChip(call));
+    } else {
+      wrap.append(addFlagChip(null));
+    }
+    return wrap;
+  }
+
+  function addFlagChip(call: (ExprNode & { kind: "call" }) | null): HTMLElement {
+    return button("exed-add exed-addflag", "+ flag", () => {
+      if (call) {
+        pendingFocus = ["args", call.args.length]; // the appended delta
+        emit(toSrc({ ...call, args: [...call.args, flagDelta("+", "")] }));
+      } else {
+        // Seed set_flags(@target, +"") and open the new (empty) flag to fill.
+        const seeded = callNode("set_flags", [parseRef(opts.flagValue!.target), flagDelta("+", "")]);
+        pendingFocus = ["args", 1];
+        emit(toSrc(seeded));
+      }
+    }, "add a flag");
   }
 
   /** The optional "+ term" affordance (flat value mode): extend the value with one more arithmetic

@@ -50,6 +50,11 @@ Notable options beyond the basics:
   outcome-style value cell: `valueEnumValues` offers a target's enum values on
   the root literal, and `valueField` makes an empty value render one editable
   "set a value…" pill instead of the condition clause-menu empty state.
+- `flagValue: { target }` — flat compact editor for a `set_flags(@target, …)`
+  value whose target is implied by context: renders only the flag-delta pills
+  plus an "+ flag" chip, hiding the function name and target arg, and seeds the
+  call on the first flag add. Pair with `requireNonEmpty` so the last flag
+  can't be removed.
 - `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
   back to raw text automatically.
 

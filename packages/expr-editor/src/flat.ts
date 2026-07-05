@@ -179,9 +179,13 @@ function flagEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "flagd
   const call = pathNode(ctx.getAst(), callPath);
   const flagsVar = call?.kind === "call" ? call.args[0] : undefined;
   const entry = flagsVar?.kind === "scopedvar" ? lookup(ctx.catalogue, flagsVar.scope, flagsVar.name) : null;
+  const flagCount = call?.kind === "call" ? call.args.filter((a) => a.kind === "flagdelta").length : 0;
   const used = call?.kind === "call"
     ? call.args.filter((a, i): a is ExprNode & { kind: "flagdelta" } => a.kind === "flagdelta" && i !== (path[path.length - 1] as number)).map((a) => a.name)
     : [];
+  // The last flag delta can't be removed when the field must stay non-empty
+  // (a set_flags value cell must always carry at least one flag).
+  const canRemove = !(ctx.requireNonEmpty && flagCount <= 1);
   ctx.openPopover(anchor, (close) => {
     const wrap = el("div", "exed-menu");
     wrap.append(el("div", "exed-menu-head", ["Flag set?"]));
@@ -196,6 +200,9 @@ function flagEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "flagd
       for (const n of names) wrap.append(button(`exed-opt${n === node.name ? " sel" : ""}`, n, () => { replace(ctx, path, flagDelta(node.sign, n)); close(); }));
     } else {
       wrap.append(textField({ initial: node.name, caption: "Flag name", onCommit: (v) => { replace(ctx, path, flagDelta(node.sign, v)); close(); } }));
+    }
+    if (canRemove) {
+      wrap.append(button("exed-opt danger", "Remove flag", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }));
     }
     return wrap;
   });
