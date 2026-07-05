@@ -67,6 +67,12 @@ export interface ExpressionEditorOptions {
    *  `flags` its declared flag names (offered by the "+ flag" picker). Pairs
    *  with mode:"flat"; set requireNonEmpty so the last flag can't be removed. */
   flagValue?: { target: string; flags: string[] };
+  /** Placeholder for the raw-text textarea (defaults to a generic example).
+   *  Value cells pass a value-flavoured hint (e.g. "autumn or @count + 1"). */
+  rawPlaceholder?: string;
+  /** Host actions for a property pill, shown on right-click (e.g. go to
+   *  definition). Receives the property ref; returns the menu items. */
+  propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
   /** Notified when the author starts (true) / stops (false) editing inside a popover
@@ -123,6 +129,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       requestFocus: (p) => { pendingFocus = p; },
       ...(opts.requireNonEmpty ? { requireNonEmpty: true } : {}),
       ...(opts.valueEnumValues ? { valueEnumValues: opts.valueEnumValues } : {}),
+      ...(opts.propertyActions ? { propertyActions: opts.propertyActions } : {}),
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),
     };
@@ -171,7 +178,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
   function rawArea(): HTMLElement {
     const ta = el("textarea", "exed-raw");
     ta.value = src;
-    ta.placeholder = "@gold > 0 and @met_anna";
+    ta.placeholder = opts.rawPlaceholder ?? "@gold > 0 and @met_anna";
     ta.rows = 2;
     ta.addEventListener("input", () => {
       src = ta.value; opts.onChange(src);

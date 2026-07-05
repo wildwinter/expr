@@ -55,6 +55,14 @@ Notable options beyond the basics:
   the flag-delta pills plus an "+ flag" chip (which picks sign + name from
   `flags`), hiding the function name and target arg, and seeds the call on the
   first flag add. Pair with `requireNonEmpty` so the last flag can't be removed.
+- `propertyActions(ref)` — host actions shown when a property pill is
+  right-clicked (e.g. "Go to definition"); the host resolves what each does.
+- `rawPlaceholder` — placeholder for the raw-text textarea (value cells pass a
+  value-flavoured hint).
+
+Pills carry `aria-haspopup`/labels and the tree controls carry aria-labels for
+assistive tech. A comparison of a numeric dialect function against a number
+(e.g. `turns_since_tag("x") > 3`) deletes as a unit.
 - `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
   back to raw text automatically.
 

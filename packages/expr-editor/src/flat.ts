@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
-import { setNodeAt, deleteAt, findEnumPeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta } from "./ast.js";
+import { setNodeAt, deleteAt, findEnumPeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
 import { BINARY_LABEL, UNARY_LABEL, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
   type CatalogueEntry, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
@@ -19,12 +19,21 @@ const FLAG_FNS = new Set(["check_flags", "set_flags"]);
 const TAG_ARG0_FNS = new Set(["seen", "patter_seen", "visits", "patter_visits"]);
 
 /** A pill button. `kind` selects the colour class; `issues` rings it red. `path`
- *  tags the element (data-exed-path) so the mount can find and auto-open it. */
-function pill(kind: string, label: string, onClick: (b: HTMLButtonElement) => void, opts: { issue?: string; title?: string; path?: AstPath } = {}): HTMLButtonElement {
-  const b = button(`exed-pill exed-pill-${kind}${opts.issue ? " exed-pill-err" : ""}`, label, () => onClick(b), opts.issue ?? opts.title);
+ *  tags the element (data-exed-path) so the mount can find and auto-open it.
+ *  `aria` overrides the accessible name (for glyph labels like operators). */
+function pill(kind: string, label: string, onClick: (b: HTMLButtonElement) => void, opts: { issue?: string; title?: string; path?: AstPath; aria?: string } = {}): HTMLButtonElement {
+  const b = button(`exed-pill exed-pill-${kind}${opts.issue ? " exed-pill-err" : ""}`, label, () => onClick(b), opts.issue ?? opts.title, opts.aria);
+  b.setAttribute("aria-haspopup", "dialog"); // every pill opens a popover micro-editor
   if (opts.path) b.dataset["exedPath"] = opts.path.join("/");
   return b;
 }
+
+/** Plain-language names for operators, for the pill's accessible label. */
+const OP_ARIA: Record<string, string> = {
+  "==": "equals", "!=": "not equal to", ">": "greater than", ">=": "at least",
+  "<": "less than", "<=": "at most", "and": "and", "or": "or",
+  "+": "plus", "-": "minus", "*": "times", "/": "divided by",
+};
 
 const issueText = (ctx: EditCtx, path: AstPath): string | undefined => {
   const list = issuesAt(ctx.byPath, path);
@@ -65,7 +74,9 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
     case "scopedvar": {
       const entry = lookup(ctx.catalogue, node.scope, node.name);
       const label = displayName({ scope: node.scope, name: node.name }, ctx.defaultScope);
-      return pill("var", label, (b) => variableEditor(ctx, path, node, b), { issue: issue ?? (entry ? undefined : `Unknown property ${label}`) });
+      const varPill = pill("var", label, (b) => variableEditor(ctx, path, node, b), { issue: issue ?? (entry ? undefined : `Unknown property ${label}`) });
+      attachPropertyMenu(ctx, node, varPill);
+      return varPill;
     }
     case "flagdelta":
       return pill(node.sign === "+" ? "flagpos" : "flagneg", `${node.sign}${node.name || "flag"}`, (b) => flagEditor(ctx, path, node, b), { issue, path });
@@ -82,7 +93,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
     }
     case "unary": {
       const row = el("span", "exed-unary");
-      row.append(pill("op", UNARY_LABEL[node.op], () => ctx.apply(deleteOrUnwrapNot(ctx, path, node)), { title: "remove" }));
+      row.append(pill("op", UNARY_LABEL[node.op], () => ctx.apply(deleteOrUnwrapNot(ctx, path, node)), { title: "remove", aria: `${OP_ARIA[node.op] ?? node.op} (click to remove)` }));
       row.append(renderNode(node.operand, [...path, "operand"], ctx));
       return row;
     }
@@ -92,7 +103,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       if (wrap) row.append(el("span", "exed-paren", ["("]));
       row.append(renderNode(node.left, [...path, "left"], ctx, node.op, "left"));
       const swap = opSwapGroup(node.op);
-      const opPill = pill("op", BINARY_LABEL[node.op], (b) => { if (swap) operatorEditor(ctx, path, node.op, swap, b); }, { title: swap ? "swap operator" : undefined });
+      const opPill = pill("op", BINARY_LABEL[node.op], (b) => { if (swap) operatorEditor(ctx, path, node.op, swap, b); }, { title: swap ? "swap operator" : undefined, aria: OP_ARIA[node.op] ?? node.op });
       if (!swap) opPill.classList.add("exed-op-structural");
       row.append(opPill);
       row.append(renderNode(node.right, [...path, "right"], ctx, node.op, "right"));
@@ -119,6 +130,40 @@ export function signToggle(current: "+" | "-", onPick: (s: "+" | "-") => void): 
 const deleteOrUnwrapNot = (ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "unary" }): ExprNode | null =>
   // clicking the NOT pill strips it (keeps the operand)
   setNodeAt(ctx.getAst(), path, node.operand);
+
+/** Right-click a property pill -> a menu of host actions (e.g. go to definition). */
+function attachPropertyMenu(ctx: EditCtx, node: ExprNode & { kind: "scopedvar" }, pillEl: HTMLButtonElement): void {
+  if (!ctx.propertyActions) return;
+  const actions = ctx.propertyActions({ scope: node.scope, name: node.name });
+  if (!actions.length) return;
+  pillEl.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    ctx.openPopover(pillEl, (close) => {
+      const wrap = el("div", "exed-menu");
+      for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
+      return wrap;
+    });
+  });
+}
+
+/** A comparison whose operands are a numeric dialect-function call and a number
+ *  literal - a wizard-inserted unit that should delete atomically (half a
+ *  comparison is meaningless). Dialect-driven: the call's returnType is "number". */
+function isCompoundComparison(node: ExprNode, ctx: EditCtx): boolean {
+  if (node.kind !== "binary" || !isComparisonOp(node.op)) return false;
+  const numCall = (n: ExprNode): boolean => n.kind === "call" && ctx.dialect.functions[n.name]?.returnType === "number";
+  const isNum = (n: ExprNode): boolean => n.kind === "number";
+  return (numCall(node.left) && isNum(node.right)) || (numCall(node.right) && isNum(node.left));
+}
+
+/** Redirect a delete of a compound-comparison operand to the whole comparison. */
+function effectiveDeletePath(ctx: EditCtx, path: AstPath): AstPath {
+  const last = path[path.length - 1];
+  if (last !== "left" && last !== "right") return path;
+  const parentPath = path.slice(0, -1);
+  const parent = pathNode(ctx.getAst(), parentPath);
+  return parent && isCompoundComparison(parent, ctx) ? parentPath : path;
+}
 
 // --- popover micro-editors ---------------------------------------------------
 
@@ -219,9 +264,11 @@ function flagEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "flagd
 }
 
 // A root-emptying delete is withheld when the field must stay non-empty (a
-// single-value field). deleteAt returns null only at the root, so path.length===0
-// is exactly the "would empty the whole expression" case.
-const canDelete = (ctx: EditCtx, path: AstPath): boolean => !(ctx.requireNonEmpty && path.length === 0);
+// single-value field). Check the EFFECTIVE path (a compound-comparison operand
+// redirects to the whole comparison), so deleting one is blocked when the
+// comparison is the whole value.
+const canDelete = (ctx: EditCtx, path: AstPath): boolean =>
+  !(ctx.requireNonEmpty && effectiveDeletePath(ctx, path).length === 0);
 
 function callEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "call" }, anchor: HTMLButtonElement): void {
   ctx.openPopover(anchor, (close) => {
@@ -232,7 +279,7 @@ function callEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "call"
       wrap.append(button("exed-opt", "+ add flag", () => { replace(ctx, path, { ...node, args: [...node.args, flagDelta("+", "")] }); close(); }));
     }
     if (canDelete(ctx, path)) {
-      wrap.append(button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }));
+      wrap.append(button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), effectiveDeletePath(ctx, path))); close(); }));
     }
     return wrap;
   });
@@ -243,7 +290,7 @@ function variableEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "s
     current: refOf(node, ctx.defaultScope),
     onPick: (entry) => { replace(ctx, path, scopedVar(entry.scope, entry.name)); close(); },
     ...(canDelete(ctx, path)
-      ? { footer: button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }) }
+      ? { footer: button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), effectiveDeletePath(ctx, path))); close(); }) }
       : {}),
   }));
 }

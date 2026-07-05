@@ -19,11 +19,13 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/** A <button type=button> with a class, label, and click handler. */
-export function button(cls: string, label: string | Node, onClick: (e: MouseEvent) => void, title?: string): HTMLButtonElement {
+/** A <button type=button> with a class, label, and click handler. `aria` sets an
+ *  aria-label (for glyph/icon buttons whose text isn't a good accessible name). */
+export function button(cls: string, label: string | Node, onClick: (e: MouseEvent) => void, title?: string, aria?: string): HTMLButtonElement {
   const b = el("button", cls, [label]);
   b.type = "button";
   if (title) b.title = title;
+  if (aria) b.setAttribute("aria-label", aria);
   b.addEventListener("click", onClick);
   return b;
 }

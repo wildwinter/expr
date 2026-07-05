@@ -43,16 +43,18 @@ function renderRow(ctx: EditCtx, row: TreeRow, env: RowEnv): HTMLElement {
   return renderLeaf(ctx, row, env);
 }
 
-function notToggle(ctx: EditCtx, path: AstPath): HTMLButtonElement {
-  return button("exed-rowbtn", "NOT", () => ctx.apply(toggleContainerNot(ctx.getAst(), path)), "toggle NOT");
+function notToggle(ctx: EditCtx, path: AstPath, pressed: boolean): HTMLButtonElement {
+  const b = button("exed-rowbtn", "NOT", () => ctx.apply(toggleContainerNot(ctx.getAst(), path)), "toggle NOT", pressed ? "remove NOT" : "apply NOT");
+  b.setAttribute("aria-pressed", String(pressed));
+  return b;
 }
 
 function rowActions(ctx: EditCtx, row: TreeRow, env: RowEnv): HTMLElement {
   const acts = el("div", "exed-rowacts");
-  acts.append(notToggle(ctx, row.path));
+  acts.append(notToggle(ctx, row.path, row.negated));
   if (env.chainPath && env.count != null && env.index != null) {
-    if (env.index > 0) acts.append(button("exed-rowbtn", "↑", () => ctx.apply(moveChildInContainer(ctx.getAst(), env.chainPath!, env.index!, env.index! - 1)), "move up"));
-    if (env.index < env.count - 1) acts.append(button("exed-rowbtn", "↓", () => ctx.apply(moveChildInContainer(ctx.getAst(), env.chainPath!, env.index!, env.index! + 1)), "move down"));
+    if (env.index > 0) acts.append(button("exed-rowbtn", "↑", () => ctx.apply(moveChildInContainer(ctx.getAst(), env.chainPath!, env.index!, env.index! - 1)), "move up", "move up"));
+    if (env.index < env.count - 1) acts.append(button("exed-rowbtn", "↓", () => ctx.apply(moveChildInContainer(ctx.getAst(), env.chainPath!, env.index!, env.index! + 1)), "move down", "move down"));
   }
   acts.append(button("exed-rowbtn danger", "✕", () => {
     if (env.root) { ctx.apply(null); return; }
@@ -61,7 +63,7 @@ function rowActions(ctx: EditCtx, row: TreeRow, env: RowEnv): HTMLElement {
     // floating up as a bare clause.
     const target = redirectDeleteForPlaceholderSibling(ctx.getAst(), row.path);
     ctx.apply(deleteAt(ctx.getAst(), target));
-  }, "delete"));
+  }, "delete", "delete this condition"));
   return acts;
 }
 
@@ -98,8 +100,8 @@ function renderContainer(ctx: EditCtx, row: Extract<TreeRow, { kind: "container"
     head.append(el("span", "exed-grouplabel", [label]));
   }
   const headActs = el("div", "exed-rowacts");
-  headActs.append(notToggle(ctx, row.path));
-  if (!env.root) headActs.append(button("exed-rowbtn danger", "✕", () => ctx.apply(deleteAt(ctx.getAst(), row.path)), "delete group"));
+  headActs.append(notToggle(ctx, row.path, row.negated));
+  if (!env.root) headActs.append(button("exed-rowbtn danger", "✕", () => ctx.apply(deleteAt(ctx.getAst(), row.path)), "delete group", "delete this group"));
   head.append(headActs);
   box.append(head);
 

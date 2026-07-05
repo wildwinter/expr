@@ -74,4 +74,8 @@ export interface EditCtx {
    *  (an enum-typed outcome target). Lets the string editor show an enum picker
    *  even without a comparison peer. No effect on non-root literals. */
   valueEnumValues?: string[];
+  /** Host actions for a property pill (e.g. "Go to definition"). When set,
+   *  right-clicking a property pill opens a menu of these actions. The host
+   *  resolves what each does (navigation etc.); empty array = no menu. */
+  propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
 }
