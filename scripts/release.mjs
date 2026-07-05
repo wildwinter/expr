@@ -26,6 +26,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const PACKAGES = {
   expr:          { dir: "packages/expr",          pkg: "@wildwinter/expr",          tag: (v) => `v${v}` },
   scoperegistry: { dir: "packages/scoperegistry", pkg: "@wildwinter/scoperegistry", tag: (v) => `scoperegistry-v${v}` },
+  "expr-editor": { dir: "packages/expr-editor",   pkg: "@wildwinter/expr-editor",   tag: (v) => `expr-editor-v${v}` },
 };
 
 const sh   = (cmd) => execSync(cmd, { encoding: "utf8" }).trim();

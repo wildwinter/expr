@@ -14,7 +14,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "release": "node scripts/release.mjs",
     "release:expr": "node scripts/release.mjs expr",
-    "release:scoperegistry": "node scripts/release.mjs scoperegistry"
+    "release:scoperegistry": "node scripts/release.mjs scoperegistry",
+    "release:expr-editor": "node scripts/release.mjs expr-editor"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

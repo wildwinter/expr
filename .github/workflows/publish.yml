@@ -1,6 +1,7 @@
 name: Publish
 
-# Publishes the @wildwinter packages (expr, then scoperegistry) to the public
+# Publishes the @wildwinter packages (expr, then scoperegistry and expr-editor,
+# which depend on it) to the public
 # npm registry (npmjs.org) when a GitHub Release is published. Cut releases with
 # `npm run release:expr -- patch` (etc.) - that script bumps package.json,
 # commits, pushes, and tags in one step, so the released tag always points at a
@@ -63,6 +64,17 @@ jobs:
             echo "@wildwinter/scoperegistry@$VER already published; skipping."
           else
             npm publish -w packages/scoperegistry
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # expr-editor also depends on expr, so it publishes after it too.
+      - name: Publish @wildwinter/expr-editor
+        run: |
+          VER=$(node -p "require('./packages/expr-editor/package.json').version")
+          if npm view "@wildwinter/expr-editor@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/expr-editor@$VER already published; skipping."
+          else
+            npm publish -w packages/expr-editor
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

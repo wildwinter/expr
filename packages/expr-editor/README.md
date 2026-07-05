@@ -26,6 +26,22 @@ const editor = mountExpressionEditor(hostEl, {
 The editor owns its `ExprNode` internally; the **string** (name-form `src`) is the
 contract with the host. See [PORTING-SPEC.md](./PORTING-SPEC.md) for the full model.
 
+Notable options beyond the basics:
+
+- `mode: "tree" | "flat"` — the AND/OR tree (conditions) or a single inline
+  expression (values); flat mode can add a `+ term` affordance via `addTerm`.
+- `wizard` on a function template — `"check_flags"` / `"random"` run the built-in
+  guided flows; a declarative `WizardSpec` (`steps` + `build`) defines a custom
+  multi-step flow (e.g. tag → operator → threshold) with no editor changes.
+  Templates without a wizard insert-then-refine: the editor auto-opens the
+  first unfilled slot of the inserted clause.
+- `onEditingChange(editing)` — fires as popover micro-editors open/close, so the
+  host can suppress its own validation display mid-edit.
+- `messages: false` — hide the editor's internal validation list when the host
+  renders its own.
+- `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
+  back to raw text automatically.
+
 ### Effects (outcome) editor
 
 `mountEffectsEditor` edits an ordered **list** of effects — the write-side companion to
