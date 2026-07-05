@@ -45,6 +45,10 @@ export interface EffectsEditorOptions {
   allowEmit?: boolean;
   /** Start each inline value editor in raw-text mode (host's global "show as text" toggle drives this). */
   text?: boolean;
+  /** Where to append popover micro-editors (default document.body). Pass a container
+   *  inside a focus-trapping dialog so popovers do not dismiss it. Threaded to the
+   *  target/event pickers here and to every inline value editor. */
+  popoverContainer?: HTMLElement;
   /** Emitted on every structural / value edit with the whole new list. */
   onChange: (effects: EditorEffect[]) => void;
 }
@@ -144,7 +148,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       ...(expected?.enumValues ? { expectedEnumValues: expected.enumValues } : {}),
       onCommit: (src) => { onCommit(src); close(); },
       onCancel: close,
-    }));
+    }), { container: opts.popoverContainer });
   };
 
   /** The declared type of a `set` target (resolved from the catalogue by its ref), so the value editor
@@ -161,7 +165,9 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     inner.push(mountExpressionEditor(sub, {
       value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
-      ...(addTerm ? { addTerm } : {}), text: textMode, onChange,
+      ...(addTerm ? { addTerm } : {}),
+      ...(opts.popoverContainer ? { popoverContainer: opts.popoverContainer } : {}),
+      text: textMode, onChange,
     }));
     return sub;
   };
@@ -194,7 +200,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       wrap.append(search, list);
       setTimeout(() => search.focus(), 0);
       return wrap;
-    });
+    }, { container: opts.popoverContainer });
   };
 
   const iconBtn = (glyph: string, title: string, onClick: () => void, danger = false): HTMLButtonElement =>
@@ -260,7 +266,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       wrap.append(button("exed-btn primary", "Apply", apply));
       setTimeout(() => input.focus(), 0);
       return wrap;
-    });
+    }, { container: opts.popoverContainer });
   };
 
   const rowActions = (i: number): HTMLElement => {

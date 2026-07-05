@@ -39,6 +39,10 @@ Notable options beyond the basics:
   host can suppress its own validation display mid-edit.
 - `messages: false` — hide the editor's internal validation list when the host
   renders its own.
+- `popoverContainer` — where the popover micro-editors mount (default
+  `document.body`). Pass a container inside a focus-trapping dialog (Radix,
+  etc.) so opening a pill's popover counts as "inside" that layer and does not
+  dismiss the dialog; the popover is then positioned relative to that container.
 - `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
   back to raw text automatically.
 

@@ -46,6 +46,10 @@ export interface ExpressionEditorOptions {
   /** Render the editor's own validation message list under the pills (default true).
    *  Hosts that display their own validation messages pass false to avoid doubling up. */
   messages?: boolean;
+  /** Where to append the popover micro-editors (default document.body). Pass a
+   *  container inside a focus-trapping dialog (Radix, etc.) so opening a pill's
+   *  popover does not dismiss the surrounding dialog. */
+  popoverContainer?: HTMLElement;
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
   /** Notified when the author starts (true) / stops (false) editing inside a popover
@@ -89,9 +93,12 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       apply: (next) => emit(toSrc(next)),
       openPopover: (anchor, r) => {
         closePopover();
-        const pop = openPopover(anchor, r, () => {
-          if (activePopover === pop) activePopover = null;
-          setEditing(false);
+        const pop = openPopover(anchor, r, {
+          container: opts.popoverContainer,
+          onClose: () => {
+            if (activePopover === pop) activePopover = null;
+            setEditing(false);
+          },
         });
         activePopover = pop;
         setEditing(true);

@@ -35,13 +35,28 @@ export interface Popover {
   close(): void;
 }
 
+export interface PopoverOptions {
+  /**
+   * Where to append the popover. Defaults to document.body. Pass a container
+   * inside a focus-trapping dialog (Radix, etc.) so the popover counts as
+   * "inside" that layer and interacting with it does not dismiss the dialog.
+   * The container should establish a containing block (a full-screen modal
+   * layer or the dialog content element both qualify); the popover is then
+   * positioned relative to that container's box rather than the document.
+   */
+  container?: HTMLElement;
+  /** Called after the popover closes, for any reason. */
+  onClose?: () => void;
+}
+
 /**
  * Open a floating popover anchored under `anchor`. `render(close)` builds the
  * content (call `close` to dismiss). Closes on Escape and on a pointer-down
  * outside the popover or the anchor. Only one popover lives at a time per call;
  * the caller tracks the handle to close it programmatically.
  */
-export function openPopover(anchor: HTMLElement, render: (close: () => void) => Node, onClose?: () => void): Popover {
+export function openPopover(anchor: HTMLElement, render: (close: () => void) => Node, opts: PopoverOptions = {}): Popover {
+  const container = opts.container ?? document.body;
   const pop = el("div", "exed-pop");
   let closed = false;
   const close = (): void => {
@@ -50,7 +65,7 @@ export function openPopover(anchor: HTMLElement, render: (close: () => void) => 
     document.removeEventListener("pointerdown", onDown, true);
     document.removeEventListener("keydown", onKey, true);
     pop.remove();
-    onClose?.();
+    opts.onClose?.();
   };
   const onDown = (e: PointerEvent): void => {
     const t = e.target as Node;
@@ -59,17 +74,26 @@ export function openPopover(anchor: HTMLElement, render: (close: () => void) => 
   const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
 
   pop.append(render(close));
-  document.body.append(pop);
+  container.append(pop);
 
-  // Position: under the anchor, flipped up if it would overflow the viewport.
+  // Position under the anchor (viewport coords), flipped up if it would overflow.
   const a = anchor.getBoundingClientRect();
   const ph = pop.getBoundingClientRect();
   let top = a.bottom + 4;
   if (top + ph.height > window.innerHeight - 8 && a.top - ph.height - 4 > 8) top = a.top - ph.height - 4;
   let left = a.left;
   if (left + ph.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - ph.width);
-  pop.style.top = `${Math.round(top + window.scrollY)}px`;
-  pop.style.left = `${Math.round(left + window.scrollX)}px`;
+  if (container === document.body) {
+    // Document-coordinate placement (the unchanged default).
+    pop.style.top = `${Math.round(top + window.scrollY)}px`;
+    pop.style.left = `${Math.round(left + window.scrollX)}px`;
+  } else {
+    // Placement relative to the container's own box - it is the containing block
+    // for the absolutely-positioned popover.
+    const cr = container.getBoundingClientRect();
+    pop.style.top = `${Math.round(top - cr.top + container.scrollTop)}px`;
+    pop.style.left = `${Math.round(left - cr.left + container.scrollLeft)}px`;
+  }
 
   // Defer listener attach so the opening click doesn't immediately close it.
   setTimeout(() => {
