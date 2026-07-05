@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/expr-editor",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Framework-neutral (vanilla TS + DOM) visual editor for @wildwinter/expr expressions: a hybrid pill-strip + AND/OR tree builder with a raw-text fallback, property picker, and live validation. Scopes, properties and functions come from an injected Dialect + ExpressionSchema, so any expr-based authoring tool can mount it.",
   "type": "module",
   "license": "MIT",
