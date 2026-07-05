@@ -63,10 +63,10 @@ export interface ExpressionEditorOptions {
   /** Flat compact editor for a `set_flags(@target, +a, -b)` value whose target is
    *  implied by context (an outcome row's target column). Renders only the
    *  flag-delta pills plus an "+ flag" chip, hiding the function name and target
-   *  arg. `target` is the name-form ref of the flags property (e.g. "@quests");
-   *  it seeds the call on the first flag add. Pairs with mode:"flat", and set
-   *  requireNonEmpty so the last flag can't be removed. */
-  flagValue?: { target: string };
+   *  arg. `target` is the name-form ref of the flags property (e.g. "@quests"),
+   *  `flags` its declared flag names (offered by the "+ flag" picker). Pairs
+   *  with mode:"flat"; set requireNonEmpty so the last flag can't be removed. */
+  flagValue?: { target: string; flags: string[] };
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
   /** Notified when the author starts (true) / stops (false) editing inside a popover
@@ -217,29 +217,54 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
   // row's target column. An empty value shows just the chip, which seeds the call.
   function flagValueBody(call: (ExprNode & { kind: "call" }) | null): HTMLElement {
     const wrap = el("div", "exed-flat exed-flagvalue");
+    const ctx = buildCtx(call ?? boolLit(true));
     if (call) {
-      const ctx = buildCtx(call);
       call.args.forEach((arg, i) => {
         if (arg.kind === "flagdelta") wrap.append(renderNode(arg, ["args", i], ctx));
       });
-      wrap.append(addFlagChip(call));
-    } else {
-      wrap.append(addFlagChip(null));
     }
+    wrap.append(addFlagChip(ctx, call));
     return wrap;
   }
 
-  function addFlagChip(call: (ExprNode & { kind: "call" }) | null): HTMLElement {
-    return button("exed-add exed-addflag", "+ flag", () => {
-      if (call) {
-        pendingFocus = ["args", call.args.length]; // the appended delta
-        emit(toSrc({ ...call, args: [...call.args, flagDelta("+", "")] }));
-      } else {
-        // Seed set_flags(@target, +"") and open the new (empty) flag to fill.
-        const seeded = callNode("set_flags", [parseRef(opts.flagValue!.target), flagDelta("+", "")]);
-        pendingFocus = ["args", 1];
-        emit(toSrc(seeded));
-      }
+  // The "+ flag" chip opens a sign + name picker and commits a COMPLETE flag
+  // delta - an empty flag name is not a valid AST (unlike an empty string), so
+  // we never seed one; we build the full delta up front and add it in one step.
+  function addFlagChip(ctx: EditCtx, call: (ExprNode & { kind: "call" }) | null): HTMLElement {
+    const flags = opts.flagValue?.flags ?? [];
+    const used = call ? call.args.filter((a): a is ExprNode & { kind: "flagdelta" } => a.kind === "flagdelta").map((a) => a.name) : [];
+    const available = flags.filter((f) => !used.includes(f));
+    return button("exed-add exed-addflag", "+ flag", (e) => {
+      const anchor = e.currentTarget as HTMLElement;
+      ctx.openPopover(anchor, (close) => {
+        let sign: "+" | "-" = "+";
+        const wrap = el("div", "exed-menu");
+        wrap.append(el("div", "exed-menu-head", ["Add flag"]));
+        const signRow = el("div", "exed-field-row");
+        const drawSign = (): void => {
+          signRow.replaceChildren(
+            button(`exed-opt${sign === "+" ? " sel" : ""}`, "+ set", () => { sign = "+"; drawSign(); }),
+            button(`exed-opt${sign === "-" ? " sel" : ""}`, "− unset", () => { sign = "-"; drawSign(); }),
+          );
+        };
+        drawSign();
+        wrap.append(signRow);
+        const commit = (name: string): void => {
+          const delta = flagDelta(sign, name);
+          emit(toSrc(call
+            ? { ...call, args: [...call.args, delta] }
+            : callNode("set_flags", [parseRef(opts.flagValue!.target), delta])));
+          close();
+        };
+        if (available.length) {
+          for (const n of available) wrap.append(button("exed-opt", n, () => commit(n)));
+        } else {
+          wrap.append(el("div", "exed-hint", [flags.length === 0
+            ? "This flags property declares no flag values yet."
+            : "All declared flags are already used."]));
+        }
+        return wrap;
+      });
     }, "add a flag");
   }
 
