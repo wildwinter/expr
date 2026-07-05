@@ -18,9 +18,11 @@ import type { EditCtx } from "./types.js";
 const FLAG_FNS = new Set(["check_flags", "set_flags"]);
 const TAG_ARG0_FNS = new Set(["seen", "patter_seen", "visits", "patter_visits"]);
 
-/** A pill button. `kind` selects the colour class; `issues` rings it red. */
-function pill(kind: string, label: string, onClick: (b: HTMLButtonElement) => void, opts: { issue?: string; title?: string } = {}): HTMLButtonElement {
+/** A pill button. `kind` selects the colour class; `issues` rings it red. `path`
+ *  tags the element (data-exed-path) so the mount can find and auto-open it. */
+function pill(kind: string, label: string, onClick: (b: HTMLButtonElement) => void, opts: { issue?: string; title?: string; path?: AstPath } = {}): HTMLButtonElement {
   const b = button(`exed-pill exed-pill-${kind}${opts.issue ? " exed-pill-err" : ""}`, label, () => onClick(b), opts.issue ?? opts.title);
+  if (opts.path) b.dataset["exedPath"] = opts.path.join("/");
   return b;
 }
 
@@ -51,13 +53,13 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       if (isNodeRef) {
         const openPick = (b: HTMLButtonElement): void => ctx.pickNode!(b, node.value, (id) => replace(ctx, path, strLit(id)));
         return node.value === ""
-          ? pill("placeholder", "pick a node…", openPick, { issue })
+          ? pill("placeholder", "pick a node…", openPick, { issue, path })
           : pill("node", ctx.nodeLabel?.(node.value) ?? node.value, openPick, { issue, title: node.value });
       }
       // An empty literal is an unfilled slot, not the literal text "empty": render
       // it as a clearly-placeholder pill so it can't be mistaken for real content.
       if (node.value === "")
-        return pill("placeholder", isArg ? "set a tag…" : "set a value…", (b) => stringEditor(ctx, path, node, b), { issue });
+        return pill("placeholder", isArg ? "set a tag…" : "set a value…", (b) => stringEditor(ctx, path, node, b), { issue, path });
       return pill(isArg ? "tag" : "string", node.value, (b) => stringEditor(ctx, path, node, b), { issue });
     }
     case "scopedvar": {
@@ -66,7 +68,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       return pill("var", label, (b) => variableEditor(ctx, path, node, b), { issue: issue ?? (entry ? undefined : `Unknown property ${label}`) });
     }
     case "flagdelta":
-      return pill(node.sign === "+" ? "flagpos" : "flagneg", `${node.sign}${node.name || "flag"}`, (b) => flagEditor(ctx, path, node, b), { issue });
+      return pill(node.sign === "+" ? "flagpos" : "flagneg", `${node.sign}${node.name || "flag"}`, (b) => flagEditor(ctx, path, node, b), { issue, path });
     case "call": {
       const row = el("span", "exed-call");
       row.append(pill("func", node.name, (b) => callEditor(ctx, path, node, b), { issue }));

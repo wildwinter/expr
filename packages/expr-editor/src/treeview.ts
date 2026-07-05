@@ -7,7 +7,7 @@
 
 import type { ExprNode, AstPath } from "@wildwinter/expr";
 import {
-  deleteAt, binary, scopedVar, strLit, isPlaceholderForOp, getNodeAt as getNode, setNodeAt,
+  deleteAt, binary, scopedVar, strLit, isPlaceholderForOp, getNodeAt as getNode, setNodeAt, firstEmptyLeafPath,
 } from "./ast.js";
 import {
   astToTree, addChildToContainer, flipContainerOp, toggleContainerNot, buildSubGroupClause, moveChildInContainer,
@@ -15,8 +15,16 @@ import {
 } from "./tree.js";
 import { el, button } from "./dom.js";
 import { renderNode } from "./flat.js";
-import { comparisonWizard, booleanWizard, checkFlagsWizard, randomWizard, type ClauseWizardCtx } from "./clausewizard.js";
+import { comparisonWizard, booleanWizard, checkFlagsWizard, randomWizard, genericWizard, type ClauseWizardCtx } from "./clausewizard.js";
 import type { EditCtx, FunctionTemplateSpec } from "./types.js";
+
+/** Ask the mount to auto-open the first unfilled slot of a just-inserted clause
+ *  (insert-then-refine templates: the author lands straight in the empty tag /
+ *  flag pill). `base` is where the clause sits in the post-insert AST. */
+export function requestFocusForInsert(ctx: EditCtx, clause: ExprNode, base: AstPath): void {
+  const rel = firstEmptyLeafPath(clause);
+  if (rel) ctx.requestFocus?.([...base, ...rel]);
+}
 
 /** Render the whole expression as a tree into a fresh element. */
 export function renderTree(ctx: EditCtx): HTMLElement {
@@ -112,7 +120,10 @@ function renderContainer(ctx: EditCtx, row: Extract<TreeRow, { kind: "container"
 
 function placeholderRow(ctx: EditCtx, path: AstPath): HTMLElement {
   const b = button("exed-placeholder", "Click to add condition", (e) => {
-    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => ctx.apply(replaceAt(ctx, path, node)));
+    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => {
+      requestFocusForInsert(ctx, node, path);
+      ctx.apply(replaceAt(ctx, path, node));
+    });
   });
   return b;
 }
@@ -121,7 +132,12 @@ function placeholderRow(ctx: EditCtx, path: AstPath): HTMLElement {
 function addBar(ctx: EditCtx, chainPath: AstPath, op: "and" | "or"): HTMLElement {
   const bar = el("div", "exed-addbar");
   bar.append(button("exed-add", "+ Add condition", (e) => {
-    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => ctx.apply(addChildToContainer(ctx.getAst(), chainPath, node)));
+    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => {
+      // addChildToContainer appends as binary(op, chain, clause) at chainPath,
+      // so the inserted clause lands at chainPath + "right".
+      requestFocusForInsert(ctx, node, [...chainPath, "right"]);
+      ctx.apply(addChildToContainer(ctx.getAst(), chainPath, node));
+    });
   }));
   bar.append(button("exed-add", `+ Add ${op === "and" ? "OR" : "AND"} group`, () => {
     ctx.apply(addChildToContainer(ctx.getAst(), chainPath, buildSubGroupClause(op, seedClause(ctx))));
@@ -133,7 +149,10 @@ function addBar(ctx: EditCtx, chainPath: AstPath, op: "and" | "or"): HTMLElement
 export function rootAddBar(ctx: EditCtx): HTMLElement {
   const bar = el("div", "exed-addbar");
   bar.append(button("exed-add", "+ Add condition", (e) => {
-    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => ctx.apply(addChildToContainer(ctx.getAst(), [], node)));
+    clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => {
+      requestFocusForInsert(ctx, node, ["right"]);
+      ctx.apply(addChildToContainer(ctx.getAst(), [], node));
+    });
   }));
   bar.append(button("exed-add", "+ Add group", () => {
     ctx.apply(addChildToContainer(ctx.getAst(), [], buildSubGroupClause("and", seedClause(ctx))));
@@ -175,7 +194,10 @@ export function clauseMenu(ctx: EditCtx, anchor: HTMLElement, onPick: (node: Exp
     const addFn = (fn: FunctionTemplateSpec): void => add(fn.label, fn.hint, () => {
       if (fn.wizard === "check_flags") launch(checkFlagsWizard);
       else if (fn.wizard === "random") launch(randomWizard);
-      else onPick(fn.build());
+      else if (fn.wizard && typeof fn.wizard === "object") {
+        const spec = fn.wizard;
+        launch((host, _w, commit, cancel) => genericWizard(host, spec, commit, cancel));
+      } else onPick(fn.build());
     }, !!fn.disabled);
     // Dialect flag functions lead (matching storylets' menu), then the generic
     // property clauses, then the remaining dialect functions.

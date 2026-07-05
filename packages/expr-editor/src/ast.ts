@@ -139,3 +139,27 @@ export function findEnumPeer(ast: ExprNode, path: AstPath): { scope: string; nam
   const other = last === "left" ? parent.right : parent.left;
   return other.kind === "scopedvar" ? { scope: other.scope, name: other.name } : null;
 }
+
+/**
+ * DFS for the first unfilled slot in a template-inserted clause: an empty string
+ * literal (a tag / value the author still has to set) or an unnamed flag delta.
+ * Returns its path relative to `node`, or null when the clause is complete —
+ * wizard-built clauses have no empty slots, so they never auto-open anything.
+ */
+export function firstEmptyLeafPath(node: ExprNode, base: AstPath = []): AstPath | null {
+  switch (node.kind) {
+    case "string":    return node.value === "" ? base : null;
+    case "flagdelta": return node.name === "" ? base : null;
+    case "unary":     return firstEmptyLeafPath(node.operand, [...base, "operand"]);
+    case "binary":
+      return firstEmptyLeafPath(node.left, [...base, "left"]) ?? firstEmptyLeafPath(node.right, [...base, "right"]);
+    case "call": {
+      for (let i = 0; i < node.args.length; i++) {
+        const p = firstEmptyLeafPath(node.args[i]!, [...base, "args", i]);
+        if (p) return p;
+      }
+      return null;
+    }
+    default: return null;
+  }
+}

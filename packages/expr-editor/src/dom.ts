@@ -41,12 +41,16 @@ export interface Popover {
  * outside the popover or the anchor. Only one popover lives at a time per call;
  * the caller tracks the handle to close it programmatically.
  */
-export function openPopover(anchor: HTMLElement, render: (close: () => void) => Node): Popover {
+export function openPopover(anchor: HTMLElement, render: (close: () => void) => Node, onClose?: () => void): Popover {
   const pop = el("div", "exed-pop");
+  let closed = false;
   const close = (): void => {
+    if (closed) return;
+    closed = true;
     document.removeEventListener("pointerdown", onDown, true);
     document.removeEventListener("keydown", onKey, true);
     pop.remove();
+    onClose?.();
   };
   const onDown = (e: PointerEvent): void => {
     const t = e.target as Node;

@@ -6,14 +6,14 @@
 // ---------------------------------------------------------------------------
 
 import { unparse } from "@wildwinter/expr";
-import type { ExprNode, BinaryOp, Dialect, ExpressionSchema } from "@wildwinter/expr";
+import type { ExprNode, BinaryOp, Dialect, ExpressionSchema, AstPath } from "@wildwinter/expr";
 import { boolLit, binary, numLit, scopedVar } from "./ast.js";
 import { validateSource } from "./validate.js";
 import { ARITHMETIC_OPS, BINARY_LABEL } from "./ops.js";
 import type { CatalogueEntry } from "./schema.js";
 import { el, button, textField, openPopover, type Popover } from "./dom.js";
 import { renderNode, propertyPicker } from "./flat.js";
-import { renderTree, clauseMenu } from "./treeview.js";
+import { renderTree, clauseMenu, requestFocusForInsert } from "./treeview.js";
 import type { EditCtx, FunctionTemplateSpec } from "./types.js";
 
 export type { FunctionTemplateSpec } from "./types.js";
@@ -43,8 +43,14 @@ export interface ExpressionEditorOptions {
   nodeLabel?: EditCtx["nodeLabel"];
   /** Start in raw-text mode (the host's global "show as text" toggle drives this; no inline `</>`). */
   text?: boolean;
+  /** Render the editor's own validation message list under the pills (default true).
+   *  Hosts that display their own validation messages pass false to avoid doubling up. */
+  messages?: boolean;
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
+  /** Notified when the author starts (true) / stops (false) editing inside a popover
+   *  micro-editor — lets the host suppress its own validation display mid-edit. */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export interface ExpressionEditorHandle {
@@ -59,11 +65,18 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
   let src = opts.value ?? "";
   let raw = opts.text ?? false; // raw-text view (host-driven) / forced when unparseable
   let activePopover: Popover | null = null;
+  let editing = false;
+  let pendingFocus: AstPath | null = null; // pill to auto-open after the next render
   host.classList.add("exed-root");
 
   const emit = (next: string): void => { src = next; opts.onChange(src); render(); };
   const toSrc = (ast: ExprNode | null): string => (ast ? unparse(ast, { defaultScope }) : "");
 
+  const setEditing = (on: boolean): void => {
+    if (on === editing) return;
+    editing = on;
+    opts.onEditingChange?.(on);
+  };
   const closePopover = (): void => { activePopover?.close(); activePopover = null; };
 
   function buildCtx(ast: ExprNode): EditCtx {
@@ -74,7 +87,16 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       byPath: v.byPath,
       getAst: () => ast,
       apply: (next) => emit(toSrc(next)),
-      openPopover: (anchor, r) => { closePopover(); activePopover = openPopover(anchor, r); },
+      openPopover: (anchor, r) => {
+        closePopover();
+        const pop = openPopover(anchor, r, () => {
+          if (activePopover === pop) activePopover = null;
+          setEditing(false);
+        });
+        activePopover = pop;
+        setEditing(true);
+      },
+      requestFocus: (p) => { pendingFocus = p; },
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),
     };
@@ -100,7 +122,15 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       host.append(body);
     }
 
-    if (!v.unparseable || src.trim()) host.append(messages(v.issues));
+    if ((opts.messages ?? true) && (!v.unparseable || src.trim())) host.append(messages(v.issues));
+
+    // Insert-then-refine follow-through: a template just inserted a clause with an
+    // unfilled slot — open that pill's micro-editor so the author lands in it.
+    if (pendingFocus) {
+      const key = pendingFocus.join("/");
+      pendingFocus = null;
+      host.querySelector<HTMLElement>(`[data-exed-path="${key}"]`)?.click();
+    }
   }
 
   // --- chrome ---------------------------------------------------------------
@@ -124,7 +154,10 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
     wrap.append(el("span", "exed-pill exed-pill-always", [opts.nullLabel ?? "always"]));
     const ctx = buildCtx(boolLit(true));
     wrap.append(button("exed-add", "+ Add your first condition", (e) => {
-      clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => emit(toSrc(node)));
+      clauseMenu(ctx, e.currentTarget as HTMLElement, (node) => {
+        requestFocusForInsert(ctx, node, []); // the clause becomes the root
+        emit(toSrc(node));
+      });
     }));
     return wrap;
   }

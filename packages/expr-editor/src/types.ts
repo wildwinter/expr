@@ -1,8 +1,27 @@
 // Shared interfaces threaded through the UI: the editing context the renderers
 // mutate the tree through, and the dialect-driven function-template spec.
 
-import type { ExprNode, Dialect, ExpressionSchema, ExpressionValidationIssue } from "@wildwinter/expr";
+import type { ExprNode, Dialect, ExpressionSchema, ExpressionValidationIssue, BinaryOp, AstPath } from "@wildwinter/expr";
 import type { CatalogueEntry } from "./schema.js";
+
+/** One step of a declarative clause wizard: a text entry, a number entry, or an
+ *  operator pick. The generic runner walks the steps in order (with back/cancel
+ *  chrome) and hands the collected values to the spec's `build()`. */
+export type WizardStepSpec =
+  | { kind: "string"; title: string; caption?: string; placeholder?: string }
+  | { kind: "number"; title: string; caption?: string; placeholder?: string; initial?: number }
+  /** Operator pick; `ops` defaults to the comparison set. */
+  | { kind: "op"; title: string; ops?: BinaryOp[] };
+
+export type WizardValue = string | number | BinaryOp;
+
+/** A declarative multi-step wizard for a dialect function template. Lets a host
+ *  add guided flows (e.g. tag -> operator -> threshold) without upstream code. */
+export interface WizardSpec {
+  steps: WizardStepSpec[];
+  /** Build the finished clause from the step values (index-aligned with `steps`). */
+  build(values: WizardValue[]): ExprNode;
+}
 
 /** A "+ Add condition" template — a named node the wizard inserts; args are then
  *  refined by clicking the resulting pills. Dialect-specific functions (e.g.
@@ -14,9 +33,10 @@ export interface FunctionTemplateSpec {
   /** Shown greyed and non-pickable (e.g. `check_flags` with no flags property
    *  declared) so the option's existence is still discoverable. */
   disabled?: boolean;
-  /** When set, picking this template runs a guided multi-step wizard (matching the storylets
-   *  condition editor) instead of inserting `build()` directly. */
-  wizard?: "check_flags" | "random";
+  /** When set, picking this template runs a guided multi-step wizard instead of
+   *  inserting `build()` directly: one of the named built-ins (matching the
+   *  storylets condition editor) or a declarative `WizardSpec`. */
+  wizard?: "check_flags" | "random" | WizardSpec;
   /** Build the node to insert (used when there is no `wizard`, e.g. seen / visits insert-then-pick). */
   build(): ExprNode;
 }
@@ -42,4 +62,8 @@ export interface EditCtx {
   pickNode?(anchor: HTMLElement, current: string, onPick: (id: string) => void): void;
   /** Resolve a node id to its readable label for the node-ref pill (falls back to the raw id). */
   nodeLabel?(id: string): string;
+  /** Ask the mount to auto-open the micro-editor of the pill at `path` after the
+   *  next render — used by insert-then-refine templates so the author lands
+   *  straight in the first unfilled slot instead of chasing the error ring. */
+  requestFocus?(path: AstPath): void;
 }

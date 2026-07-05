@@ -1,12 +1,23 @@
 {
   "name": "@wildwinter/expr-editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-neutral (vanilla TS + DOM) visual editor for @wildwinter/expr expressions: a hybrid pill-strip + AND/OR tree builder with a raw-text fallback, property picker, and live validation. Scopes, properties and functions come from an injected Dialect + ExpressionSchema, so any expr-based authoring tool can mount it.",
   "type": "module",
   "license": "MIT",
   "author": "Ian Thomas",
-  "repository": { "type": "git", "url": "git+https://github.com/wildwinter/expr.git", "directory": "packages/expr-editor" },
-  "keywords": ["expression", "editor", "condition", "ast", "ui", "wildwinter"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildwinter/expr.git",
+    "directory": "packages/expr-editor"
+  },
+  "keywords": [
+    "expression",
+    "editor",
+    "condition",
+    "ast",
+    "ui",
+    "wildwinter"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,8 +29,14 @@
     },
     "./styles.css": "./dist/styles.css"
   },
-  "files": ["dist", "README.md", "LICENSE"],
-  "sideEffects": ["*.css"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public"

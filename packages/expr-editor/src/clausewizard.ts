@@ -18,7 +18,7 @@ import { propertyPicker } from "./flat.js";
 import { binary, scopedVar, numLit, strLit, boolLit, callNode, flagDelta } from "./ast.js";
 import { BINARY_LABEL, COMPARISON_OPS } from "./ops.js";
 import { type CatalogueEntry, type PropertyType } from "./schema.js";
-import type { EditCtx } from "./types.js";
+import type { EditCtx, WizardSpec, WizardValue } from "./types.js";
 
 export interface ClauseWizardCtx {
   catalogue: CatalogueEntry[];
@@ -194,6 +194,54 @@ export function randomWizard(host: HTMLElement, w: ClauseWizardCtx, commit: Comm
 }
 
 const numOk = (v: string): boolean => v.trim() !== "" && Number.isFinite(Number(v));
+
+/**
+ * Generic runner for a declarative WizardSpec: walks the steps in order with the
+ * shared back/cancel chrome, collects one value per step, and commits
+ * `spec.build(values)`. Lets a dialect add guided flows (tag -> operator ->
+ * threshold and the like) without any upstream code.
+ */
+export function genericWizard(host: HTMLElement, spec: WizardSpec, commit: Commit, cancel: Cancel): void {
+  const values: WizardValue[] = [];
+  const stepAt = (i: number): void => {
+    const step = spec.steps[i];
+    if (!step) return;
+    host.replaceChildren();
+    const back = i > 0 ? (): void => { values.length = i - 1; stepAt(i - 1); } : undefined;
+    header(host, step.title, back, cancel);
+    const body = el("div", "exed-vwiz-body");
+    host.append(body);
+    const last = i === spec.steps.length - 1;
+    const done = (v: WizardValue): void => {
+      values[i] = v;
+      if (last) commit(spec.build(values));
+      else stepAt(i + 1);
+    };
+    switch (step.kind) {
+      case "string":
+        body.append(textField({
+          caption: step.caption ?? "Text", placeholder: step.placeholder,
+          submitLabel: last ? "Apply" : "Next →",
+          validate: (v) => v.trim() !== "",
+          onCommit: (v) => done(v.trim()),
+        }));
+        break;
+      case "number":
+        body.append(textField({
+          caption: step.caption ?? "Number", placeholder: step.placeholder,
+          initial: step.initial !== undefined ? String(step.initial) : undefined,
+          submitLabel: last ? "Apply" : "Next →",
+          validate: numOk,
+          onCommit: (v) => done(Number(v)),
+        }));
+        break;
+      case "op":
+        for (const o of step.ops ?? COMPARISON_OPS) body.append(opButton(o, () => done(o)));
+        break;
+    }
+  };
+  stepAt(0);
+}
 
 /** A property's display ref ("@name" in the default scope, else "@scope.name"). */
 function refDisplay(w: ClauseWizardCtx, e: CatalogueEntry): string {
