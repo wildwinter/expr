@@ -56,6 +56,10 @@ export interface EditCtx {
   apply(next: ExprNode | null): void;
   /** Open a popover anchored to `anchor`; `render(close)` builds the content. */
   openPopover(anchor: HTMLElement, render: (close: () => void) => Node): void;
+  /** Opener for the property right-click menu; falls back to openPopover. The
+   *  read-only preview sets this (a real popover) while leaving openPopover a
+   *  no-op, so property pills get their menu but left-click editing stays inert. */
+  openMenu?(anchor: HTMLElement, render: (close: () => void) => Node): void;
   /** Host-provided picker for a flow-node reference arg (e.g. `seen(...)` / `visits(...)`). When set,
    *  the node-ref arg renders as a pill that opens this instead of a free-text field; `onPick` receives
    *  the chosen node id. Absent in dialects / hosts that have no node catalogue. */

@@ -136,9 +136,10 @@ function attachPropertyMenu(ctx: EditCtx, node: ExprNode & { kind: "scopedvar" }
   if (!ctx.propertyActions) return;
   const actions = ctx.propertyActions({ scope: node.scope, name: node.name });
   if (!actions.length) return;
+  const open = ctx.openMenu ?? ctx.openPopover;
   pillEl.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    ctx.openPopover(pillEl, (close) => {
+    open(pillEl, (close) => {
       const wrap = el("div", "exed-menu");
       for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
       return wrap;

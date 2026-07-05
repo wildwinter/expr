@@ -54,6 +54,9 @@
 /* read-only pill previews (inspector rows): pills as in the editor, but inert - a click falls
    through to the wrapping "open editor" control. */
 .exed-preview { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.12rem; pointer-events: none; }
+/* Interactive preview: property pills accept the right-click menu; left-click
+   still has no editor bound (its handler is a no-op) so it bubbles to the host. */
+.exed-preview-interactive .exed-pill-var { pointer-events: auto; cursor: context-menu; }
 .exed-preview-effects { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
 .exed-preview-eff { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.12rem; }
 .exed-preview-raw { font: 0.76rem var(--font-mono, monospace); color: var(--exed-muted); }

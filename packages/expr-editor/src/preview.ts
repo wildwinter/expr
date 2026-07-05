@@ -10,7 +10,7 @@
 import type { Dialect, ExprNode, ExpressionSchema } from "@wildwinter/expr";
 import { validateSource } from "./validate.js";
 import { renderNode } from "./flat.js";
-import { el } from "./dom.js";
+import { el, openPopover } from "./dom.js";
 import type { CatalogueEntry } from "./schema.js";
 import type { EditCtx } from "./types.js";
 import type { EditorEffect } from "./effects.js";
@@ -22,11 +22,18 @@ export interface PreviewOptions {
   scopeOrder?: string[];
   /** Resolve a node id to a readable label for seen()/visits() node pills. */
   nodeLabel?: (id: string) => string;
+  /** Host actions for a property pill (e.g. "Go to definition"). When set, the
+   *  preview becomes right-click interactive on property pills (left-click still
+   *  falls through to the host); otherwise the preview is fully non-interactive. */
+  propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
+  /** Where the property menu mounts (default document.body). */
+  popoverContainer?: HTMLElement;
 }
 
-/** A frozen edit-context: enough for `renderNode` to draw pills, but every mutation hook is a no-op
- *  (the preview is non-interactive). `pickNode` is stubbed so node-ref args still render as labelled
- *  node pills rather than raw-id tags. */
+/** A frozen edit-context: enough for `renderNode` to draw pills, but every editing hook is a no-op
+ *  (the preview is non-interactive for left-click). `pickNode` is stubbed so node-ref args still
+ *  render as labelled node pills. When `propertyActions` is set, `openMenu` opens a real popover so
+ *  the property right-click menu works while left-click editing stays inert (openPopover no-op). */
 function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNode | null } {
   const v = validateSource(src, o.schema, o.dialect);
   const ctx: EditCtx = {
@@ -38,6 +45,10 @@ function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNod
     openPopover: () => {},
     pickNode: () => {}, // enables labelled node pills; never fires (preview is read-only)
     ...(o.nodeLabel ? { nodeLabel: o.nodeLabel } : {}),
+    ...(o.propertyActions ? {
+      propertyActions: o.propertyActions,
+      openMenu: (anchor, render) => { openPopover(anchor, render, { container: o.popoverContainer }); },
+    } : {}),
   };
   return { ctx, ast: v.ast };
 }
@@ -51,7 +62,10 @@ function exprPills(src: string, o: PreviewOptions): HTMLElement {
 /** Read-only pill strip for a condition (name-form). Empty/unparseable is the caller's concern; a
  *  non-empty unparseable string falls back to its raw text. */
 export function renderConditionPreview(src: string, o: PreviewOptions): HTMLElement {
-  return el("div", "exed-preview", [exprPills(src, o)]);
+  // With propertyActions the preview is right-click interactive (a class enables
+  // pointer events on property pills); without, it stays fully non-interactive.
+  const cls = o.propertyActions ? "exed-preview exed-preview-interactive" : "exed-preview";
+  return el("div", cls, [exprPills(src, o)]);
 }
 
 /** Read-only pill strip for an effects list: each `set` as `target = value`, each `emit` as

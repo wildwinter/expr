@@ -63,6 +63,11 @@ Notable options beyond the basics:
 Pills carry `aria-haspopup`/labels and the tree controls carry aria-labels for
 assistive tech. A comparison of a numeric dialect function against a number
 (e.g. `turns_since_tag("x") > 3`) deletes as a unit.
+
+`renderConditionPreview(src, opts)` / `renderEffectsPreview(effects, opts)`
+return read-only pill strips (same pills as the editor, non-interactive). Pass
+`propertyActions` to make property pills right-click interactive (e.g. "Go to
+definition") while left-click still falls through to the host.
 - `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
   back to raw text automatically.
 
