@@ -130,12 +130,17 @@ function numberEditor(ctx: EditCtx, path: AstPath, value: number, anchor: HTMLBu
 function stringEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "string" }, anchor: HTMLButtonElement): void {
   const peer = findEnumPeer(ctx.getAst(), path);
   const enumEntry = peer ? lookup(ctx.catalogue, peer.scope, peer.name) : null;
+  // Enum options come from a comparison peer, or - for the single root literal of
+  // a value field - from the target's declared enum values (ctx.valueEnumValues).
+  const rootValueEnums = path.length === 0 && ctx.valueEnumValues?.length ? ctx.valueEnumValues : null;
+  const enumValues = enumEntry?.enumValues?.length ? enumEntry.enumValues : rootValueEnums;
+  const enumHeadLabel = enumEntry ? `${displayName(enumEntry, ctx.defaultScope)} value` : "Value";
   ctx.openPopover(anchor, (close) => {
-    // Enum value list when compared against an enum property.
-    if (enumEntry?.enumValues?.length) {
+    // Enum value list when compared against an enum property or as an enum value field.
+    if (enumValues?.length) {
       const wrap = el("div", "exed-menu");
-      wrap.append(el("div", "exed-menu-head", [`${displayName(enumEntry, ctx.defaultScope)} value`]));
-      for (const v of enumEntry.enumValues) {
+      wrap.append(el("div", "exed-menu-head", [enumHeadLabel]));
+      for (const v of enumValues) {
         wrap.append(button(`exed-opt${v === node.value ? " sel" : ""}`, v, () => { replace(ctx, path, strLit(v)); close(); }));
       }
       return wrap;
@@ -196,6 +201,11 @@ function flagEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "flagd
   });
 }
 
+// A root-emptying delete is withheld when the field must stay non-empty (a
+// single-value field). deleteAt returns null only at the root, so path.length===0
+// is exactly the "would empty the whole expression" case.
+const canDelete = (ctx: EditCtx, path: AstPath): boolean => !(ctx.requireNonEmpty && path.length === 0);
+
 function callEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "call" }, anchor: HTMLButtonElement): void {
   ctx.openPopover(anchor, (close) => {
     const wrap = el("div", "exed-menu");
@@ -204,7 +214,9 @@ function callEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "call"
     if (FLAG_FNS.has(node.name)) {
       wrap.append(button("exed-opt", "+ add flag", () => { replace(ctx, path, { ...node, args: [...node.args, flagDelta("+", "")] }); close(); }));
     }
-    wrap.append(button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }));
+    if (canDelete(ctx, path)) {
+      wrap.append(button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }));
+    }
     return wrap;
   });
 }
@@ -213,7 +225,9 @@ function variableEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "s
   ctx.openPopover(anchor, (close) => propertyPicker(ctx, {
     current: refOf(node, ctx.defaultScope),
     onPick: (entry) => { replace(ctx, path, scopedVar(entry.scope, entry.name)); close(); },
-    footer: button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }),
+    ...(canDelete(ctx, path)
+      ? { footer: button("exed-opt danger", "Delete", () => { ctx.apply(deleteAt(ctx.getAst(), path)); close(); }) }
+      : {}),
   }));
 }
 

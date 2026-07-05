@@ -66,4 +66,12 @@ export interface EditCtx {
    *  next render — used by insert-then-refine templates so the author lands
    *  straight in the first unfilled slot instead of chasing the error ring. */
   requestFocus?(path: AstPath): void;
+  /** When true, a delete that would empty the whole expression is blocked (the
+   *  Delete affordance is withheld). Used by single-value fields that must
+   *  always hold at least one term; conditions leave it false (empty = always). */
+  requireNonEmpty?: boolean;
+  /** Enum values offered when editing the single root literal of a value field
+   *  (an enum-typed outcome target). Lets the string editor show an enum picker
+   *  even without a comparison peer. No effect on non-root literals. */
+  valueEnumValues?: string[];
 }

@@ -43,6 +43,13 @@ Notable options beyond the basics:
   `document.body`). Pass a container inside a focus-trapping dialog (Radix,
   etc.) so opening a pill's popover counts as "inside" that layer and does not
   dismiss the dialog; the popover is then positioned relative to that container.
+- `requireNonEmpty` — block a delete that would empty the whole expression
+  (single-value fields that must always hold a term). Conditions leave it off
+  (an empty condition is the valid "always" state).
+- `valueEnumValues` + `valueField` — flat single-value editing for an
+  outcome-style value cell: `valueEnumValues` offers a target's enum values on
+  the root literal, and `valueField` makes an empty value render one editable
+  "set a value…" pill instead of the condition clause-menu empty state.
 - `setText(on)` — the host's raw-text toggle (`</>`); unparseable input falls
   back to raw text automatically.
 

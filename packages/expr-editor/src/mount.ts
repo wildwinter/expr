@@ -7,7 +7,7 @@
 
 import { unparse } from "@wildwinter/expr";
 import type { ExprNode, BinaryOp, Dialect, ExpressionSchema, AstPath } from "@wildwinter/expr";
-import { boolLit, binary, numLit, scopedVar } from "./ast.js";
+import { boolLit, binary, numLit, scopedVar, strLit } from "./ast.js";
 import { validateSource } from "./validate.js";
 import { ARITHMETIC_OPS, BINARY_LABEL } from "./ops.js";
 import type { CatalogueEntry } from "./schema.js";
@@ -50,6 +50,16 @@ export interface ExpressionEditorOptions {
    *  container inside a focus-trapping dialog (Radix, etc.) so opening a pill's
    *  popover does not dismiss the surrounding dialog. */
   popoverContainer?: HTMLElement;
+  /** Block a delete that would empty the whole expression (single-value fields
+   *  that must always hold a term). Conditions leave this off (empty = always). */
+  requireNonEmpty?: boolean;
+  /** Enum values for the single root literal of a value field (an enum-typed
+   *  target): the literal editor then offers them as a picker. Flat mode only. */
+  valueEnumValues?: string[];
+  /** Flat single-value field: an empty value renders one editable "set a value…"
+   *  placeholder pill (a root string literal) rather than the condition
+   *  clause-menu empty state. Pairs with mode:"flat". */
+  valueField?: boolean;
   /** Emitted on every edit (name-form; "" when cleared). */
   onChange: (src: string) => void;
   /** Notified when the author starts (true) / stops (false) editing inside a popover
@@ -104,6 +114,8 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
         setEditing(true);
       },
       requestFocus: (p) => { pendingFocus = p; },
+      ...(opts.requireNonEmpty ? { requireNonEmpty: true } : {}),
+      ...(opts.valueEnumValues ? { valueEnumValues: opts.valueEnumValues } : {}),
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),
     };
@@ -117,7 +129,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
     if (raw || v.unparseable) {
       host.append(rawArea());
     } else if (!src.trim() || !v.ast) {
-      host.append(emptyState());
+      host.append(opts.valueField ? valueEmptyState() : emptyState());
     } else {
       const ctx = buildCtx(v.ast);
       const body = el("div", "exed-body");
@@ -167,6 +179,15 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       });
     }));
     return wrap;
+  }
+
+  // A flat value field's empty state: a single "set a value…" placeholder pill
+  // (a root empty-string literal). Editing it commits the value; the empty
+  // string unparses back to "" so no spurious write happens before the author
+  // types. valueEnumValues (an enum target) drives the picker via the ctx.
+  function valueEmptyState(): HTMLElement {
+    const ctx = buildCtx(strLit(""));
+    return el("div", "exed-flat", [renderNode(strLit(""), [], ctx)]);
   }
 
   /** The optional "+ term" affordance (flat value mode): extend the value with one more arithmetic
