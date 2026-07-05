@@ -14,7 +14,7 @@ and Storylet Studio.
   and functions are injected via a `Dialect` + `ExpressionSchema`, so any
   expr-based authoring tool can mount it (Patterpad and Storylet Studio both do).
   Depends on `@wildwinter/expr`.
-- **`packages/scoperegistry`** — `@wildwinter/scoperegistry` (in progress): the
+- **[`packages/scoperegistry`](packages/scoperegistry)** — `@wildwinter/scoperegistry`: the
   scope registry / runtime state container that sits on top of `expr`. Owns the
   world-state (owned bags + foreign resolvers), save/load, and the
   `scopeRegistrySpec` interop format; produces the `EvalContext` / `ExpressionSchema`
