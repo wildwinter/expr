@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/expr-specificity",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Matched-constraint specificity: score how many atomic constraints in a @wildwinter/expr condition are actively holding it true. Shared by Storylet Studio (storylet draw priority) and Patter (dialogue best-match).",
   "type": "module",
   "license": "MIT",
