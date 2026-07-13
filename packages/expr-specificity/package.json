@@ -1,0 +1,52 @@
+{
+  "name": "@wildwinter/expr-specificity",
+  "version": "0.0.0",
+  "description": "Matched-constraint specificity: score how many atomic constraints in a @wildwinter/expr condition are actively holding it true. Shared by Storylet Studio (storylet draw priority) and Patter (dialogue best-match).",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ian Thomas",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildwinter/expr.git",
+    "directory": "packages/expr-specificity"
+  },
+  "keywords": [
+    "expression",
+    "specificity",
+    "salience",
+    "storylet",
+    "best-match",
+    "ast",
+    "conditions"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@wildwinter/expr": ">=0.3.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  }
+}

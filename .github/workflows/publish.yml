@@ -67,6 +67,17 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # expr-specificity peer-depends on expr, so it publishes after it too.
+      - name: Publish @wildwinter/expr-specificity
+        run: |
+          VER=$(node -p "require('./packages/expr-specificity/package.json').version")
+          if npm view "@wildwinter/expr-specificity@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/expr-specificity@$VER already published; skipping."
+          else
+            npm publish -w packages/expr-specificity
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # expr-editor also depends on expr, so it publishes after it too.
       - name: Publish @wildwinter/expr-editor
         run: |
