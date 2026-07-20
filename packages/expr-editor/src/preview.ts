@@ -39,6 +39,7 @@ function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNod
   const ctx: EditCtx = {
     schema: o.schema, dialect: o.dialect, defaultScope: o.dialect.defaultScope,
     catalogue: o.catalogue, scopeOrder: o.scopeOrder ?? [], functions: [],
+    compact: true,
     byPath: v.byPath,
     getAst: () => v.ast as ExprNode,
     apply: () => {},

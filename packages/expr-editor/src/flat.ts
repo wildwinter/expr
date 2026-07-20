@@ -81,6 +81,21 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
     case "flagdelta":
       return pill(node.sign === "+" ? "flagpos" : "flagneg", `${node.sign}${node.name || "flag"}`, (b) => flagEditor(ctx, path, node, b), { issue, path });
     case "call": {
+      // Read-only compact form for a flag-delta call: `@prop: +a -b`, dropping
+      // the function name and parens (the flag pills carry the meaning). Only
+      // when the shape is clean (a property then flag deltas); the editable
+      // tree keeps the explicit call so the function stays obvious to edit.
+      if (ctx.compact
+        && ctx.dialect.functions[node.name]?.flagDeltaArgs
+        && node.args.length >= 2
+        && node.args[0]!.kind === "scopedvar"
+        && node.args.slice(1).every((a) => a.kind === "flagdelta")) {
+        const row = el("span", "exed-call exed-call-flags");
+        row.append(renderNode(node.args[0]!, [...path, "args", 0], ctx));
+        row.append(el("span", "exed-flagsep", [":"]));
+        for (let i = 1; i < node.args.length; i++) row.append(renderNode(node.args[i]!, [...path, "args", i], ctx));
+        return row;
+      }
       const row = el("span", "exed-call");
       row.append(pill("func", node.name, (b) => callEditor(ctx, path, node, b), { issue }));
       row.append(el("span", "exed-paren", ["("]));

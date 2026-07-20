@@ -82,4 +82,9 @@ export interface EditCtx {
    *  right-clicking a property pill opens a menu of these actions. The host
    *  resolves what each does (navigation etc.); empty array = no menu. */
   propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
+  /** Read-only presentation hint: render more compactly than the editable tree.
+   *  Set by the preview (never the interactive editor). Currently collapses a
+   *  flag-delta call (e.g. `check_flags(@p, +a, -b)`) to `@p: +a -b`, dropping
+   *  the function name and parentheses. */
+  compact?: boolean;
 }

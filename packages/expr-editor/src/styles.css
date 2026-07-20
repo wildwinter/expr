@@ -69,6 +69,8 @@
 .exed-pill-placeholder { background: transparent; color: var(--exed-muted); border: 1px dashed var(--exed-line); font-style: italic; font-weight: 500; }
 .exed-pill-placeholder:hover { color: var(--exed-accent); border-color: var(--exed-accent); }
 .exed-paren, .exed-comma { color: var(--exed-muted); }
+/* compact flag-delta call (`@prop: +a -b`): the colon hugs the property */
+.exed-flagsep { color: var(--exed-muted); margin-left: -0.1rem; }
 .exed-call, .exed-unary, .exed-binary { display: inline-flex; align-items: center; gap: 0.1rem; flex-wrap: wrap; }
 
 /* flat body */
