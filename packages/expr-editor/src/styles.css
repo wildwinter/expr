@@ -108,6 +108,12 @@
 
 /* validation messages */
 .exed-msgs { display: flex; flex-direction: column; gap: 0.15rem; }
+/* The box is appended on every render, empty when the expression is clean. An
+   empty flex item is still an item, so the host column applies its gap to it -
+   which pushes the visible body off-centre wherever the host vertically centres
+   the editor (e.g. an effect row's [target] = [value] line). Take it out of
+   layout when it has nothing to say. */
+.exed-msgs:empty { display: none; }
 .exed-msg { font: 0.72rem var(--font-ui, system-ui); }
 .exed-msg-error { color: var(--exed-err); }
 .exed-msg-warning { color: #9a7d1e; }
