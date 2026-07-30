@@ -42,9 +42,11 @@ Storylet Engine runtime families share (their "one properties implementer"):
   state container for a mixed two-engine game).
 - **`listProperties()`** returns examiner rows across owned scopes and
   declared foreign scopes, for the shared in-engine property panels.
-- **`save()`/`load()`** now speak a versioned `OwnedStateFragment`
-  (`{ version, scopes }`), the one serialisation shape both products' save
-  envelopes embed.
+- **`saveFragment()`/`loadFragment()`** speak a versioned
+  `OwnedStateFragment` (`{ version, scopes }`), the one serialisation shape
+  both products' save envelopes embed when they adopt the kernel.
+  `save()`/`load()` keep the bare 0.1.x shape, so existing consumers' save
+  formats are untouched.
 
 ```ts
 import { ScopeRegistry } from "@wildwinter/scoperegistry";

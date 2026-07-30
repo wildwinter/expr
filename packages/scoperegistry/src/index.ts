@@ -404,23 +404,37 @@ export class ScopeRegistry {
   }
 
   /** Serialize **owned** scopes only (foreign scopes are host-owned,
-   *  host-saved) as the versioned fragment both products embed. */
-  save(): OwnedStateFragment {
-    const scopes: OwnedStateFragment["scopes"] = {};
-    for (const [token, e] of this.scopes) if (e.kind === "owned") scopes[token] = e.bag.save();
-    return { version: SAVE_FRAGMENT_VERSION, scopes };
+   *  host-saved), as bare bags - the 0.1.x shape, kept stable so existing
+   *  consumers' save formats are untouched. A product embedding the
+   *  versioned cross-product shape uses `saveFragment`. */
+  save(): Record<string, Record<string, ScalarValue>> {
+    const out: Record<string, Record<string, ScalarValue>> = {};
+    for (const [token, e] of this.scopes) if (e.kind === "owned") out[token] = e.bag.save();
+    return out;
   }
 
-  /** Restore owned-scope values from a `save` fragment. Unknown/foreign
-   *  scope tokens are ignored; an unsupported version throws. */
-  load(fragment: OwnedStateFragment): void {
-    if (fragment.version !== SAVE_FRAGMENT_VERSION) {
-      throw new Error(`unsupported owned-state fragment version ${fragment.version} (supported: ${SAVE_FRAGMENT_VERSION})`);
-    }
-    for (const [token, vals] of Object.entries(fragment.scopes)) {
+  /** Restore owned-scope values from a `save` blob. Unknown/foreign scopes
+   *  are ignored. */
+  load(blob: Record<string, Record<string, ScalarValue>>): void {
+    for (const [token, vals] of Object.entries(blob)) {
       const e = this.scopes.get(token);
       if (e?.kind === "owned") e.bag.load(vals);
     }
+  }
+
+  /** The versioned owned-state fragment (the one serialisation shape both
+   *  product families' save envelopes embed when they adopt the kernel;
+   *  design/engine-runtimes.md 3.1). `save()` wrapped with a version stamp. */
+  saveFragment(): OwnedStateFragment {
+    return { version: SAVE_FRAGMENT_VERSION, scopes: this.save() };
+  }
+
+  /** Restore from a versioned fragment; an unsupported version throws. */
+  loadFragment(fragment: OwnedStateFragment): void {
+    if (fragment.version !== SAVE_FRAGMENT_VERSION) {
+      throw new Error(`unsupported owned-state fragment version ${fragment.version} (supported: ${SAVE_FRAGMENT_VERSION})`);
+    }
+    this.load(fragment.scopes);
   }
 
   private assertFree(token: string): void {

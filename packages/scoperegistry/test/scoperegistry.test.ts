@@ -105,7 +105,7 @@ describe("save / load (owned scopes only)", () => {
       .defineOwned("patter", [{ name: "hp", type: "number", default: 10 }])
       .defineForeign("game", { get: () => 99 });
     const snapshot = r.save();
-    expect(snapshot).toEqual({ version: 1, scopes: { patter: { hp: 10 } } }); // no `game`
+    expect(snapshot).toEqual({ patter: { hp: 10 } }); // no `game`; the 0.1.x shape, kept stable
     r.set("patter", "hp", 3);
     expect(r.get("patter", "hp")).toBe(3);
     r.load(snapshot);

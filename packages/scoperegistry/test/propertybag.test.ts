@@ -196,22 +196,23 @@ describe("ScopeRegistry: bags as citizens", () => {
 });
 
 describe("ScopeRegistry: the versioned owned-state fragment", () => {
-  it("save wraps owned scopes in a version-stamped fragment", () => {
+  it("saveFragment wraps owned scopes in a version-stamped fragment; save keeps the bare 0.1.x shape", () => {
     const r = new ScopeRegistry().defineOwned("patter", [{ name: "hp", type: "number", default: 10 }]);
     r.set("patter", "hp", 3);
-    expect(r.save()).toEqual({ version: SAVE_FRAGMENT_VERSION, scopes: { patter: { hp: 3 } } });
+    expect(r.saveFragment()).toEqual({ version: SAVE_FRAGMENT_VERSION, scopes: { patter: { hp: 3 } } });
+    expect(r.save()).toEqual({ patter: { hp: 3 } });
   });
 
-  it("load restores owned scopes and ignores unknown or foreign tokens", () => {
+  it("loadFragment restores owned scopes and ignores unknown or foreign tokens", () => {
     const r = new ScopeRegistry()
       .defineOwned("patter", [{ name: "hp", type: "number", default: 10 }])
       .defineForeign("world", { get: () => undefined });
-    r.load({ version: 1, scopes: { patter: { hp: 4 }, world: { gold: 9 }, gone: { x: 1 } } });
+    r.loadFragment({ version: 1, scopes: { patter: { hp: 4 }, world: { gold: 9 }, gone: { x: 1 } } });
     expect(r.get("patter", "hp")).toBe(4);
   });
 
-  it("load rejects an unsupported fragment version", () => {
+  it("loadFragment rejects an unsupported fragment version", () => {
     const r = new ScopeRegistry().defineOwned("patter", []);
-    expect(() => r.load({ version: 99, scopes: {} })).toThrow(/version/);
+    expect(() => r.loadFragment({ version: 99, scopes: {} })).toThrow(/version/);
   });
 });
