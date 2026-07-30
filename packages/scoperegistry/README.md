@@ -27,6 +27,25 @@ another engine.
 settable per scope (a resolver with no `set`) and per property
 (`writable: false`), enforced by `set`.
 
+Since 0.2.0 this package is also the **state kernel** the Patter and
+Storylet Engine runtime families share (their "one properties implementer"):
+
+- **`PropertyBag`** is a first-class citizen: typed declarations + defaults,
+  the firing rule (engine writes notify `subscribe`rs; host writes pass
+  `{ silent: true, reason }` and reach only the always-on `onAudit` hook),
+  examiner `rows()`, one sanctioned `clone()` door, in-place `reseed`, and
+  bare-value `save()`/`load()`. Name normalisation is a policy: lowercase by
+  default, or pass `{ normalise }` (a case-significant product passes
+  identity).
+- Owned registry scopes are bags: `ownedBag(token)` exposes them, and
+  `mountOwned(token, bag)` attaches a bag another holder owns (the shared
+  state container for a mixed two-engine game).
+- **`listProperties()`** returns examiner rows across owned scopes and
+  declared foreign scopes, for the shared in-engine property panels.
+- **`save()`/`load()`** now speak a versioned `OwnedStateFragment`
+  (`{ version, scopes }`), the one serialisation shape both products' save
+  envelopes embed.
+
 ```ts
 import { ScopeRegistry } from "@wildwinter/scoperegistry";
 

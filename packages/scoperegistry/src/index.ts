@@ -86,13 +86,159 @@ export function readScopeRegistrySpec(source: unknown): ScopeRegistrySpec | null
 }
 
 // ---------------------------------------------------------------------------
+// PropertyBag - the state kernel's unit of state (added 0.2.0; design:
+// storylets-new/design/engine-runtimes.md 3.1). A typed, declared property
+// bag with defaults, the firing rule (engine writes notify subscribers;
+// host writes are silent but always auditable), examiner rows, one
+// sanctioned clone door, and bare-value save/load. Owned registry scopes
+// are bags; products may also hold bag families of their own (per-box,
+// per-scene) and mount the shared ones.
+// ---------------------------------------------------------------------------
+
+/** One property change. `silent` marks a host write (the firing rule: it
+ *  reaches the audit hook but not subscribers); `reason` is the host's own
+ *  note for its log. */
+export interface BagChange {
+  name: string;
+  prev?: ScalarValue;
+  next: ScalarValue;
+  silent: boolean;
+  reason?: string;
+}
+
+/** One examiner row: what a property examiner/editor needs to render and
+ *  edit a declared property. */
+export interface PropertyRow {
+  name: string;
+  type: PropertyType;
+  value: ScalarValue | undefined;
+  default: ScalarValue;
+  values?: string[];
+  writable: boolean;
+}
+
+export class PropertyBag {
+  /** The live values record (stable identity across reseed, so an
+   *  EvalContext built over it stays valid). Read-path for evaluation;
+   *  writes go through `set` so the firing rule applies. */
+  readonly values: Record<string, ScalarValue> = {};
+  private decls = new Map<string, ScopeDeclaration>();
+  private readonly subscribers = new Set<(change: BagChange) => void>();
+  private readonly auditors = new Set<(change: BagChange) => void>();
+  /** Name normalisation policy: lowercase by default (the registry's
+   *  long-standing contract); a product whose names are case-significant
+   *  passes identity. */
+  private readonly norm: (name: string) => string;
+
+  constructor(declarations: ScopeDeclaration[] = [], opts?: { normalise?: (name: string) => string }) {
+    this.norm = opts?.normalise ?? ((n) => n.toLowerCase());
+    this.seed(declarations);
+  }
+
+  private seed(declarations: ScopeDeclaration[]): void {
+    for (const d of declarations) {
+      const name = this.norm(d.name);
+      this.decls.set(name, d);
+      // Cloned so bags seeded from one declaration set never share a
+      // mutable default (flags arrays).
+      this.values[name] = structuredClone(d.default ?? defaultFor(d));
+    }
+  }
+
+  get(name: string): ScalarValue | undefined {
+    return this.values[this.norm(name)];
+  }
+
+  /** Write a property. Engine writes (the default) notify subscribers;
+   *  pass `silent: true` for a host write, which reaches only the audit
+   *  hook. Throws on a read-only property. Returns the change. */
+  set(name: string, value: ScalarValue, opts?: { silent?: boolean; reason?: string }): BagChange {
+    const n = this.norm(name);
+    if (this.decls.get(n)?.writable === false) throw new Error(`'${name}' is read-only`);
+    const change: BagChange = {
+      name: n,
+      prev: this.values[n],
+      next: value,
+      silent: opts?.silent ?? false,
+      reason: opts?.reason,
+    };
+    this.values[n] = value;
+    for (const audit of this.auditors) audit(change);
+    if (!change.silent) for (const fn of this.subscribers) fn(change);
+    return change;
+  }
+
+  /** Notified of engine (non-silent) writes. Returns the unsubscribe. */
+  subscribe(fn: (change: BagChange) => void): () => void {
+    this.subscribers.add(fn);
+    return () => this.subscribers.delete(fn);
+  }
+
+  /** Notified of EVERY write, silent or not. Returns the unsubscribe. */
+  onAudit(fn: (change: BagChange) => void): () => void {
+    this.auditors.add(fn);
+    return () => this.auditors.delete(fn);
+  }
+
+  /** Examiner rows: the declared surface only (stray values are storage,
+   *  not surface). */
+  rows(): PropertyRow[] {
+    return [...this.decls.entries()].map(([name, d]) => rowFor(d, this.get(name), undefined, name));
+  }
+
+  declarations(): ScopeDeclaration[] {
+    return [...this.decls.values()];
+  }
+
+  /** The one sanctioned copy door: values deep-copied, declarations
+   *  duplicated, the normalisation policy carried, subscriptions NOT
+   *  carried. */
+  clone(): PropertyBag {
+    const c = new PropertyBag([], { normalise: this.norm });
+    c.decls = new Map(this.decls);
+    Object.assign(c.values, structuredClone(this.values));
+    return c;
+  }
+
+  /** Clear and re-seed from new declarations, in place (the values record
+   *  keeps its identity, so contexts built over it stay valid). */
+  reseed(declarations: ScopeDeclaration[]): void {
+    for (const k of Object.keys(this.values)) delete this.values[k];
+    this.decls.clear();
+    this.seed(declarations);
+  }
+
+  /** Bare values, ready to embed in a product's save. */
+  save(): Record<string, ScalarValue> {
+    return structuredClone(this.values);
+  }
+
+  /** Lay saved values over the current ones (call after a fresh seed:
+   *  orphans land as strays, new declarations keep their defaults; the
+   *  product decides whether to prune). Does not fire events. */
+  load(values: Record<string, ScalarValue>): void {
+    for (const [k, v] of Object.entries(values)) this.values[this.norm(k)] = v;
+  }
+}
+
+function rowFor(d: ScopeDeclaration, value: ScalarValue | undefined, writable?: boolean, name?: string): PropertyRow {
+  return {
+    name: name ?? d.name.toLowerCase(),
+    type: d.type,
+    value,
+    default: d.default ?? defaultFor(d),
+    ...(d.values !== undefined ? { values: d.values } : {}),
+    writable: writable ?? d.writable ?? true,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The registry / state container
 // ---------------------------------------------------------------------------
 
 interface OwnedScope {
   kind: "owned";
-  bag: Record<string, ScalarValue>;
-  decls: Map<string, ScopeDeclaration>;
+  bag: PropertyBag;
 }
 interface ForeignScope {
   kind: "foreign";
@@ -101,6 +247,15 @@ interface ForeignScope {
   scopeWritable: boolean;
 }
 type Entry = OwnedScope | ForeignScope;
+
+/** The versioned owned-state fragment both product save envelopes embed
+ *  (design/engine-runtimes.md 3.1: one serialisation shape for bags). */
+export interface OwnedStateFragment {
+  version: number;
+  scopes: Record<string, Record<string, ScalarValue>>;
+}
+
+export const SAVE_FRAGMENT_VERSION = 1;
 
 export class ScopeRegistry {
   private readonly scopes = new Map<string, Entry>();
@@ -111,16 +266,25 @@ export class ScopeRegistry {
    * type-checked (declarations) and serialized by `save`/`load`.
    */
   defineOwned(token: string, declarations: ScopeDeclaration[]): this {
+    return this.mountOwned(token, new PropertyBag(declarations));
+  }
+
+  /**
+   * Attach an EXISTING bag as an owned scope - the shared-container move: a
+   * host (or the other product) holds the bag; this registry reads, writes
+   * and lists it like its own, but the holder saves it.
+   */
+  mountOwned(token: string, bag: PropertyBag): this {
     this.assertFree(token);
-    const bag: Record<string, ScalarValue> = {};
-    const decls = new Map<string, ScopeDeclaration>();
-    for (const d of declarations) {
-      const name = d.name.toLowerCase();
-      decls.set(name, d);
-      bag[name] = d.default ?? defaultFor(d);
-    }
-    this.scopes.set(token, { kind: "owned", bag, decls });
+    this.scopes.set(token, { kind: "owned", bag });
     return this;
+  }
+
+  /** An owned scope's bag (subscribe, audit, rows live there). */
+  ownedBag(token: string): PropertyBag {
+    const e = this.scopes.get(token);
+    if (!e || e.kind !== "owned") throw new Error(`'@${token}' is not an owned scope`);
+    return e.bag;
   }
 
   /**
@@ -131,15 +295,7 @@ export class ScopeRegistry {
    * registry stays valid.
    */
   reseedOwned(token: string, declarations: ScopeDeclaration[]): this {
-    const e = this.scopes.get(token);
-    if (!e || e.kind !== "owned") throw new Error(`'@${token}' is not an owned scope`);
-    for (const k of Object.keys(e.bag)) delete e.bag[k];
-    e.decls.clear();
-    for (const d of declarations) {
-      const name = d.name.toLowerCase();
-      e.decls.set(name, d);
-      e.bag[name] = d.default ?? defaultFor(d);
-    }
+    this.ownedBag(token).reseed(declarations);
     return this;
   }
 
@@ -170,24 +326,51 @@ export class ScopeRegistry {
   get(scope: string, name: string): ScalarValue | undefined {
     const e = this.scopes.get(scope);
     if (!e) return undefined;
-    const n = name.toLowerCase();
-    return e.kind === "owned" ? e.bag[n] : e.resolver.get(n);
+    return e.kind === "owned" ? e.bag.get(name) : e.resolver.get(name.toLowerCase());
   }
 
-  /** Write a property. Throws on an unknown or read-only scope/property. */
+  /** Write a property (an ENGINE write: the bag's subscribers fire; use
+   *  the bag directly for silent host writes). Throws on an unknown or
+   *  read-only scope/property. */
   set(scope: string, name: string, value: ScalarValue): void {
     const e = this.scopes.get(scope);
     if (!e) throw new Error(`unknown scope '@${scope}'`);
+    if (e.kind === "owned") {
+      try {
+        e.bag.set(name, value);
+      } catch {
+        throw new Error(`'@${scope}.${name}' is read-only`);
+      }
+      return;
+    }
     const n = name.toLowerCase();
-    if (!this.writable(e, n)) throw new Error(`'@${scope}.${name}' is read-only`);
-    if (e.kind === "owned") e.bag[n] = value;
-    else e.resolver.set!(n, value);
+    if (!this.foreignWritable(e, n)) throw new Error(`'@${scope}.${name}' is read-only`);
+    e.resolver.set!(n, value);
   }
 
-  private writable(e: Entry, name: string): boolean {
-    if (e.kind === "owned") return e.decls.get(name)?.writable ?? true;
+  private foreignWritable(e: ForeignScope, name: string): boolean {
     if (!e.resolver.set) return false;                 // no setter => read-only scope
     return e.decls.get(name)?.writable ?? e.scopeWritable;
+  }
+
+  /** Examiner rows across every scope with a declared surface: owned bags
+   *  first, then declared foreign scopes (values read through, writability
+   *  reflecting the resolver). Opaque foreign scopes are not listed. */
+  listProperties(): ({ scope: string } & PropertyRow)[] {
+    const out: ({ scope: string } & PropertyRow)[] = [];
+    for (const [token, e] of this.scopes) {
+      if (e.kind === "owned") {
+        for (const row of e.bag.rows()) out.push({ scope: token, ...row });
+      } else {
+        for (const d of e.decls.values()) {
+          out.push({
+            scope: token,
+            ...rowFor(d, e.resolver.get(d.name.toLowerCase()), this.foreignWritable(e, d.name.toLowerCase())),
+          });
+        }
+      }
+    }
+    return out;
   }
 
   /**
@@ -198,7 +381,7 @@ export class ScopeRegistry {
   toEvalContext(host?: Record<string, unknown>): EvalContext {
     const scopes: EvalContext["scopes"] = {};
     for (const [token, e] of this.scopes) {
-      scopes[token] = e.kind === "owned" ? e.bag : e.resolver;
+      scopes[token] = e.kind === "owned" ? e.bag.values : e.resolver;
     }
     return { scopes, host };
   }
@@ -211,26 +394,32 @@ export class ScopeRegistry {
   toSchema(): ExpressionSchema {
     const properties = new Map<string, Map<string, { type: PropertyType; enumValues?: string[] }>>();
     for (const [token, e] of this.scopes) {
-      if (e.decls.size === 0) continue;
+      const decls = e.kind === "owned" ? e.bag.declarations() : [...e.decls.values()];
+      if (decls.length === 0) continue;
       const m = new Map<string, { type: PropertyType; enumValues?: string[] }>();
-      for (const [name, d] of e.decls) m.set(name, { type: d.type, enumValues: d.values });
+      for (const d of decls) m.set(d.name.toLowerCase(), { type: d.type, enumValues: d.values });
       properties.set(token, m);
     }
     return { properties };
   }
 
-  /** Serialize **owned** scopes only (foreign scopes are host-owned, host-saved). */
-  save(): Record<string, Record<string, ScalarValue>> {
-    const out: Record<string, Record<string, ScalarValue>> = {};
-    for (const [token, e] of this.scopes) if (e.kind === "owned") out[token] = { ...e.bag };
-    return out;
+  /** Serialize **owned** scopes only (foreign scopes are host-owned,
+   *  host-saved) as the versioned fragment both products embed. */
+  save(): OwnedStateFragment {
+    const scopes: OwnedStateFragment["scopes"] = {};
+    for (const [token, e] of this.scopes) if (e.kind === "owned") scopes[token] = e.bag.save();
+    return { version: SAVE_FRAGMENT_VERSION, scopes };
   }
 
-  /** Restore owned-scope values from a `save` blob. Unknown/foreign scopes are ignored. */
-  load(blob: Record<string, Record<string, ScalarValue>>): void {
-    for (const [token, vals] of Object.entries(blob)) {
+  /** Restore owned-scope values from a `save` fragment. Unknown/foreign
+   *  scope tokens are ignored; an unsupported version throws. */
+  load(fragment: OwnedStateFragment): void {
+    if (fragment.version !== SAVE_FRAGMENT_VERSION) {
+      throw new Error(`unsupported owned-state fragment version ${fragment.version} (supported: ${SAVE_FRAGMENT_VERSION})`);
+    }
+    for (const [token, vals] of Object.entries(fragment.scopes)) {
       const e = this.scopes.get(token);
-      if (e?.kind === "owned") Object.assign(e.bag, vals);
+      if (e?.kind === "owned") e.bag.load(vals);
     }
   }
 
