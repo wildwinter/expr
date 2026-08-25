@@ -16,8 +16,8 @@ import type { BinaryOp, ExprNode } from "@wildwinter/expr";
 import { el, button, textField } from "./dom.js";
 import { propertyPicker } from "./flat.js";
 import { binary, scopedVar, numLit, strLit, boolLit, callNode, flagDelta } from "./ast.js";
-import { BINARY_LABEL, COMPARISON_OPS } from "./ops.js";
-import { type CatalogueEntry, type PropertyType } from "./schema.js";
+import { BINARY_LABEL, COMPARISON_OPS, COMPARABLE_TYPES, comparisonOpsFor, rhsTypesFor } from "./ops.js";
+import { choicesOf, type CatalogueEntry, type PropertyType } from "./schema.js";
 import type { EditCtx, WizardSpec, WizardValue } from "./types.js";
 
 export interface ClauseWizardCtx {
@@ -29,7 +29,9 @@ export interface ClauseWizardCtx {
 type Commit = (node: ExprNode) => void;
 type Cancel = () => void;
 
-const EQUALITY: BinaryOp[] = ["==", "!="];
+/** The left-hand property of a comparison clause, carrying whatever closed value list it has. */
+interface LhsSpec { ref: string; type: PropertyType; enumValues?: string[]; stages?: string[] }
+
 /** Plain-language gloss for each comparison op (shown beside its glyph, matching storylets). */
 const OP_WORD: Partial<Record<BinaryOp, string>> = {
   "==": "equals", "!=": "not equal to", ">": "greater than", ">=": "at least", "<": "less than", "<=": "at most",
@@ -40,9 +42,7 @@ const opButton = (o: BinaryOp, onClick: () => void): HTMLButtonElement => {
   b.append(el("span", "exed-opt-name", [BINARY_LABEL[o]]), el("span", "exed-opt-purpose", [OP_WORD[o] ?? ""]));
   return b;
 };
-const opsForType = (t: PropertyType): BinaryOp[] => (t === "number" ? COMPARISON_OPS : EQUALITY);
-const rhsTypesFor = (t: PropertyType): PropertyType[] =>
-  t === "number" ? ["number"] : t === "boolean" ? ["boolean"] : t === "enum" ? ["enum", "string"] : ["string", "enum"];
+
 
 /** Shared chrome: a step header with a back/cancel control and a title. */
 function header(host: HTMLElement, title: string | Node, back: (() => void) | undefined, cancel: Cancel | undefined): void {
@@ -58,7 +58,7 @@ const pickCtxOf = (w: ClauseWizardCtx): EditCtx =>
   ({ catalogue: w.catalogue, defaultScope: w.defaultScope, scopeOrder: w.scopeOrder } as unknown as EditCtx);
 
 /** The shared "pick a value" step: type-appropriate literal input, or switch to a property. */
-function valueStep(host: HTMLElement, w: ClauseWizardCtx, lhs: { ref: string; type: PropertyType; enumValues?: string[] }, op: BinaryOp, back: () => void, cancel: Cancel, commit: Commit): void {
+function valueStep(host: HTMLElement, w: ClauseWizardCtx, lhs: LhsSpec, op: BinaryOp, back: () => void, cancel: Cancel, commit: Commit): void {
   let mode: "value" | "property" = "value";
   const draw = (): void => {
     host.replaceChildren();
@@ -77,8 +77,10 @@ function valueStep(host: HTMLElement, w: ClauseWizardCtx, lhs: { ref: string; ty
       const row = el("div", "exed-field-row");
       row.append(button("exed-opt", "true", () => done(boolLit(true))), button("exed-opt", "false", () => done(boolLit(false))));
       body.append(row);
-    } else if (lhs.type === "enum" && lhs.enumValues?.length) {
-      for (const v of lhs.enumValues) body.append(button("exed-opt", v, () => done(strLit(v))));
+    } else if (choicesOf(lhs)?.length) {
+      // Enum values, or a quality's stages IN LADDER ORDER - the order is the affordance: reading down
+      // the list is reading the story's progression, so "at or past" has an obvious meaning.
+      for (const v of choicesOf(lhs)!) body.append(button("exed-opt", v, () => done(strLit(v))));
     } else if (lhs.type === "number") {
       body.append(textField({ caption: "Number", placeholder: "e.g. 3", validate: (v) => v.trim() !== "" && Number.isFinite(Number(v)), onCommit: (v) => done(numLit(Number(v))) }));
     } else {
@@ -104,16 +106,20 @@ export function comparisonWizard(host: HTMLElement, w: ClauseWizardCtx, commit: 
     const body = el("div", "exed-vwiz-body");
     host.append(body);
     body.append(propertyPicker(pickCtxOf(w), {
-      accept: ["boolean", "number", "string", "enum"],
-      onPick: (e) => pickOp({ ref: refDisplay(w, e), type: e.type, ...(e.enumValues ? { enumValues: e.enumValues } : {}) }),
+      accept: COMPARABLE_TYPES,
+      onPick: (e) => pickOp({
+        ref: refDisplay(w, e), type: e.type,
+        ...(e.enumValues ? { enumValues: e.enumValues } : {}),
+        ...(e.stages ? { stages: e.stages } : {}),
+      }),
     }));
   };
-  const pickOp = (lhs: { ref: string; type: PropertyType; enumValues?: string[] }): void => {
+  const pickOp = (lhs: LhsSpec): void => {
     host.replaceChildren();
     header(host, el("span", undefined, ["Operator for ", mono(lhs.ref)]), pickLhs, cancel);
     const body = el("div", "exed-vwiz-body");
     host.append(body);
-    for (const o of opsForType(lhs.type)) {
+    for (const o of comparisonOpsFor(lhs.type)) {
       body.append(opButton(o, () => valueStep(host, w, lhs, o, () => pickOp(lhs), cancel, commit)));
     }
   };

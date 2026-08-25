@@ -9,7 +9,7 @@ import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
 import { setNodeAt, deleteAt, findEnumPeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
 import { BINARY_LABEL, UNARY_LABEL, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
-  type CatalogueEntry, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
+  type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
 } from "./schema.js";
 import { el, button, textField } from "./dom.js";
 import { issuesAt } from "./validate.js";
@@ -205,11 +205,16 @@ function numberEditor(ctx: EditCtx, path: AstPath, value: number, anchor: HTMLBu
 function stringEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "string" }, anchor: HTMLButtonElement): void {
   const peer = findEnumPeer(ctx.getAst(), path);
   const enumEntry = peer ? lookup(ctx.catalogue, peer.scope, peer.name) : null;
-  // Enum options come from a comparison peer, or - for the single root literal of
-  // a value field - from the target's declared enum values (ctx.valueEnumValues).
+  // The closed value list comes from a comparison peer (an enum's values, or a quality's stages in
+  // LADDER order), or - for the single root literal of a value field - from the target's declared
+  // values (ctx.valueEnumValues).
   const rootValueEnums = path.length === 0 && ctx.valueEnumValues?.length ? ctx.valueEnumValues : null;
-  const enumValues = enumEntry?.enumValues?.length ? enumEntry.enumValues : rootValueEnums;
-  const enumHeadLabel = enumEntry ? `${displayName(enumEntry, ctx.defaultScope)} value` : "Value";
+  const peerChoices = choicesOf(enumEntry);
+  const enumValues = peerChoices?.length ? peerChoices : rootValueEnums;
+  // "stage", not "value", when the peer is a quality: the word is the whole point of the type.
+  const enumHeadLabel = enumEntry
+    ? `${displayName(enumEntry, ctx.defaultScope)} ${enumEntry.type === "quality" ? "stage" : "value"}`
+    : "Value";
   ctx.openPopover(anchor, (close) => {
     // Enum value list when compared against an enum property or as an enum value field.
     if (enumValues?.length) {

@@ -35,6 +35,14 @@ Notable options beyond the basics:
   multi-step flow (e.g. tag → operator → threshold) with no editor changes.
   Templates without a wizard insert-then-refine: the editor auto-opens the
   first unfilled slot of the inserted clause.
+- **Qualities** (the `quality` property type) need nothing from the host beyond a
+  catalogue entry carrying `stages` — the ladder, in order. The editor then offers
+  the property in a comparison clause, gives it the **ordering** operators (a
+  ladder exists for "at or past a stage"), lists its stages wherever a value is
+  picked, labels that list "stage", and seeds an outcome on it with
+  `advance(@ref)` — the form that keeps a story insertion-safe, because it names
+  no destination. A host still passing a ladder through `enumValues` keeps its
+  value picker, but not the ordering affordances.
 - `onEditingChange(editing)` — fires as popover micro-editors open/close, so the
   host can suppress its own validation display mid-edit.
 - `messages: false` — hide the editor's internal validation list when the host

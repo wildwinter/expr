@@ -15,9 +15,24 @@ export interface CatalogueEntry {
   name: string;
   type: PropertyType;
   enumValues?: string[];
+  /** A quality's ORDERED stage ladder. Separate from `enumValues` because the order carries meaning
+   *  here (comparisons are positional, `advance()` walks it) - a host that smuggled stages through
+   *  `enumValues` got a value picker but no ordering affordances. */
+  stages?: string[];
   /** Free-text description; the picker search matches it alongside the name. */
   purpose?: string;
 }
+
+/** The CLOSED set of values a property can hold, when it has one: a quality's stages (in ladder
+ *  order) or an enum's values. Everything that offers "pick a value" for a property goes through
+ *  this, so a quality is never mistaken for free text. `stages` falls back to `enumValues` for a
+ *  host still passing a quality's ladder the old way. */
+export const choicesOf = (e: { type: PropertyType; enumValues?: string[]; stages?: string[] } | null | undefined): string[] | undefined => {
+  if (!e) return undefined;
+  if (e.type === "quality") return e.stages?.length ? e.stages : e.enumValues;
+  if (e.type === "enum") return e.enumValues;
+  return undefined;
+};
 
 export interface Filter {
   acceptTypes?: PropertyType[];

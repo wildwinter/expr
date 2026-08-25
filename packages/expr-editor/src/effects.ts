@@ -17,6 +17,7 @@ import { el, button, openPopover, type Popover } from "./dom.js";
 import {
   type CatalogueEntry, type PropertyType,
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf,
+  choicesOf,
 } from "./schema.js";
 import type { FunctionTemplateSpec } from "./types.js";
 import { valueWizard } from "./valuewizard.js";
@@ -115,12 +116,18 @@ export function removeArgAt(list: EditorEffect[], i: number, argIdx: number): Ed
 }
 
 /** A sensible starting value-expression for a freshly targeted property. Literals
- *  are seeded so the value editor opens on an editable pill, never the empty state. */
-export function seedValueSrc(type: PropertyType, enumValues?: string[]): string {
+ *  are seeded so the value editor opens on an editable pill, never the empty state.
+ *
+ *  A QUALITY seeds to `advance(<ref>)` when the target's ref is known: moving to the next stage is
+ *  what outcomes on a ladder overwhelmingly do, and it is the form that keeps a story insertion-safe
+ *  (it names no destination, so a stage added later routes through it). Pass no ref and it falls back
+ *  to the first stage as a literal, which the author can still swap to `advance(...)`. */
+export function seedValueSrc(type: PropertyType, values?: string[], ref?: string): string {
   switch (type) {
     case "boolean": return "true";
     case "number": return "0";
-    case "enum": return JSON.stringify(enumValues?.[0] ?? "");
+    case "enum": return JSON.stringify(values?.[0] ?? "");
+    case "quality": return ref ? `advance(${ref})` : JSON.stringify(values?.[0] ?? "");
     case "string": return '""';
     default: return "0"; // flags / unknown — user refines via pills or raw text
   }
@@ -212,7 +219,8 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     // Target pill — click to repick (re-seeds the value to match the new type).
     const targetBtn = button("exed-pill exed-pill-prop", eff.target || "(pick property)", (e) => {
       pickTarget(e.currentTarget as HTMLElement, undefined, (entry) => {
-        commit(updateAt(effects, i, { target: refOf(entry, defaultScope), value: seedValueSrc(entry.type, entry.enumValues) }));
+        const ref = refOf(entry, defaultScope);
+        commit(updateAt(effects, i, { target: ref, value: seedValueSrc(entry.type, choicesOf(entry), ref) }));
       });
     }, "change the target property");
     row.append(targetBtn, el("span", "exed-effect-eq", ["="]));
