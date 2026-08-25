@@ -41,8 +41,14 @@ Notable options beyond the basics:
   ladder exists for "at or past a stage"), lists its stages wherever a value is
   picked, labels that list "stage", and seeds an outcome on it with
   `advance(@ref)` — the form that keeps a story insertion-safe, because it names
-  no destination. A host still passing a ladder through `enumValues` keeps its
-  value picker, but not the ordering affordances.
+  no destination. That seed is the same on both paths (adding an effect and
+  re-pointing one), via `initialValueFor`, and a quality skips the value wizard
+  entirely: there is no question left worth asking. A host still passing a
+  ladder through `enumValues` keeps its value picker, but not the ordering
+  affordances.
+- `valueWizard`'s `expectedChoices` supersedes `expectedEnumValues` — one
+  channel for "the target's closed set of values", filled with `choicesOf(entry)`
+  so a quality's ladder arrives with its type. The old name still works.
 - `onEditingChange(editing)` — fires as popover micro-editors open/close, so the
   host can suppress its own validation display mid-edit.
 - `messages: false` — hide the editor's internal validation list when the host

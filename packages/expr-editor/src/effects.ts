@@ -115,6 +115,27 @@ export function removeArgAt(list: EditorEffect[], i: number, argIdx: number): Ed
   return next;
 }
 
+/**
+ * What a freshly targeted property's value should be, and whether the guided value wizard still has a
+ * question worth asking.
+ *
+ * BOTH paths that target a property go through this - "+ set property" (add) and re-picking an
+ * existing effect's target - because when they answered separately they drifted: 0.11.0 seeded a
+ * quality with `advance(...)` on re-pick while the add path opened a wizard that did not know what a
+ * quality was, so the same job offered two different affordances depending on how you arrived.
+ *
+ * `ask: false` means the type has a canonical outcome and the wizard would be ceremony: a QUALITY
+ * moves to its next stage, which is the insertion-safe form the type exists for, and an author who
+ * meant a specific stage clicks the pill.
+ */
+export function initialValueFor(entry: CatalogueEntry, defaultScope: string): { src: string; ask: boolean } {
+  const ref = refOf(entry, defaultScope);
+  return {
+    src: seedValueSrc(entry.type, choicesOf(entry), ref),
+    ask: entry.type !== "quality",
+  };
+}
+
 /** A sensible starting value-expression for a freshly targeted property. Literals
  *  are seeded so the value editor opens on an editable pill, never the empty state.
  *
@@ -152,7 +173,9 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     popover = openPopover(anchor, (close) => valueWizard({
       catalogue: opts.catalogue, scopeOrder: opts.scopeOrder ?? [], defaultScope,
       ...(expected?.type ? { expectedType: expected.type } : {}),
-      ...(expected?.enumValues ? { expectedEnumValues: expected.enumValues } : {}),
+      // choicesOf, never a raw field: a quality's ladder lives in `stages`, and reading `enumValues`
+      // here told the wizard the type and withheld the values.
+      ...(choicesOf(expected) ? { expectedChoices: choicesOf(expected) } : {}),
       onCommit: (src) => { onCommit(src); close(); },
       onCancel: close,
     }), { container: opts.popoverContainer });
@@ -219,8 +242,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     // Target pill — click to repick (re-seeds the value to match the new type).
     const targetBtn = button("exed-pill exed-pill-prop", eff.target || "(pick property)", (e) => {
       pickTarget(e.currentTarget as HTMLElement, undefined, (entry) => {
-        const ref = refOf(entry, defaultScope);
-        commit(updateAt(effects, i, { target: ref, value: seedValueSrc(entry.type, choicesOf(entry), ref) }));
+        commit(updateAt(effects, i, { target: refOf(entry, defaultScope), value: initialValueFor(entry, defaultScope).src }));
       });
     }, "change the target property");
     row.append(targetBtn, el("span", "exed-effect-eq", ["="]));
@@ -299,8 +321,11 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     bar.append(button("exed-eff-add", "+ set property", (e) => {
       const anchor = e.currentTarget as HTMLElement;
       // Pick the target property, then build its value with the guided wizard (type-aware).
-      pickTarget(anchor, undefined, (entry) =>
-        openValueWizard(anchor, entry, (src) => commit(addSet(effects, refOf(entry, defaultScope), src))));
+      pickTarget(anchor, undefined, (entry) => {
+        const { src, ask } = initialValueFor(entry, defaultScope);
+        if (!ask) { commit(addSet(effects, refOf(entry, defaultScope), src)); return; }
+        openValueWizard(anchor, entry, (chosen) => commit(addSet(effects, refOf(entry, defaultScope), chosen)));
+      });
     }));
     // Emit needs a name first: open the event-name wizard immediately; only add the effect once named.
     // Hidden when the host opts out of emit (set-only effects, e.g. patter - emission rides on gameData).

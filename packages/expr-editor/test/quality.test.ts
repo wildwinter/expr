@@ -12,7 +12,7 @@
 import { describe, it, expect } from "vitest";
 import { choicesOf, type CatalogueEntry } from "../src/schema.js";
 import { COMPARABLE_TYPES, COMPARISON_OPS, EQUALITY_OPS, comparisonOpsFor, rhsTypesFor } from "../src/ops.js";
-import { seedValueSrc } from "../src/effects.js";
+import { seedValueSrc, initialValueFor } from "../src/effects.js";
 
 const quality: CatalogueEntry = {
   scope: "patter", name: "negotiation", type: "quality",
@@ -64,6 +64,30 @@ describe("the clause vocabulary a property type offers", () => {
     // A bare string would name a stage nothing validates; cross-ladder ordering is an engine error.
     expect(rhsTypesFor("quality")).toEqual(["quality"]);
     expect(rhsTypesFor("enum")).toEqual(["enum", "string"]);
+  });
+});
+
+// The seam 0.11.0 left unpinned: its four pure functions were all correct, and the add path still
+// could not offer a quality anything, because nothing tested what the paths DID with them.
+describe("initialValueFor: the one decision both target paths make", () => {
+  it("seeds a quality with advance(ref) and asks nothing", () => {
+    expect(initialValueFor(quality, "patter")).toEqual({ src: "advance(@negotiation)", ask: false });
+  });
+
+  it("still asks for every type whose value is a genuine choice", () => {
+    expect(initialValueFor(enumEntry, "patter").ask).toBe(true);
+    expect(initialValueFor({ scope: "patter", name: "gold", type: "number" }, "patter")).toEqual({ src: "0", ask: true });
+    expect(initialValueFor({ scope: "patter", name: "met", type: "boolean" }, "patter")).toEqual({ src: "true", ask: true });
+  });
+
+  it("qualifies the ref by scope when it is not the default", () => {
+    const scoped = { ...quality, scope: "world" };
+    expect(initialValueFor(scoped, "patter").src).toBe("advance(@world.negotiation)");
+  });
+
+  it("reads a quality's ladder through choicesOf, so a legacy enumValues host still seeds", () => {
+    const legacy: CatalogueEntry = { scope: "patter", name: "q", type: "quality", enumValues: ["a", "b"] };
+    expect(initialValueFor(legacy, "patter")).toEqual({ src: "advance(@q)", ask: false });
   });
 });
 

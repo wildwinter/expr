@@ -20,6 +20,11 @@ export interface ValueWizardOptions {
   defaultScope: string;
   /** When known (a `set` target's declared type), the picker leads straight to that input. */
   expectedType?: PropertyType;
+  /** The target's closed set of values, when it has one: an enum's values, or a QUALITY's stages in
+   *  ladder order. Callers should fill this with `choicesOf(entry)` rather than reading a single
+   *  field, so a quality is never handed a wizard that knows its type but not its ladder. */
+  expectedChoices?: string[];
+  /** @deprecated Use `expectedChoices`. Kept so a 0.11.x caller keeps working. */
   expectedEnumValues?: string[];
   /** Receives the chosen value as name-form source. */
   onCommit: (src: string) => void;
@@ -49,11 +54,18 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
   const body = el("div", "exed-vwiz-body");
   host.append(body);
 
+  const choices = opts.expectedChoices?.length ? opts.expectedChoices : opts.expectedEnumValues;
+  // A quality's list is of STAGES on a ladder, and saying so is the difference between "pick one of
+  // these" and "pick where the story now stands".
+  const isStage = opts.expectedType === "quality";
+  
   // Lead straight to a known target type's input; otherwise show the kind chooser.
+  // Any type with a closed set of values leads straight to it - a quality included, which fell through
+  // to the generic chooser before 0.12.0 because the test named only `enum`.
   let kind: "menu" | "property" | "number" | "text" | "bool" | "enum" =
     opts.expectedType === "number" ? "number" : opts.expectedType === "string" ? "text"
       : opts.expectedType === "boolean" ? "bool"
-        : opts.expectedType === "enum" && opts.expectedEnumValues?.length ? "enum" : "menu";
+        : (opts.expectedType === "enum" || opts.expectedType === "quality") && choices?.length ? "enum" : "menu";
 
   const draw = (): void => {
     body.replaceChildren();
@@ -64,7 +76,7 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
         body.append(optBtn("A number", () => { kind = "number"; draw(); }));
         body.append(optBtn("Text", () => { kind = "text"; draw(); }));
         body.append(optBtn("True / False", () => { kind = "bool"; draw(); }));
-        if (opts.expectedEnumValues?.length) body.append(optBtn("A listed value", () => { kind = "enum"; draw(); }));
+        if (choices?.length) body.append(optBtn(isStage ? "A stage" : "A listed value", () => { kind = "enum"; draw(); }));
         break;
       case "property":
         body.append(propertyPicker(pickCtx, { onPick: (e) => opts.onCommit(refOf(e, opts.defaultScope)) }));
@@ -85,7 +97,8 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
         break;
       }
       case "enum":
-        for (const v of opts.expectedEnumValues ?? []) body.append(optBtn(v, () => opts.onCommit(enumSrc(v))));
+        body.append(el("div", "exed-vwiz-note", [isStage ? "Stages, in ladder order:" : ""]));
+        for (const v of choices ?? []) body.append(optBtn(v, () => opts.onCommit(enumSrc(v))));
         body.append(other());
         break;
     }
