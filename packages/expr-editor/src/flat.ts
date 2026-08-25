@@ -7,7 +7,7 @@
 
 import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
 import { setNodeAt, deleteAt, findChoicePeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
-import { BINARY_LABEL, UNARY_LABEL, opSwapGroup, needsParens, formatNumber } from "./ops.js";
+import { BINARY_LABEL, UNARY_LABEL, OP_WORD, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
   type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
 } from "./schema.js";
@@ -27,13 +27,6 @@ function pill(kind: string, label: string, onClick: (b: HTMLButtonElement) => vo
   if (opts.path) b.dataset["exedPath"] = opts.path.join("/");
   return b;
 }
-
-/** Plain-language names for operators, for the pill's accessible label. */
-const OP_ARIA: Record<string, string> = {
-  "==": "equals", "!=": "not equal to", ">": "greater than", ">=": "at least",
-  "<": "less than", "<=": "at most", "and": "and", "or": "or",
-  "+": "plus", "-": "minus", "*": "times", "/": "divided by",
-};
 
 const issueText = (ctx: EditCtx, path: AstPath): string | undefined => {
   const list = issuesAt(ctx.byPath, path);
@@ -108,7 +101,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
     }
     case "unary": {
       const row = el("span", "exed-unary");
-      row.append(pill("op", UNARY_LABEL[node.op], () => ctx.apply(deleteOrUnwrapNot(ctx, path, node)), { title: "remove", aria: `${OP_ARIA[node.op] ?? node.op} (click to remove)` }));
+      row.append(pill("op", UNARY_LABEL[node.op], () => ctx.apply(deleteOrUnwrapNot(ctx, path, node)), { title: "remove", aria: `${OP_WORD[node.op]} (click to remove)` }));
       row.append(renderNode(node.operand, [...path, "operand"], ctx));
       return row;
     }
@@ -118,7 +111,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       if (wrap) row.append(el("span", "exed-paren", ["("]));
       row.append(renderNode(node.left, [...path, "left"], ctx, node.op, "left"));
       const swap = opSwapGroup(node.op);
-      const opPill = pill("op", BINARY_LABEL[node.op], (b) => { if (swap) operatorEditor(ctx, path, node.op, swap, b); }, { title: swap ? "swap operator" : undefined, aria: OP_ARIA[node.op] ?? node.op });
+      const opPill = pill("op", BINARY_LABEL[node.op], (b) => { if (swap) operatorEditor(ctx, path, node.op, swap, b); }, { title: swap ? "swap operator" : undefined, aria: OP_WORD[node.op] });
       if (!swap) opPill.classList.add("exed-op-structural");
       row.append(opPill);
       row.append(renderNode(node.right, [...path, "right"], ctx, node.op, "right"));
@@ -237,11 +230,15 @@ function operatorEditor(ctx: EditCtx, path: AstPath, current: BinaryOp, group: B
     const wrap = el("div", "exed-menu");
     wrap.append(el("div", "exed-menu-head", ["Operator"]));
     for (const op of group) {
-      wrap.append(button(`exed-opt${op === current ? " sel" : ""}`, `${BINARY_LABEL[op]}  ${op}`, () => {
+      const row = button(`exed-opt exed-opt-op${op === current ? " sel" : ""}`, "", () => {
         const node = ctx.getAst();
         const cur = setNodeAt(node, path, { ...(getBinary(ctx, path)), op } as ExprNode);
         ctx.apply(cur); close();
-      }));
+      });
+      // Glyph + plain word, the same row the clause wizard builds. It used to be glyph + raw source,
+      // which says nothing twice for the operators whose glyph IS their source (">" read "> >").
+      row.append(el("span", "exed-opt-name", [BINARY_LABEL[op]]), el("span", "exed-opt-purpose", [OP_WORD[op]]));
+      wrap.append(row);
     }
     return wrap;
   });

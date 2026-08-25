@@ -15,6 +15,18 @@ export const BINARY_LABEL: Record<BinaryOp, string> = {
 
 export const UNARY_LABEL: Record<UnaryOp, string> = { not: "NOT", neg: "−" };
 
+/** Plain-language name for an operator. ONE table, because it is wanted in three places that must
+ *  agree: a pill's accessible label, the clause wizard's operator step, and the swap menu. The swap
+ *  menu once printed the label and the raw source instead ("> >"), which is what a second table
+ *  buys you. Never the glyph twice: this reads NEXT to `BINARY_LABEL`, so it must say something the
+ *  glyph does not. */
+export const OP_WORD: Record<BinaryOp | UnaryOp, string> = {
+  "==": "equals", "!=": "not equal to", ">": "greater than", ">=": "at least",
+  "<": "less than", "<=": "at most", and: "and", or: "or",
+  "+": "plus", "-": "minus", "*": "times", "/": "divided by",
+  not: "not", neg: "negative",
+};
+
 export const COMPARISON_OPS: BinaryOp[] = ["==", "!=", ">", ">=", "<", "<="];
 export const ARITHMETIC_OPS: BinaryOp[] = ["+", "-", "*", "/"];
 

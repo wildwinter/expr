@@ -16,7 +16,7 @@ import type { BinaryOp, ExprNode } from "@wildwinter/expr";
 import { el, button, textField } from "./dom.js";
 import { propertyPicker } from "./flat.js";
 import { binary, scopedVar, numLit, strLit, boolLit, callNode, flagDelta } from "./ast.js";
-import { BINARY_LABEL, COMPARISON_OPS, COMPARABLE_TYPES, comparisonOpsFor, rhsTypesFor } from "./ops.js";
+import { BINARY_LABEL, OP_WORD, COMPARISON_OPS, COMPARABLE_TYPES, comparisonOpsFor, rhsTypesFor } from "./ops.js";
 import { choicesOf, type CatalogueEntry, type PropertyType } from "./schema.js";
 import type { EditCtx, WizardSpec, WizardValue } from "./types.js";
 
@@ -33,13 +33,10 @@ type Cancel = () => void;
 interface LhsSpec { ref: string; type: PropertyType; enumValues?: string[]; stages?: string[] }
 
 /** Plain-language gloss for each comparison op (shown beside its glyph, matching storylets). */
-const OP_WORD: Partial<Record<BinaryOp, string>> = {
-  "==": "equals", "!=": "not equal to", ">": "greater than", ">=": "at least", "<": "less than", "<=": "at most",
-};
 /** An operator option button: glyph + plain-language word (never the glyph twice). */
 const opButton = (o: BinaryOp, onClick: () => void): HTMLButtonElement => {
-  const b = button("exed-opt", "", onClick);
-  b.append(el("span", "exed-opt-name", [BINARY_LABEL[o]]), el("span", "exed-opt-purpose", [OP_WORD[o] ?? ""]));
+  const b = button("exed-opt exed-opt-op", "", onClick);
+  b.append(el("span", "exed-opt-name", [BINARY_LABEL[o]]), el("span", "exed-opt-purpose", [OP_WORD[o]]));
   return b;
 };
 
