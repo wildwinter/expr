@@ -78,6 +78,11 @@ export interface EditCtx {
    *  (an enum-typed outcome target). Lets the string editor show an enum picker
    *  even without a comparison peer. No effect on non-root literals. */
   valueEnumValues?: string[];
+  /** The name-form ref of the SET this value belongs to, when there is one. Its only use is the
+   *  self-advance idiom: `@debt = advance(@debt)` names the property three times to say one thing,
+   *  so when the value is exactly `advance(<this ref>)` the call collapses to a single "advances"
+   *  word and the row reads `debt advances`. Any other target, or any other shape, renders in full. */
+  selfAdvanceRef?: string;
   /** Host actions for a property pill (e.g. "Go to definition"). When set,
    *  right-clicking a property pill opens a menu of these actions. The host
    *  resolves what each does (navigation etc.); empty array = no menu. */

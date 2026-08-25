@@ -50,6 +50,10 @@
 .exed-pill-tag { background: var(--exed-tag); }
 .exed-pill-node { background: var(--exed-tag); }
 .exed-pill-func { background: var(--exed-func); }
+/* `advances` stands where a value would, but it is a verb, not a value: same function colour, worn
+   lightly (no fill) so the row reads `debt advances` as a sentence rather than as an assignment. */
+.exed-pill-advance { background: none; color: var(--exed-func); font-style: italic; padding-left: 0.1rem; }
+.exed-pill-advance:hover { background: color-mix(in oklab, var(--exed-func) 16%, transparent); filter: none; }
 
 /* read-only pill previews (inspector rows): pills as in the editor, but inert - a click falls
    through to the wrapping "open editor" control. */

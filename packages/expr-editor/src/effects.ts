@@ -12,7 +12,7 @@
 // on top (storylets had no equivalent).
 // ---------------------------------------------------------------------------
 
-import type { Dialect, ExpressionSchema } from "@wildwinter/expr";
+import { parse, type Dialect, type ExpressionSchema } from "@wildwinter/expr";
 import { el, button, openPopover, type Popover } from "./dom.js";
 import {
   type CatalogueEntry, type PropertyType,
@@ -20,6 +20,7 @@ import {
   choicesOf,
 } from "./schema.js";
 import type { FunctionTemplateSpec } from "./types.js";
+import { advancedRef, normaliseRef } from "./ast.js";
 import { valueWizard } from "./valuewizard.js";
 import { mountExpressionEditor, type ExpressionEditorHandle } from "./mount.js";
 
@@ -28,6 +29,16 @@ import { mountExpressionEditor, type ExpressionEditorHandle } from "./mount.js";
 export type EditorEffect =
   | { kind: "set"; target: string; value: string }
   | { kind: "emit"; event: string; args: string[] };
+
+/** Does this set advance its OWN target - `@debt = advance(@debt)`, the shape every quality outcome
+ *  takes? Then the property is named once (in the target column) instead of three times, and the row
+ *  reads as a sentence: `debt advances`. Parsed rather than string-matched so the two ways of writing
+ *  one ref agree (`@debt` and `@patter.debt` are the same property; `advance( @debt )` is the same
+ *  call). An unparseable value is simply not this shape. */
+export function isSelfAdvance(eff: EditorEffect, defaultScope: string, dialect: Dialect): boolean {
+  if (eff.kind !== "set" || !eff.target) return false;
+  try { return advancedRef(parse(eff.value, dialect), defaultScope) === normaliseRef(eff.target, defaultScope); } catch { return false; }
+}
 
 export interface EffectsEditorOptions {
   /** The current effect list (edited in place via onChange). */
@@ -189,13 +200,15 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
   /** The committed value as an INLINE editable pill editor (click pills to edit; "+ term" to extend) -
    *  the storylets ExpressionField model. The initial value is picked via the wizard; this edits it.
    *  `addTerm` is type-led: numbers extend arithmetically, booleans logically, others not at all. */
-  const valueDisplay = (value: string, onChange: (src: string) => void, type?: PropertyType): HTMLElement => {
+  const valueDisplay = (value: string, onChange: (src: string) => void, type?: PropertyType,
+    selfAdvanceRef?: string): HTMLElement => {
     const sub = el("div", "exed-effect-value");
     const addTerm = type === "number" ? "arithmetic" : type === "boolean" ? "boolean" : undefined;
     inner.push(mountExpressionEditor(sub, {
       value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
       ...(addTerm ? { addTerm } : {}),
+      ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
       ...(opts.popoverContainer ? { popoverContainer: opts.popoverContainer } : {}),
       text: textMode, onChange,
     }));
@@ -245,10 +258,22 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
         commit(updateAt(effects, i, { target: refOf(entry, defaultScope), value: initialValueFor(entry, defaultScope).src }));
       });
     }, "change the target property");
-    row.append(targetBtn, el("span", "exed-effect-eq", ["="]));
+    // A quality outcome reads as a sentence, not an assignment: `debt advances`, no `=`. The
+    // collapse is decided here as well as in the renderer because the separator lives on this row.
+    const advances = isSelfAdvance(eff, defaultScope, opts.dialect);
+    row.append(targetBtn);
+    if (!advances) row.append(el("span", "exed-effect-eq", ["="]));
     // Value — an inline pill editor; capture its edits WITHOUT a re-render (it owns its own DOM). The
     // "+ term" extension follows the target's declared type (arithmetic / logical / none).
-    row.append(valueDisplay(eff.value, (src) => { effects = updateAt(effects, i, { value: src }); opts.onChange(effects); }, targetType(eff.target)));
+    row.append(valueDisplay(eff.value, (src) => {
+      const next = updateAt(effects, i, { value: src });
+      // The value editor owns its DOM and normally updates without rebuilding the row - but the ROW's
+      // shape follows the value here: `debt advances` drops the `=` and the explicit call. So when
+      // that state flips (an advance edited into a named stage, or back) the row must be rebuilt, or
+      // the separator and the value would disagree.
+      if (isSelfAdvance(next[i]!, defaultScope, opts.dialect) !== advances) { commit(next); return; }
+      effects = next; opts.onChange(effects);
+    }, targetType(eff.target), advances ? eff.target : undefined));
     row.append(rowActions(i));
     return row;
   }

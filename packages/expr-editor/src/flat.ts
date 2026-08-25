@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
-import { setNodeAt, deleteAt, findChoicePeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
+import { setNodeAt, deleteAt, findChoicePeer, advancedRef, normaliseRef, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
 import { BINARY_LABEL, UNARY_LABEL, OP_WORD, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
   type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
@@ -87,6 +87,17 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
         row.append(renderNode(node.args[0]!, [...path, "args", 0], ctx));
         row.append(el("span", "exed-flagsep", [":"]));
         for (let i = 1; i < node.args.length; i++) row.append(renderNode(node.args[i]!, [...path, "args", i], ctx));
+        return row;
+      }
+      // `@debt = advance(@debt)` is the whole vocabulary of a quality outcome, and it names the
+      // property three times to say one thing. When the value advances the SET'S OWN target, the
+      // call collapses to a single word, so the row reads `debt advances`. Only for its own target:
+      // `@a = advance(@b)` still says which ladder moved, because there the second name is news.
+      if (ctx.selfAdvanceRef
+        && advancedRef(node, ctx.defaultScope) === normaliseRef(ctx.selfAdvanceRef, ctx.defaultScope)) {
+        const row = el("span", "exed-call exed-call-advance");
+        row.append(pill("advance", "advances", (b) => callEditor(ctx, path, node, b),
+          { issue, title: "advance one stage", aria: "advances one stage" }));
         return row;
       }
       const row = el("span", "exed-call");

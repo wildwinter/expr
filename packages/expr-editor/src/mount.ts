@@ -56,6 +56,10 @@ export interface ExpressionEditorOptions {
   /** Enum values for the single root literal of a value field (an enum-typed
    *  target): the literal editor then offers them as a picker. Flat mode only. */
   valueEnumValues?: string[];
+  /** The ref of the SET this value belongs to (flat value fields only). Lets `advance(<that ref>)`
+   *  render as a single "advances" word: the outcome row already names the property in its target
+   *  column, so the call would say it twice more. */
+  selfAdvanceRef?: string;
   /** Flat single-value field: an empty value renders one editable "set a value…"
    *  placeholder pill (a root string literal) rather than the condition
    *  clause-menu empty state. Pairs with mode:"flat". */
@@ -129,6 +133,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       requestFocus: (p) => { pendingFocus = p; },
       ...(opts.requireNonEmpty ? { requireNonEmpty: true } : {}),
       ...(opts.valueEnumValues ? { valueEnumValues: opts.valueEnumValues } : {}),
+      ...(opts.selfAdvanceRef ? { selfAdvanceRef: opts.selfAdvanceRef } : {}),
       ...(opts.propertyActions ? { propertyActions: opts.propertyActions } : {}),
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),

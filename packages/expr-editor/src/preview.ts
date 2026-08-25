@@ -13,7 +13,7 @@ import { renderNode } from "./flat.js";
 import { el, openPopover } from "./dom.js";
 import type { CatalogueEntry } from "./schema.js";
 import type { EditCtx } from "./types.js";
-import type { EditorEffect } from "./effects.js";
+import { isSelfAdvance, type EditorEffect } from "./effects.js";
 
 export interface PreviewOptions {
   schema: ExpressionSchema;
@@ -34,7 +34,7 @@ export interface PreviewOptions {
  *  (the preview is non-interactive for left-click). `pickNode` is stubbed so node-ref args still
  *  render as labelled node pills. When `propertyActions` is set, `openMenu` opens a real popover so
  *  the property right-click menu works while left-click editing stays inert (openPopover no-op). */
-function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNode | null } {
+function frozenCtx(src: string, o: PreviewOptions, selfAdvanceRef?: string): { ctx: EditCtx; ast: ExprNode | null } {
   const v = validateSource(src, o.schema, o.dialect);
   const ctx: EditCtx = {
     schema: o.schema, dialect: o.dialect, defaultScope: o.dialect.defaultScope,
@@ -45,6 +45,7 @@ function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNod
     apply: () => {},
     openPopover: () => {},
     pickNode: () => {}, // enables labelled node pills; never fires (preview is read-only)
+    ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
     ...(o.nodeLabel ? { nodeLabel: o.nodeLabel } : {}),
     ...(o.propertyActions ? {
       propertyActions: o.propertyActions,
@@ -55,8 +56,8 @@ function frozenCtx(src: string, o: PreviewOptions): { ctx: EditCtx; ast: ExprNod
 }
 
 /** Pills for one expression string (a condition, or an effect's value / arg). Unparseable -> raw text. */
-function exprPills(src: string, o: PreviewOptions): HTMLElement {
-  const { ctx, ast } = frozenCtx(src, o);
+function exprPills(src: string, o: PreviewOptions, selfAdvanceRef?: string): HTMLElement {
+  const { ctx, ast } = frozenCtx(src, o, selfAdvanceRef);
   return ast ? renderNode(ast, [], ctx) : el("span", "exed-preview-raw", [src]);
 }
 
@@ -76,9 +77,13 @@ export function renderEffectsPreview(effects: EditorEffect[], o: PreviewOptions)
   for (const eff of effects) {
     const row = el("div", "exed-preview-eff");
     if (eff.kind === "set") {
+      // `debt = advance(debt)` reads the property three times; when a set advances its own target the
+      // row loses the `=` and the call becomes one word, so it reads `debt advances`. This is the half
+      // the read surfaces need: outcome lists and inspector rows all come through here.
+      const advances = isSelfAdvance(eff, o.dialect.defaultScope, o.dialect);
       row.append(el("span", "exed-pill exed-pill-prop", [eff.target || "(property)"]));
-      row.append(el("span", "exed-effect-eq", ["="]));
-      row.append(exprPills(eff.value, o));
+      if (!advances) row.append(el("span", "exed-effect-eq", ["="]));
+      row.append(exprPills(eff.value, o, advances ? eff.target : undefined));
     } else {
       row.append(el("span", "exed-effect-kw", ["emit"]));
       row.append(el("span", "exed-pill exed-pill-event", [eff.event ? `"${eff.event}"` : "(name)"]));

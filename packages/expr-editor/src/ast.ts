@@ -152,6 +152,26 @@ export function findChoicePeer(ast: ExprNode, path: AstPath): { scope: string; n
 /** @deprecated Renamed to {@link findChoicePeer} - it serves qualities as well as enums now. */
 export const findEnumPeer = findChoicePeer;
 
+/** A name-form ref in ONE form, so two spellings of the same property compare equal: the default
+ *  scope may be written or left off (`@patter.debt` and `@debt`), and refs are case-insensitive. */
+export const normaliseRef = (ref: string, defaultScope: string): string => {
+  const low = ref.toLowerCase();
+  const prefix = `@${defaultScope.toLowerCase()}.`;
+  return low.startsWith(prefix) ? `@${low.slice(prefix.length)}` : low;
+};
+
+/** The name-form ref a call ADVANCES, when the call is the plain `advance(@x)` shape: one scopedvar
+ *  argument and nothing else. Null for any other call, and for an argument that is not a property
+ *  (`advance(f(@x))` keeps its explicit form, since collapsing it would hide the middle).
+ *
+ *  `advance` is the language's own built-in rather than a dialect function, so it is matched by name
+ *  here the way the evaluator and validator match it. */
+export function advancedRef(node: ExprNode, defaultScope: string): string | null {
+  if (node.kind !== "call" || node.name !== "advance" || node.args.length !== 1) return null;
+  const arg = node.args[0]!;
+  return arg.kind === "scopedvar" ? normaliseRef(`@${arg.scope}.${arg.name}`, defaultScope) : null;
+}
+
 /**
  * DFS for the first unfilled slot in a template-inserted clause: an empty string
  * literal (a tag / value the author still has to set) or an unnamed flag delta.
