@@ -13,7 +13,7 @@ import type { ExprNode, ScalarValue } from "./ast.js";
 import type { ValidateHelpers } from "./validate.js";
 
 /** Coarse return-type tag, used by static validation to type-check operands. */
-export type ReturnType = "boolean" | "number" | "string" | "flags" | "unknown";
+export type ReturnType = "boolean" | "number" | "string" | "flags" | "quality" | "unknown";
 
 export interface ScopeDef {
   /** The scope token, e.g. "world" / "scene" / "flow". */
@@ -58,6 +58,15 @@ export interface EvalContext {
    * `eval` functions cast and read what they need.
    */
   host?: Record<string, unknown>;
+  /**
+   * The QUALITY channel (design: storylets-new/design/quality.md). Answers
+   * "is @scope.name a quality, and what is its ladder?" - the ordered stage
+   * list, or undefined for anything that is not a quality. A quality's VALUE
+   * is its stage name (a plain string in the bags); the ladder is what makes
+   * ordering comparisons and `advance` meaningful. Opt-in: a context that
+   * never wires this sees no behaviour change anywhere.
+   */
+  qualities?: (scope: string, name: string) => readonly string[] | undefined;
 }
 
 export interface EvalHelpers {

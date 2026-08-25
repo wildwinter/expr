@@ -172,3 +172,51 @@ describe("readScopeRegistrySpec (interop)", () => {
     expect(issues("@game.unknown > 0", r).some((i) => i.kind === "unresolved-scoped-property")).toBe(true);
   });
 });
+
+// --- quality end to end (quality.md): declare it, and everything works -------
+describe("a quality declared on the registry", () => {
+  // Stage names that would sort wrongly as strings, so alphabet cannot pass.
+  const reg = () => new ScopeRegistry().defineOwned("patter", [
+    { name: "debt", type: "quality", stages: ["troubled", "confronted", "resolved"] },
+  ]);
+
+  it("defaults to its first stage", () => {
+    expect(reg().get("patter", "debt")).toBe("troubled");
+  });
+
+  it("orders by ladder position with no wiring beyond the declaration", () => {
+    const r = reg();
+    expect(evalSrc('@debt >= "troubled"', r)).toBe(true);
+    expect(evalSrc('@debt >= "confronted"', r)).toBe(false);
+    r.set("patter", "debt", "resolved");
+    expect(evalSrc('@debt >= "confronted"', r)).toBe(true);
+  });
+
+  it("advances along the ladder, saturating at the end", () => {
+    const r = reg();
+    expect(evalSrc("advance(@debt)", r)).toBe("confronted");
+    r.set("patter", "debt", "resolved");
+    expect(evalSrc("advance(@debt)", r)).toBe("resolved");
+  });
+
+  it("feeds the validator its stages", () => {
+    const r = reg();
+    expect(issues('@debt >= "confronted"', r)).toEqual([]);
+    expect(issues('@debt >= "tpyo"', r).map((i) => i.message).join()).toContain("tpyo");
+  });
+
+  it("adds no channel when nothing is a quality, so other contexts are untouched", () => {
+    const r = new ScopeRegistry().defineOwned("patter", [{ name: "hp", type: "number", default: 10 }]);
+    expect("qualities" in r.toEvalContext()).toBe(false);
+  });
+
+  it("saves and loads as its plain stage name", () => {
+    const r = reg();
+    r.set("patter", "debt", "confronted");
+    const saved = r.save();
+    expect(saved["patter"]!["debt"]).toBe("confronted");
+    const r2 = reg();
+    r2.load(saved);
+    expect(evalSrc('@debt == "confronted"', r2)).toBe(true);
+  });
+});

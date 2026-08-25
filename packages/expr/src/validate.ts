@@ -19,11 +19,15 @@ import type { Dialect, ReturnType } from "./dialect.js";
 import { parse } from "./parser.js";
 
 /** Property value types a schema can declare. */
-export type PropertyType = "boolean" | "number" | "string" | "enum" | "flags";
+export type PropertyType = "boolean" | "number" | "string" | "enum" | "flags" | "quality";
 
 export interface PropertyMeta {
   type: PropertyType;
   enumValues?: string[];
+  /** A quality's ordered ladder of stage names. Order IS the meaning: the
+   *  ordering operators compare by position in this list, and `advance` steps
+   *  along it (design: storylets-new/design/quality.md). */
+  stages?: string[];
 }
 
 export interface ExpressionSchema {
@@ -41,6 +45,7 @@ export type ValidationErrorKind =
   | "unresolved-scoped-property"
   | "unknown-function"
   | "unknown-enum-value"
+  | "unknown-stage"
   | "unknown-flag-name"
   | "wrong-arg-count"
   | "wrong-arg-type"
@@ -158,6 +163,22 @@ function walkValidate(
     }
 
     case "call": {
+      // `advance` is the language's own (quality.md): next stage in the ladder.
+      // Validated here so every dialect gets it without declaring anything.
+      if (node.name === "advance" && !dialect.functions[node.name]) {
+        if (node.args.length !== 1) {
+          issues.push({ path, kind: "wrong-arg-count", severity: "error", message: `advance() takes exactly 1 argument, got ${node.args.length}` });
+        }
+        const arg = node.args[0];
+        if (arg) {
+          walkValidate(arg, schema, dialect, [...path, "args", 0], issues);
+          if (stagesOf(arg, schema) === undefined && typeOf(arg, schema, dialect) !== "unknown") {
+            issues.push({ path: [...path, "args", 0], kind: "wrong-arg-type", severity: "error",
+              message: "advance() needs a quality reference (@scope.name of a quality property)" });
+          }
+        }
+        return;
+      }
       const def = dialect.functions[node.name];
       if (!def) {
         issues.push({ path, kind: "unknown-function", severity: "error", message: `unknown function '${node.name}'` });
@@ -233,18 +254,26 @@ function walkValidate(
 // Operand-type checking
 // ---------------------------------------------------------------------------
 
-type InferredType = "boolean" | "number" | "string" | "flags" | "unknown";
+type InferredType = "boolean" | "number" | "string" | "flags" | "quality" | "unknown";
 
 function inferredFromPropertyType(t: PropertyType): InferredType {
   if (t === "boolean") return "boolean";
   if (t === "number") return "number";
   if (t === "string" || t === "enum") return "string";
   if (t === "flags") return "flags";
+  if (t === "quality") return "quality";
   return "unknown";
 }
 
 function inferredFromReturn(t: ReturnType): InferredType {
   return t;
+}
+
+/** The quality ladder behind a node, when the node is a reference to one. */
+function stagesOf(node: ExprNode, schema: ExpressionSchema): string[] | undefined {
+  if (node.kind !== "scopedvar") return undefined;
+  const meta = schema.properties.get(node.scope)?.get(node.name);
+  return meta?.type === "quality" ? meta.stages : undefined;
 }
 
 function typeOf(node: ExprNode, schema: ExpressionSchema, dialect: Dialect): InferredType {
@@ -258,6 +287,7 @@ function typeOf(node: ExprNode, schema: ExpressionSchema, dialect: Dialect): Inf
       return meta ? inferredFromPropertyType(meta.type) : "unknown";
     }
     case "call": {
+      if (node.name === "advance") return "quality";
       const def = dialect.functions[node.name];
       return def ? inferredFromReturn(def.returnType) : "unknown";
     }
@@ -282,7 +312,47 @@ function checkBinaryOperandTypes(
   const lt = typeOf(left, schema, dialect);
   const rt = typeOf(right, schema, dialect);
 
-  if (op === "+" || op === "-" || op === "*" || op === "/" || op === ">" || op === "<" || op === ">=" || op === "<=") {
+  const ordering = op === ">" || op === "<" || op === ">=" || op === "<=";
+
+  // A quality orders by its ladder, so the ordering operators accept it - but
+  // only against a stage of the SAME quality (a literal stage name, or another
+  // reference to it). Arithmetic on a quality is refused outright: a stage is
+  // a position in a story, not a value you can add to.
+  if (lt === "quality" || rt === "quality") {
+    if (ordering) {
+      const ls = stagesOf(left, schema);
+      const rs = stagesOf(right, schema);
+      if (ls && rs) {
+        if (ls.join("\u0000") !== rs.join("\u0000")) {
+          issues.push({ path, kind: "operand-type-mismatch", severity: "error", message: `'${op}' compares two different qualities, whose stage orders are unrelated` });
+        }
+        return;
+      }
+      const ladder = ls ?? rs;
+      const other = ls ? right : left;
+      const otherSide: "left" | "right" = ls ? "right" : "left";
+      if (other.kind === "string") {
+        if (ladder && !ladder.includes(other.value)) {
+          issues.push({ path: [...path, otherSide], kind: "unknown-stage", severity: "error",
+            message: `'${other.value}' is not a stage of this quality - expected one of: ${ladder.join(", ")}`, reference: other.value });
+        }
+        return;
+      }
+      const ot = ls ? rt : lt;
+      if (ot !== "unknown" && ot !== "quality") {
+        issues.push({ path: [...path, otherSide], kind: "operand-type-mismatch", severity: "error",
+          message: `'${op}' on a quality compares stages, got ${describeType(ot)} on the ${otherSide}` });
+      }
+      return;
+    }
+    if (op === "+" || op === "-" || op === "*" || op === "/") {
+      issues.push({ path, kind: "operand-type-mismatch", severity: "error",
+        message: `'${op}' cannot be applied to a quality - a stage is a position, not a number; use advance() to move it` });
+      return;
+    }
+  }
+
+  if (op === "+" || op === "-" || op === "*" || op === "/" || ordering) {
     if (lt !== "unknown" && lt !== "number")
       issues.push({ path: [...path, "left"], kind: "operand-type-mismatch", severity: "error", message: `'${op}' requires a number on the left, got ${describeType(lt)}` });
     if (rt !== "unknown" && rt !== "number")

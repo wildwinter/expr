@@ -57,6 +57,25 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
       }
 
       case "call": {
+        // `advance` is the language's own, the first core built-in: the next
+        // stage in the argument's ladder, saturating at the last. Core rather
+        // than dialect because it IS the quality design's insertion mechanism
+        // (an outcome that never names its destination routes through an
+        // inserted stage automatically), and every dialect should say it the
+        // same way. A dialect that defines its own `advance` wins, for
+        // back-compat with any dialect that already had one.
+        if (n.name === "advance" && !dialect.functions[n.name]) {
+          const arg = n.args[0];
+          if (n.args.length !== 1 || arg === undefined) {
+            throw new EvalError(`advance() takes exactly 1 argument, got ${n.args.length}`);
+          }
+          const ladder = ladderOf(arg, ctx);
+          if (ladder === undefined) {
+            throw new EvalError("advance() needs a quality reference (@scope.name of a quality property)");
+          }
+          const current = stageIndex(rec(arg), ladder, "advance");
+          return ladder[Math.min(current + 1, ladder.length - 1)]!;
+        }
         const def = dialect.functions[n.name];
         if (!def) throw new EvalError(`unknown function '${n.name}'`);
         return def.eval(n.args, { evaluate: rec, ctx });
@@ -98,6 +117,30 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
 
         const left  = rec(n.left);
         const right = rec(n.right);
+
+        // Quality: when either operand REFERENCES a quality (the node carries
+        // the scope+name the channel resolves), ordering compares by ladder
+        // position and arithmetic is refused. Everything else is untouched,
+        // so a context with no channel behaves exactly as before.
+        const lLadder = ladderOf(n.left, ctx);
+        const rLadder = ladderOf(n.right, ctx);
+        const ladder = lLadder ?? rLadder;
+        if (ladder !== undefined) {
+          if (lLadder && rLadder && !sameLadder(lLadder, rLadder)) {
+            if (n.op === ">" || n.op === ">=" || n.op === "<" || n.op === "<=") {
+              throw new EvalError(`'${n.op}' compares two different qualities, whose stage orders are unrelated`);
+            }
+          }
+          switch (n.op) {
+            case ">":  return stageIndex(left, ladder, ">")  >  stageIndex(right, ladder, ">");
+            case ">=": return stageIndex(left, ladder, ">=") >= stageIndex(right, ladder, ">=");
+            case "<":  return stageIndex(left, ladder, "<")  <  stageIndex(right, ladder, "<");
+            case "<=": return stageIndex(left, ladder, "<=") <= stageIndex(right, ladder, "<=");
+            case "+": case "-": case "*": case "/":
+              throw new EvalError(`'${n.op}' cannot be applied to a quality - a stage is a position, not a number; use advance() to move it`);
+            default: break;   // == and != fall through to plain value equality
+          }
+        }
 
         switch (n.op) {
           case "==": return valueEquals(left, right);
@@ -148,3 +191,27 @@ function assertNumbers(l: ScalarValue, r: ScalarValue, op: string): void {
     throw new EvalError(`'${op}' requires numeric operands, got ${typeof l} and ${typeof r}`);
   }
 }
+
+// --- quality (design: storylets-new/design/quality.md) -----------------------
+
+/** The ladder behind an operand NODE, when the context's quality channel says
+ *  it references a quality. Values are plain strings; the node is what carries
+ *  the (scope, name) the channel needs. */
+function ladderOf(node: ExprNode, ctx: EvalContext): readonly string[] | undefined {
+  if (node.kind !== "scopedvar" || ctx.qualities === undefined) return undefined;
+  return ctx.qualities(node.scope, node.name);
+}
+
+/** Index of a stage in a ladder; an unknown stage is an error naming the
+ *  value, never a silent pass (a drifted save is exactly what lands here). */
+function stageIndex(value: ScalarValue, ladder: readonly string[], op: string): number {
+  if (typeof value !== "string") {
+    throw new EvalError(`'${op}' on a quality compares stages, got ${typeof value}`);
+  }
+  const i = ladder.indexOf(value);
+  if (i < 0) throw new EvalError(`"${value}" is not a stage of this quality (stages: ${ladder.join(", ")})`);
+  return i;
+}
+
+const sameLadder = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((x, i) => x === b[i]);

@@ -34,6 +34,8 @@ export interface ScopeDeclaration {
   name: string;
   type: PropertyType;
   values?: string[];        // for enum / flags
+  /** A quality's ordered ladder of stage names (quality.md). */
+  stages?: string[];
   default?: ScalarValue;    // owned scopes: seed value
   writable?: boolean;       // default true
 }
@@ -383,7 +385,30 @@ export class ScopeRegistry {
     for (const [token, e] of this.scopes) {
       scopes[token] = e.kind === "owned" ? e.bag.values : e.resolver;
     }
-    return { scopes, host };
+    // The quality channel (quality.md): declared here once, so a host that
+    // registers a quality gets ordering comparisons and advance() with no
+    // further wiring. Only added when a quality exists, so contexts stay
+    // byte-identical for products that declare none.
+    const qualities = this.qualityLadders();
+    return qualities.size === 0 ? { scopes, host } : {
+      scopes, host,
+      qualities: (scope, name) => qualities.get(scope)?.get(name.toLowerCase()),
+    };
+  }
+
+  /** Every quality declaration's ladder, keyed scope token then name. */
+  private qualityLadders(): Map<string, Map<string, readonly string[]>> {
+    const out = new Map<string, Map<string, readonly string[]>>();
+    for (const [token, e] of this.scopes) {
+      const decls = e.kind === "owned" ? e.bag.declarations() : [...e.decls.values()];
+      for (const d of decls) {
+        if (d.type !== "quality" || d.stages === undefined) continue;
+        let m = out.get(token);
+        if (!m) { m = new Map(); out.set(token, m); }
+        m.set(d.name.toLowerCase(), d.stages);
+      }
+    }
+    return out;
   }
 
   /**
@@ -392,12 +417,15 @@ export class ScopeRegistry {
    * declared scopes contribute their property types for validation.
    */
   toSchema(): ExpressionSchema {
-    const properties = new Map<string, Map<string, { type: PropertyType; enumValues?: string[] }>>();
+    const properties = new Map<string, Map<string, { type: PropertyType; enumValues?: string[]; stages?: string[] }>>();
     for (const [token, e] of this.scopes) {
       const decls = e.kind === "owned" ? e.bag.declarations() : [...e.decls.values()];
       if (decls.length === 0) continue;
-      const m = new Map<string, { type: PropertyType; enumValues?: string[] }>();
-      for (const d of decls) m.set(d.name.toLowerCase(), { type: d.type, enumValues: d.values });
+      const m = new Map<string, { type: PropertyType; enumValues?: string[]; stages?: string[] }>();
+      for (const d of decls) m.set(d.name.toLowerCase(), {
+        type: d.type, enumValues: d.values,
+        ...(d.stages !== undefined ? { stages: d.stages } : {}),
+      });
       properties.set(token, m);
     }
     return { properties };
@@ -450,5 +478,7 @@ function defaultFor(d: ScopeDeclaration): ScalarValue {
     case "string": return "";
     case "enum": return d.values?.[0] ?? "";
     case "flags": return [];
+    // A quality starts at the first rung of its ladder.
+    case "quality": return d.stages?.[0] ?? "";
   }
 }
