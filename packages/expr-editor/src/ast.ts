@@ -127,18 +127,30 @@ export function toggleNotAt(ast: ExprNode, path: AstPath): ExprNode {
 }
 
 /**
- * If the node at `path` is one operand of an equality comparison (`==` / `!=`)
- * whose OTHER operand is a property reference, return that property — so a string
- * literal can offer the property's enum values. Null otherwise.
+ * If the node at `path` is one operand of a COMPARISON whose other operand is a property
+ * reference, return that property - so a literal can offer that property's choices (an enum's
+ * values, a quality's stages).
+ *
+ * Every comparison counts, not just `==` / `!=`. Equality was enough while an enum was the only
+ * type with a closed value list, because an enum is never ordered; a QUALITY is ordered, and
+ * `@investigation >= "certain"` is the shape its type exists for. Restricting to equality left
+ * exactly that clause offering a free-text box where the ladder should be.
+ *
+ * Whether the peer HAS choices is not decided here - that is `choicesOf`'s job. This answers only
+ * "which property is this literal being compared against", so a number's `> 1` resolves its peer
+ * and then offers nothing, as before.
  */
-export function findEnumPeer(ast: ExprNode, path: AstPath): { scope: string; name: string } | null {
+export function findChoicePeer(ast: ExprNode, path: AstPath): { scope: string; name: string } | null {
   const last = path[path.length - 1];
   if (last !== "left" && last !== "right") return null;
   const parent = getNodeAt(ast, path.slice(0, -1));
-  if (parent?.kind !== "binary" || (parent.op !== "==" && parent.op !== "!=")) return null;
+  if (parent?.kind !== "binary" || !isComparisonOp(parent.op)) return null;
   const other = last === "left" ? parent.right : parent.left;
   return other.kind === "scopedvar" ? { scope: other.scope, name: other.name } : null;
 }
+
+/** @deprecated Renamed to {@link findChoicePeer} - it serves qualities as well as enums now. */
+export const findEnumPeer = findChoicePeer;
 
 /**
  * DFS for the first unfilled slot in a template-inserted clause: an empty string

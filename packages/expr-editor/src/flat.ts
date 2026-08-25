@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
-import { setNodeAt, deleteAt, findEnumPeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
+import { setNodeAt, deleteAt, findChoicePeer, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
 import { BINARY_LABEL, UNARY_LABEL, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
   type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
@@ -203,7 +203,7 @@ function numberEditor(ctx: EditCtx, path: AstPath, value: number, anchor: HTMLBu
 }
 
 function stringEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "string" }, anchor: HTMLButtonElement): void {
-  const peer = findEnumPeer(ctx.getAst(), path);
+  const peer = findChoicePeer(ctx.getAst(), path);
   const enumEntry = peer ? lookup(ctx.catalogue, peer.scope, peer.name) : null;
   // The closed value list comes from a comparison peer (an enum's values, or a quality's stages in
   // LADDER order), or - for the single root literal of a value field - from the target's declared

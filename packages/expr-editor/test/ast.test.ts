@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   binary, boolLit, numLit, strLit, scopedVar, notNode, callNode,
-  getNodeAt, setNodeAt, deleteAt, insertSiblingClauseAt, isWrappedInNot, toggleNotAt, findEnumPeer,
+  getNodeAt, setNodeAt, deleteAt, insertSiblingClauseAt, isWrappedInNot, toggleNotAt, findEnumPeer, findChoicePeer,
   placeholderForOp, isPlaceholderForOp,
 } from "../src/ast.js";
 
@@ -50,11 +50,30 @@ describe("ast path mutation", () => {
     expect(toggleNotAt(wrapped, ["operand"])).toEqual(ast); // strips back
   });
 
-  it("findEnumPeer returns the property a string is compared against", () => {
+  it("findChoicePeer returns the property a literal is compared against", () => {
     const ast = binary("==", scopedVar("scene", "weather"), strLit("storm"));
-    expect(findEnumPeer(ast, ["right"])).toEqual({ scope: "scene", name: "weather" });
-    expect(findEnumPeer(ast, ["left"])).toBeNull(); // the property side has no peer
-    expect(findEnumPeer(binary(">", scopedVar("patter", "g"), numLit(1)), ["right"])).toBeNull(); // not == / !=
+    expect(findChoicePeer(ast, ["right"])).toEqual({ scope: "scene", name: "weather" });
+    expect(findChoicePeer(ast, ["left"])).toBeNull(); // the property side has no peer
+  });
+
+  it("resolves the peer of an ORDERING comparison too, which a quality's clause needs", () => {
+    // This used to return null for anything but == / !=, which was fine while an enum was the only
+    // type with a closed value list. A quality is ordered, so `>= "certain"` is its whole point, and
+    // the restriction left that clause's value pill offering free text instead of the ladder.
+    const ast = binary(">=", scopedVar("patter", "investigation"), strLit("certain"));
+    expect(findChoicePeer(ast, ["right"])).toEqual({ scope: "patter", name: "investigation" });
+    for (const op of [">", "<", "<="] as const) {
+      expect(findChoicePeer(binary(op, scopedVar("patter", "q"), strLit("x")), ["right"])).toEqual({ scope: "patter", name: "q" });
+    }
+    // A number resolves its peer as well: whether the peer HAS choices is choicesOf's call, not the
+    // operator's, and a number simply has none.
+    expect(findChoicePeer(binary(">", scopedVar("patter", "g"), numLit(1)), ["right"])).toEqual({ scope: "patter", name: "g" });
+    // Still nothing for a non-comparison.
+    expect(findChoicePeer(binary("+", scopedVar("patter", "g"), numLit(1)), ["right"])).toBeNull();
+  });
+
+  it("keeps the old findEnumPeer name working for hosts", () => {
+    expect(findEnumPeer).toBe(findChoicePeer);
   });
 
   it("placeholder sentinels are op-polarised", () => {
