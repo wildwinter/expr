@@ -207,6 +207,11 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     inner.push(mountExpressionEditor(sub, {
       value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
+      // Every editor here holds a VALUE (a set's value, an emit's argument), never a condition. Say
+      // so, or emptying one falls back to the condition empty state and an outcome row reads
+      // "always / + Add your first condition" - condition vocabulary, offering clauses where a value
+      // belongs, and no way back to a value. `valueField` renders an editable empty literal instead.
+      valueField: true,
       ...(addTerm ? { addTerm } : {}),
       ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
       ...(opts.popoverContainer ? { popoverContainer: opts.popoverContainer } : {}),
