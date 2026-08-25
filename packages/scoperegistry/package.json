@@ -5,8 +5,18 @@
   "type": "module",
   "license": "MIT",
   "author": "Ian Thomas",
-  "repository": { "type": "git", "url": "git+https://github.com/wildwinter/expr.git", "directory": "packages/scoperegistry" },
-  "keywords": ["expression", "scope", "registry", "state", "wildwinter"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildwinter/expr.git",
+    "directory": "packages/scoperegistry"
+  },
+  "keywords": [
+    "expression",
+    "scope",
+    "registry",
+    "state",
+    "wildwinter"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +27,11 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
@@ -31,6 +45,6 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@wildwinter/expr": "^0.3.0"
+    "@wildwinter/expr": "^0.4.0"
   }
 }
