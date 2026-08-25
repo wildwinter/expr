@@ -12,6 +12,7 @@ export { mountExpressionEditor } from "./mount.js";
 export type { ExpressionEditorOptions, ExpressionEditorHandle } from "./mount.js";
 export {
   mountEffectsEditor, addSet, addEmit, removeAt, moveAt, updateAt, setArgAt, addArg, removeArgAt, seedValueSrc,
+  initialValueFor,
 } from "./effects.js";
 export type { EditorEffect, EffectsEditorOptions, EffectsEditorHandle } from "./effects.js";
 export { renderConditionPreview, renderEffectsPreview } from "./preview.js";
