@@ -125,6 +125,7 @@ describe("static validation", () => {
     properties: new Map([
       ["deck", new Map([
         ["debt", { type: "quality" as const, stages: LADDER }],
+        ["mood", { type: "quality" as const, stages: ["low", "level", "high"] }],
         ["heat", { type: "number" as const }],
       ])],
     ]),
@@ -139,6 +140,29 @@ describe("static validation", () => {
     const r = parseAndValidate('@deck.debt >= "tpyo"', schema, dialect);
     expect(r.ok).toBe(false);
     expect(r.issues.map((i) => i.message).join()).toContain("tpyo");
+  });
+
+  it("accepts equality against a known stage - the natural 'exactly here' gate", () => {
+    expect(parseAndValidate('@deck.debt == "troubled"', schema, dialect).issues).toEqual([]);
+    expect(parseAndValidate('@deck.debt != "resolved"', schema, dialect).issues).toEqual([]);
+  });
+
+  it("flags equality against a name that is not a stage - it could never be true", () => {
+    const r = parseAndValidate('@deck.debt == "tpyo"', schema, dialect);
+    expect(r.ok).toBe(false);
+    expect(r.issues.map((i) => i.kind)).toContain("unknown-stage");
+    expect(r.issues.map((i) => i.message).join()).toContain("tpyo");
+  });
+
+  it("flags equality between two different qualities", () => {
+    const r = parseAndValidate("@deck.debt == @deck.mood", schema, dialect);
+    expect(r.ok).toBe(false);
+    expect(r.issues.map((i) => i.message).join()).toContain("different qualities");
+  });
+
+  it("flags equality between a quality and a number", () => {
+    const r = parseAndValidate("@deck.debt == 2", schema, dialect);
+    expect(r.ok).toBe(false);
   });
 
   it("flags ordering between a quality and a number", () => {

@@ -316,15 +316,18 @@ function checkBinaryOperandTypes(
 
   // A quality orders by its ladder, so the ordering operators accept it - but
   // only against a stage of the SAME quality (a literal stage name, or another
-  // reference to it). Arithmetic on a quality is refused outright: a stage is
-  // a position in a story, not a value you can add to.
+  // reference to it). Equality follows the same rule: '== "stage"' is the
+  // natural 'exactly here' gate, and a name off the ladder could never be
+  // equal, so it gets the same unknown-stage diagnosis a typo deserves.
+  // Arithmetic on a quality is refused outright: a stage is a position in a
+  // story, not a value you can add to.
   if (lt === "quality" || rt === "quality") {
-    if (ordering) {
+    if (ordering || op === "==" || op === "!=") {
       const ls = stagesOf(left, schema);
       const rs = stagesOf(right, schema);
       if (ls && rs) {
         if (ls.join("\u0000") !== rs.join("\u0000")) {
-          issues.push({ path, kind: "operand-type-mismatch", severity: "error", message: `'${op}' compares two different qualities, whose stage orders are unrelated` });
+          issues.push({ path, kind: "operand-type-mismatch", severity: "error", message: `'${op}' compares two different qualities, whose stages are unrelated` });
         }
         return;
       }
