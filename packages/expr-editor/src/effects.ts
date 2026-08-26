@@ -17,7 +17,7 @@ import { el, button, openPopover, type Popover } from "./dom.js";
 import {
   type CatalogueEntry, type PropertyType,
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf,
-  choicesOf,
+  choicesOf, propertyTip,
 } from "./schema.js";
 import type { FunctionTemplateSpec } from "./types.js";
 import { advancedRef, normaliseRef } from "./ast.js";
@@ -61,6 +61,10 @@ export interface EffectsEditorOptions {
    *  inside a focus-trapping dialog so popovers do not dismiss it. Threaded to the
    *  target/event pickers here and to every inline value editor. */
   popoverContainer?: HTMLElement;
+  /** Host actions for a property pill, shown on right-click (e.g. go to
+   *  definition). Threaded to every inline value editor, and honoured by the
+   *  set rows' own target pills (resolved via the catalogue). */
+  propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
   /** Emitted on every structural / value edit with the whole new list. */
   onChange: (effects: EditorEffect[]) => void;
 }
@@ -214,6 +218,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       valueField: true,
       ...(addTerm ? { addTerm } : {}),
       ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
+      ...(opts.propertyActions ? { propertyActions: opts.propertyActions } : {}),
       ...(opts.popoverContainer ? { popoverContainer: opts.popoverContainer } : {}),
       text: textMode, onChange,
     }));
@@ -263,6 +268,24 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
         commit(updateAt(effects, i, { target: refOf(entry, defaultScope), value: initialValueFor(entry, defaultScope).src }));
       });
     }, "change the target property");
+    const targetEntry = opts.catalogue.find((e) => refOf(e, defaultScope) === eff.target);
+    // The same affordances the pills inside values carry: the declaration's
+    // purpose (and ladder) on hover, the host's menu on right-click. Left-click
+    // stays the repick, which the fallback title still teaches.
+    const tip = propertyTip(targetEntry);
+    if (tip) targetBtn.title = tip;
+    if (targetEntry && opts.propertyActions) {
+      const actions = opts.propertyActions({ scope: targetEntry.scope, name: targetEntry.name });
+      if (actions.length) targetBtn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        closePopover();
+        popover = openPopover(targetBtn, (close) => {
+          const wrap = el("div", "exed-menu");
+          for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
+          return wrap;
+        }, { container: opts.popoverContainer });
+      });
+    }
     // A quality outcome reads as a sentence, not an assignment: `debt advances`, no `=`. The
     // collapse is decided here as well as in the renderer because the separator lives on this row.
     const advances = isSelfAdvance(eff, defaultScope, opts.dialect);
