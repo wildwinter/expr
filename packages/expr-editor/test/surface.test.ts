@@ -15,7 +15,7 @@ const PUBLIC_NAMES = [
   // effects model + the value decisions a host may need to mirror
   "addSet", "addEmit", "removeAt", "moveAt", "updateAt", "seedValueSrc", "initialValueFor",
   // catalogue + operator vocabulary
-  "choicesOf", "refOf", "displayName", "filterCatalogue",
+  "choicesOf", "propertyTip", "refOf", "displayName", "filterCatalogue",
   "COMPARABLE_TYPES", "comparisonOpsFor", "rhsTypesFor", "BINARY_LABEL",
 ];
 

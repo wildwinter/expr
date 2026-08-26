@@ -34,6 +34,19 @@ export const choicesOf = (e: { type: PropertyType; enumValues?: string[]; stages
   return undefined;
 };
 
+/** What a property PILL says on rollover: the purpose, and for a quality its
+ *  ladder (the one thing about a property whose order matters and which the
+ *  use site cannot otherwise show). The picker already displays purposes; this
+ *  is for the place an author actually meets a property, mid-expression.
+ *  Pure, so hosts and tests share one answer; the pill wires it as its title. */
+export const propertyTip = (e: { type: PropertyType; purpose?: string; stages?: string[] } | null | undefined): string | undefined => {
+  if (!e) return undefined;
+  const lines: string[] = [];
+  if (e.purpose) lines.push(e.purpose);
+  if (e.type === "quality" && e.stages?.length) lines.push(`Stages: ${e.stages.join(" \u2192 ")}`);
+  return lines.length ? lines.join("\n") : undefined;
+};
+
 export interface Filter {
   acceptTypes?: PropertyType[];
   acceptScopes?: string[];

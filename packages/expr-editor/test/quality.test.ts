@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from "vitest";
-import { choicesOf, type CatalogueEntry } from "../src/schema.js";
+import { choicesOf, propertyTip, type CatalogueEntry } from "../src/schema.js";
 import { COMPARABLE_TYPES, COMPARISON_OPS, EQUALITY_OPS, comparisonOpsFor, rhsTypesFor } from "../src/ops.js";
 import { seedValueSrc, initialValueFor } from "../src/effects.js";
 
@@ -107,5 +107,30 @@ describe("seedValueSrc: what a freshly targeted outcome starts as", () => {
     expect(seedValueSrc("number")).toBe("0");
     expect(seedValueSrc("string")).toBe('""');
     expect(seedValueSrc("enum", ["calm", "tense"])).toBe('"calm"');
+  });
+});
+
+
+// The pill's rollover. A property's purpose lives in the catalogue and the
+// PICKER already shows it, but the place an author actually meets a property
+// is mid-expression, on a pill, where nothing said what it means. The tip is
+// a pure decision so it is tested here; the pill wires it as its title.
+describe("propertyTip: what a property pill says on rollover", () => {
+  it("shows the purpose", () => {
+    expect(propertyTip({ type: "number", purpose: "Spending money." }))
+      .toBe("Spending money.");
+  });
+
+  it("shows a quality's ladder, after the purpose when there is one", () => {
+    expect(propertyTip({ type: "quality", stages: ["quiet", "loud"], purpose: "The debt arc." }))
+      .toBe("The debt arc.\nStages: quiet \u2192 loud");
+    expect(propertyTip({ type: "quality", stages: ["quiet", "loud"] }))
+      .toBe("Stages: quiet \u2192 loud");
+  });
+
+  it("says nothing when there is nothing to say", () => {
+    expect(propertyTip({ type: "number" })).toBeUndefined();
+    expect(propertyTip(null)).toBeUndefined();
+    expect(propertyTip(undefined)).toBeUndefined();
   });
 });
