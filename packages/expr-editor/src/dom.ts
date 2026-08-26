@@ -130,3 +130,12 @@ export function textField(opts: {
   setTimeout(() => input.focus(), 0);
   return wrap;
 }
+
+/** The body of a property pill's right-click menu: the host's actions, one row each. Shared by the
+ *  three surfaces that offer it (the flat renderer's pills, the effects row's target, the read-only
+ *  effects preview) - they differ only in WHICH popover owns the menu, not in what it contains. */
+export function propertyMenuBody(actions: ReadonlyArray<{ label: string; run: () => void }>, close: () => void): HTMLElement {
+  const wrap = el("div", "exed-menu");
+  for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
+  return wrap;
+}

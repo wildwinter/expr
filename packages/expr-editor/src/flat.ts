@@ -12,7 +12,7 @@ import {
   type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
   propertyTip,
 } from "./schema.js";
-import { el, button, textField } from "./dom.js";
+import { el, button, textField, propertyMenuBody } from "./dom.js";
 import { issuesAt } from "./validate.js";
 import type { EditCtx } from "./types.js";
 
@@ -162,11 +162,7 @@ function attachPropertyMenu(ctx: EditCtx, node: ExprNode & { kind: "scopedvar" }
   const open = ctx.openMenu ?? ctx.openPopover;
   pillEl.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    open(pillEl, (close) => {
-      const wrap = el("div", "exed-menu");
-      for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
-      return wrap;
-    });
+    open(pillEl, (close) => propertyMenuBody(actions, close));
   });
 }
 

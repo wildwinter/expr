@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { parse, type Dialect, type ExpressionSchema } from "@wildwinter/expr";
-import { el, button, openPopover, type Popover } from "./dom.js";
+import { el, button, openPopover, type Popover, propertyMenuBody } from "./dom.js";
 import {
   type CatalogueEntry, type PropertyType,
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf,
@@ -279,11 +279,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       if (actions.length) targetBtn.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         closePopover();
-        popover = openPopover(targetBtn, (close) => {
-          const wrap = el("div", "exed-menu");
-          for (const a of actions) wrap.append(button("exed-opt", a.label, () => { a.run(); close(); }));
-          return wrap;
-        }, { container: opts.popoverContainer });
+        popover = openPopover(targetBtn, (close) => propertyMenuBody(actions, close), { container: opts.popoverContainer });
       });
     }
     // A quality outcome reads as a sentence, not an assignment: `debt advances`, no `=`. The

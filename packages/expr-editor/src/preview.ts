@@ -10,8 +10,8 @@
 import type { Dialect, ExprNode, ExpressionSchema } from "@wildwinter/expr";
 import { validateSource } from "./validate.js";
 import { renderNode } from "./flat.js";
-import { el, openPopover } from "./dom.js";
-import type { CatalogueEntry } from "./schema.js";
+import { el, openPopover, propertyMenuBody } from "./dom.js";
+import { propertyTip, refOf, type CatalogueEntry } from "./schema.js";
 import type { EditCtx } from "./types.js";
 import { isSelfAdvance, type EditorEffect } from "./effects.js";
 
@@ -70,10 +70,30 @@ export function renderConditionPreview(src: string, o: PreviewOptions): HTMLElem
   return el("div", cls, [exprPills(src, o)]);
 }
 
+/** The set row's TARGET pill, which is a property like any other and was the one that never said so:
+ *  the value pills go through the renderer and pick up the tip and the menu on the way, while this
+ *  one was built here as bare text. It is the property being WRITTEN, so on an inspector row it is
+ *  the first thing a reader asks about. */
+function targetPill(ref: string, o: PreviewOptions): HTMLElement {
+  const pill = el("span", "exed-pill exed-pill-prop", [ref || "(property)"]);
+  const entry = o.catalogue.find((e) => refOf(e, o.dialect.defaultScope) === ref);
+  if (!entry) return pill;
+  const tip = propertyTip(entry);
+  if (tip) pill.title = tip;
+  const actions = o.propertyActions?.({ scope: entry.scope, name: entry.name }) ?? [];
+  if (actions.length) pill.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    openPopover(pill, (close) => propertyMenuBody(actions, close), { container: o.popoverContainer });
+  });
+  return pill;
+}
+
 /** Read-only pill strip for an effects list: each `set` as `target = value`, each `emit` as
  *  `emit event(args…)`, one per line. */
 export function renderEffectsPreview(effects: EditorEffect[], o: PreviewOptions): HTMLElement {
-  const wrap = el("div", "exed-preview exed-preview-effects");
+  // Same rule as the condition preview: with host actions the pills accept a right-click, without
+  // them the whole strip stays inert and a click falls through to the row's "open editor" control.
+  const wrap = el("div", `exed-preview exed-preview-effects${o.propertyActions ? " exed-preview-interactive" : ""}`);
   for (const eff of effects) {
     const row = el("div", "exed-preview-eff");
     if (eff.kind === "set") {
@@ -81,7 +101,7 @@ export function renderEffectsPreview(effects: EditorEffect[], o: PreviewOptions)
       // row loses the `=` and the call becomes one word, so it reads `debt advances`. This is the half
       // the read surfaces need: outcome lists and inspector rows all come through here.
       const advances = isSelfAdvance(eff, o.dialect.defaultScope, o.dialect);
-      row.append(el("span", "exed-pill exed-pill-prop", [eff.target || "(property)"]));
+      row.append(targetPill(eff.target, o));
       if (!advances) row.append(el("span", "exed-effect-eq", ["="]));
       row.append(exprPills(eff.value, o, advances ? eff.target : undefined));
     } else {
