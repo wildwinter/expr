@@ -52,9 +52,18 @@ export interface Filter {
   acceptScopes?: string[];
 }
 
-/** The reference string for an entry: `@name` for the default scope, else `@scope.name`. */
+/** The reference string for an entry: `@name` for the default scope, else `@scope.name`.
+ *  CONDITION-side sugar only: a change TARGET must use {@link targetRefOf} - the storylets
+ *  compiler requires `@scope.name` there, and emitting this shorthand for a default-scope
+ *  target made every picker-authored change invalid (the Storyletter antagonist audit's
+ *  find, 2026-08-29). Patter's grammar takes both forms, so the split costs it nothing. */
 export const refOf = (e: { scope: string; name: string }, defaultScope: string): string =>
   e.scope === defaultScope ? `@${e.name}` : `@${e.scope}.${e.name}`;
+
+/** The reference a change TARGET is written as: always fully qualified. A target is a
+ *  reference, not an expression, and the shorthand is condition-side sugar (see refOf). */
+export const targetRefOf = (e: { scope: string; name: string }): string =>
+  `@${e.scope}.${e.name}`;
 
 /** The label shown in the picker / on a property pill. */
 export const displayName = (e: { scope: string; name: string }, defaultScope: string): string =>

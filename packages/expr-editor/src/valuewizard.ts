@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import { el, button, textField } from "./dom.js";
+import { flagChangeSrc } from "./ast.js";
 import { propertyPicker } from "./flat.js";
 import { refOf, type CatalogueEntry, type PropertyType } from "./schema.js";
 import type { EditCtx } from "./types.js";
@@ -26,6 +27,13 @@ export interface ValueWizardOptions {
   expectedChoices?: string[];
   /** @deprecated Use `expectedChoices`. Kept so a 0.11.x caller keeps working. */
   expectedEnumValues?: string[];
+  /** A FLAGS target's qualified ref and declared flags: together they unlock the
+   *  set/clear-a-flag step, which is what outcomes on a flags property
+   *  overwhelmingly want and which a whole-value change cannot express (the
+   *  Storyletter antagonist audit's find, 2026-08-29). Absent, the generic
+   *  kinds stand alone as before. */
+  expectedRef?: string;
+  expectedFlags?: string[];
   /** Receives the chosen value as name-form source. */
   onCommit: (src: string) => void;
   /** Optional cancel (the ✕ on the step). */
@@ -59,25 +67,47 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
   // these" and "pick where the story now stands".
   const isStage = opts.expectedType === "quality";
   
+  // The flags step exists when the caller handed us the target's ref (without
+  // it there is nothing to write set_flags against).
+  const flagsReady = opts.expectedType === "flags" && opts.expectedRef !== undefined;
   // Lead straight to a known target type's input; otherwise show the kind chooser.
   // Any type with a closed set of values leads straight to it - a quality included, which fell through
   // to the generic chooser before 0.12.0 because the test named only `enum`.
-  let kind: "menu" | "property" | "number" | "text" | "bool" | "enum" =
+  let kind: "menu" | "property" | "number" | "text" | "bool" | "enum" | "flags" =
     opts.expectedType === "number" ? "number" : opts.expectedType === "string" ? "text"
       : opts.expectedType === "boolean" ? "bool"
-        : (opts.expectedType === "enum" || opts.expectedType === "quality") && choices?.length ? "enum" : "menu";
+        : (opts.expectedType === "enum" || opts.expectedType === "quality") && choices?.length ? "enum"
+          : flagsReady ? "flags" : "menu";
 
   const draw = (): void => {
     body.replaceChildren();
     const other = (): HTMLButtonElement => button("exed-vwiz-other", "↩ a different kind", () => { kind = "menu"; draw(); });
     switch (kind) {
       case "menu":
+        if (flagsReady) body.append(optBtn("Set or clear a flag…", () => { kind = "flags"; draw(); }));
         body.append(optBtn("A property…", () => { kind = "property"; draw(); }));
         body.append(optBtn("A number", () => { kind = "number"; draw(); }));
         body.append(optBtn("Text", () => { kind = "text"; draw(); }));
         body.append(optBtn("True / False", () => { kind = "bool"; draw(); }));
         if (choices?.length) body.append(optBtn(isStage ? "A stage" : "A listed value", () => { kind = "enum"; draw(); }));
         break;
+      case "flags": {
+        // Adjust one flag, keep the rest: the form outcomes on a flags
+        // property overwhelmingly want. Whole-value assignment stays a step
+        // away ("a different kind"), where its replace-everything nature is a
+        // choice rather than a trap.
+        const flags = opts.expectedFlags ?? [];
+        if (!flags.length) body.append(el("div", "exed-hint", ["This property declares no flag values yet."]));
+        for (const sign of ["+", "-"] as const) {
+          if (!flags.length) break;
+          body.append(el("div", "exed-vwiz-note", [sign === "+" ? "Set a flag:" : "Clear a flag:"]));
+          const row = el("div", "exed-field-row");
+          for (const f of flags) row.append(optBtn(`${sign} ${f}`, () => opts.onCommit(flagChangeSrc(opts.expectedRef!, sign, f))));
+          body.append(row);
+        }
+        body.append(button("exed-vwiz-other", "↩ a different kind (replaces every flag)", () => { kind = "menu"; draw(); }));
+        break;
+      }
       case "property":
         body.append(propertyPicker(pickCtx, { onPick: (e) => opts.onCommit(refOf(e, opts.defaultScope)) }));
         body.append(other());

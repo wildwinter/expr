@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   addSet, addEmit, removeAt, moveAt, updateAt, setArgAt, addArg, removeArgAt, seedValueSrc,
+  entryForTarget, flagChangeSrc,
   type EditorEffect,
 } from "../src/effects.js";
+import { targetRefOf, type CatalogueEntry } from "../src/schema.js";
 
 describe("effects list operations", () => {
   it("adds a set and an emit, preserving order", () => {
@@ -63,5 +65,53 @@ describe("effects list operations", () => {
     expect(seedValueSrc("number")).toBe("0");
     expect(seedValueSrc("string")).toBe('""');
     expect(seedValueSrc("enum", ["calm", "tense"])).toBe('"calm"');
+  });
+});
+
+// A change TARGET is a reference, not an expression: the storylets compiler
+// requires `@scope.name` there, and the condition-side shorthand (`@name` for
+// the default scope) is invalid. The editor emitted the shorthand for every
+// default-scope target - a Storyletter antagonist audit's find (2026-08-29):
+// each change authored through the picker failed validation with no visible
+// error on the page and no way to hand-edit past it.
+describe("targetRefOf: a change target is always fully qualified", () => {
+  const story: CatalogueEntry = { scope: "story", name: "jobs", type: "flags", enumValues: ["cold_taken"] };
+  const world: CatalogueEntry = { scope: "world", name: "armed", type: "boolean" };
+
+  it("qualifies the default scope, unlike the condition-side refOf", () => {
+    expect(targetRefOf(story)).toBe("@story.jobs");
+    expect(targetRefOf(world)).toBe("@world.armed");
+  });
+});
+
+describe("entryForTarget: read-back tolerates the legacy shorthand", () => {
+  const cat: CatalogueEntry[] = [
+    { scope: "story", name: "heat", type: "quality", stages: ["unnoticed", "watched", "hunted"] },
+    { scope: "world", name: "armed", type: "boolean" },
+  ];
+
+  it("resolves a qualified target", () => {
+    expect(entryForTarget(cat, "@story.heat", "story")?.name).toBe("heat");
+    expect(entryForTarget(cat, "@world.armed", "story")?.name).toBe("armed");
+  });
+
+  it("resolves a legacy shorthand target written by an older build", () => {
+    expect(entryForTarget(cat, "@heat", "story")?.name).toBe("heat");
+  });
+
+  it("shorthand answers only for the default scope, and a miss is a miss", () => {
+    expect(entryForTarget(cat, "@armed", "story")).toBeUndefined();
+    expect(entryForTarget(cat, "@story.nope", "story")).toBeUndefined();
+  });
+});
+
+// The other unreachable form the audit found: the demo's own outcomes are all
+// `set_flags(events, +blackout_done)` - adjust one flag, keep the rest - and
+// the value step offered only whole-value kinds, with its own gloss warning
+// that a change REPLACES. The flags step commits this source.
+describe("flagChangeSrc: the set/clear-a-flag value", () => {
+  it("builds a set and a clear against the qualified target", () => {
+    expect(flagChangeSrc("@story.events", "+", "blackout_done")).toBe("set_flags(@story.events, +blackout_done)");
+    expect(flagChangeSrc("@story.jobs", "-", "cold_taken")).toBe("set_flags(@story.jobs, -cold_taken)");
   });
 });

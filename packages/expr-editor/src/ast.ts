@@ -160,6 +160,14 @@ export const normaliseRef = (ref: string, defaultScope: string): string => {
   return low.startsWith(prefix) ? `@${low.slice(prefix.length)}` : low;
 };
 
+/** The set/clear-a-flag value: `set_flags(@scope.name, +flag)` - adjust one
+ *  flag, keep the rest, which is what outcomes on a flags property
+ *  overwhelmingly do (and the form a whole-value change cannot express).
+ *  Lives here with the other pure ref helpers so the value wizard can build
+ *  it without importing the effects mount (which imports the wizard). */
+export const flagChangeSrc = (targetRef: string, sign: "+" | "-", flag: string): string =>
+  `set_flags(${targetRef}, ${sign}${flag})`;
+
 /** The name-form ref a call ADVANCES, when the call is the plain `advance(@x)` shape: one scopedvar
  *  argument and nothing else. Null for any other call, and for an argument that is not a property
  *  (`advance(f(@x))` keeps its explicit form, since collapsing it would hide the middle).

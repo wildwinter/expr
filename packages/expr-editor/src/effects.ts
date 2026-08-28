@@ -16,7 +16,7 @@ import { parse, type Dialect, type ExpressionSchema } from "@wildwinter/expr";
 import { el, button, openPopover, type Popover, propertyMenuBody } from "./dom.js";
 import {
   type CatalogueEntry, type PropertyType,
-  filterCatalogue, searchCatalogue, groupByScope, displayName, refOf,
+  filterCatalogue, searchCatalogue, groupByScope, displayName, refOf, targetRefOf,
   choicesOf, propertyTip,
 } from "./schema.js";
 import type { FunctionTemplateSpec } from "./types.js";
@@ -39,6 +39,18 @@ export function isSelfAdvance(eff: EditorEffect, defaultScope: string, dialect: 
   if (eff.kind !== "set" || !eff.target) return false;
   try { return advancedRef(parse(eff.value, dialect), defaultScope) === normaliseRef(eff.target, defaultScope); } catch { return false; }
 }
+
+/** The catalogue entry a `set` target names. Normalised, so read-back tolerates
+ *  BOTH spellings: the qualified form targets are written in now, and the
+ *  default-scope shorthand an older build saved. */
+export function entryForTarget(
+  catalogue: readonly CatalogueEntry[], target: string, defaultScope: string,
+): CatalogueEntry | undefined {
+  const want = normaliseRef(target, defaultScope);
+  return catalogue.find((e) => normaliseRef(`@${e.scope}.${e.name}`, defaultScope) === want);
+}
+
+export { flagChangeSrc } from "./ast.js";
 
 export interface EffectsEditorOptions {
   /** The current effect list (edited in place via onChange). */
@@ -191,6 +203,11 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       // choicesOf, never a raw field: a quality's ladder lives in `stages`, and reading `enumValues`
       // here told the wizard the type and withheld the values.
       ...(choicesOf(expected) ? { expectedChoices: choicesOf(expected) } : {}),
+      // The flags step needs the target itself: its declared flags, and the
+      // qualified ref its set_flags(...) is written against. choicesOf stays
+      // out of it deliberately - flags are not a pick-one list, and a pinned
+      // test holds it to that.
+      ...(expected?.type === "flags" ? { expectedRef: targetRefOf(expected), expectedFlags: expected.enumValues ?? [] } : {}),
       onCommit: (src) => { onCommit(src); close(); },
       onCancel: close,
     }), { container: opts.popoverContainer });
@@ -199,7 +216,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
   /** The declared type of a `set` target (resolved from the catalogue by its ref), so the value editor
    *  offers the right "+ term" extension (arithmetic for numbers, logical for booleans, none else). */
   const targetType = (target: string): PropertyType | undefined =>
-    opts.catalogue.find((e) => refOf(e, defaultScope) === target)?.type;
+    entryForTarget(opts.catalogue, target, defaultScope)?.type;
 
   /** The committed value as an INLINE editable pill editor (click pills to edit; "+ term" to extend) -
    *  the storylets ExpressionField model. The initial value is picked via the wizard; this edits it.
@@ -265,10 +282,10 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     // Target pill — click to repick (re-seeds the value to match the new type).
     const targetBtn = button("exed-pill exed-pill-prop", eff.target || "(pick property)", (e) => {
       pickTarget(e.currentTarget as HTMLElement, undefined, (entry) => {
-        commit(updateAt(effects, i, { target: refOf(entry, defaultScope), value: initialValueFor(entry, defaultScope).src }));
+        commit(updateAt(effects, i, { target: targetRefOf(entry), value: initialValueFor(entry, defaultScope).src }));
       });
     }, "change the target property");
-    const targetEntry = opts.catalogue.find((e) => refOf(e, defaultScope) === eff.target);
+    const targetEntry = entryForTarget(opts.catalogue, eff.target, defaultScope);
     // The same affordances the pills inside values carry: the declaration's
     // purpose (and ladder) on hover, the host's menu on right-click. Left-click
     // stays the repick, which the fallback title still teaches.
@@ -372,8 +389,8 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       // Pick the target property, then build its value with the guided wizard (type-aware).
       pickTarget(anchor, undefined, (entry) => {
         const { src, ask } = initialValueFor(entry, defaultScope);
-        if (!ask) { commit(addSet(effects, refOf(entry, defaultScope), src)); return; }
-        openValueWizard(anchor, entry, (chosen) => commit(addSet(effects, refOf(entry, defaultScope), chosen)));
+        if (!ask) { commit(addSet(effects, targetRefOf(entry), src)); return; }
+        openValueWizard(anchor, entry, (chosen) => commit(addSet(effects, targetRefOf(entry), chosen)));
       });
     }));
     // Emit needs a name first: open the event-name wizard immediately; only add the effect once named.
