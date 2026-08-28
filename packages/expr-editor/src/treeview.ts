@@ -176,7 +176,13 @@ export function seedClause(ctx: EditCtx): ExprNode {
 export function clauseMenu(ctx: EditCtx, anchor: HTMLElement, onPick: (node: ExprNode) => void): void {
   ctx.openPopover(anchor, (close) => {
     const wrap = el("div", "exed-menu");
-    wrap.append(el("div", "exed-menu-head", ["Add a clause"]));
+    // "Condition", matching the button that opened this menu ("+ Add
+    // condition" / "+ Add your first condition"): a Storyletter antagonist
+    // audit (2026-08-29) counted three words for one concept at one
+    // interaction site - the button said condition, this head said clause,
+    // the table column said When. "Clause" was the precise word (a condition
+    // is an AND of clauses) and precision lost to consistency.
+    wrap.append(el("div", "exed-menu-head", ["Add a condition"]));
     const add = (label: string, hint: string | undefined, make: () => void, disabled = false): void => {
       const b = button(`exed-opt${disabled ? " disabled" : ""}`, "", () => { if (disabled) return; make(); close(); });
       if (disabled) b.disabled = true;
