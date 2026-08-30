@@ -78,6 +78,10 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
       : opts.expectedType === "boolean" ? "bool"
         : (opts.expectedType === "enum" || opts.expectedType === "quality") && choices?.length ? "enum"
           : flagsReady ? "flags" : "menu";
+  /** Which half of the flag step is showing. A TOGGLE rather than two lists, for
+   *  the reason clausewizard's flag step already uses one: the flags are data,
+   *  so laying out sign x flag puts an unbounded list on the screen twice. */
+  let flagSign: "+" | "-" = "+";
 
   const draw = (): void => {
     body.replaceChildren();
@@ -96,14 +100,29 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
         // property overwhelmingly want. Whole-value assignment stays a step
         // away ("a different kind"), where its replace-everything nature is a
         // choice rather than a trap.
+        //
+        // ONE column under a sign toggle, which is the shape the package's other
+        // two flag pickers already use (clausewizard's flag step, and the
+        // flagEditor menu). This branch was the odd one out: it laid the flags
+        // out as sign x flag in an `exed-field-row`, a row written for the two
+        // buttons of a true/false choice and so carrying no `flex-wrap`. The
+        // flags are DATA - a Storyletter project declared ten - so the row grew
+        // to ten chips wide, twice, and ran straight off the popover and out of
+        // the window (reported 2026-08-30). A list built from user data belongs
+        // in the same shape as every other list built from user data.
         const flags = opts.expectedFlags ?? [];
         if (!flags.length) body.append(el("div", "exed-hint", ["This property declares no flag values yet."]));
-        for (const sign of ["+", "-"] as const) {
-          if (!flags.length) break;
-          body.append(el("div", "exed-vwiz-note", [sign === "+" ? "Set a flag:" : "Clear a flag:"]));
-          const row = el("div", "exed-field-row");
-          for (const f of flags) row.append(optBtn(`${sign} ${f}`, () => opts.onCommit(flagChangeSrc(opts.expectedRef!, sign, f))));
-          body.append(row);
+        else {
+          const signRow = el("div", "exed-field-row");
+          signRow.append(
+            button(`exed-opt${flagSign === "+" ? " sel" : ""}`, "＋ set", () => { flagSign = "+"; draw(); }),
+            button(`exed-opt${flagSign === "-" ? " sel" : ""}`, "－ clear", () => { flagSign = "-"; draw(); }),
+          );
+          body.append(signRow);
+          body.append(el("div", "exed-vwiz-note", [flagSign === "+" ? "Set a flag:" : "Clear a flag:"]));
+          const list = el("div", "exed-picker-list");
+          for (const f of flags) list.append(optBtn(`${flagSign} ${f}`, () => opts.onCommit(flagChangeSrc(opts.expectedRef!, flagSign, f))));
+          body.append(list);
         }
         body.append(button("exed-vwiz-other", "↩ a different kind (replaces every flag)", () => { kind = "menu"; draw(); }));
         break;

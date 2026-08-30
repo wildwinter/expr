@@ -81,8 +81,22 @@ export function openPopover(anchor: HTMLElement, render: (close: () => void) => 
   // Position under the anchor (viewport coords), flipped up if it would overflow.
   const a = anchor.getBoundingClientRect();
   const ph = pop.getBoundingClientRect();
-  let top = a.bottom + 4;
-  if (top + ph.height > window.innerHeight - 8 && a.top - ph.height - 4 > 8) top = a.top - ph.height - 4;
+  //
+  // Flip to the ROOMIER side and clamp to it, rather than flipping only when the
+  // whole thing happens to fit above. A popover whose content comes from the
+  // author's own data (a property list, a flag list) has no natural height: a
+  // long one fits neither side, and both the old rules then failed the same way,
+  // leaving it below the anchor with its tail off the bottom of the window and
+  // no way to reach it. Clamping is a max-height, so anything that already fits
+  // is placed exactly as before.
+  const GAP = 4;
+  const EDGE = 8;
+  const below = window.innerHeight - EDGE - (a.bottom + GAP);
+  const above = a.top - GAP - EDGE;
+  const flip = ph.height > below && above > below;
+  const room = flip ? above : below;
+  const top = flip ? a.top - Math.min(ph.height, above) - GAP : a.bottom + GAP;
+  if (ph.height > room) pop.style.maxHeight = `${Math.max(96, Math.round(room))}px`;
   let left = a.left;
   if (left + ph.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - ph.width);
   if (container === document.body) {

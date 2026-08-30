@@ -124,7 +124,7 @@
 .exed-msg-warning { color: #9a7d1e; }
 
 /* popover */
-.exed-pop { position: absolute; z-index: 1000; background: var(--exed-surface); border: 1px solid var(--exed-line); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 0.35rem; min-width: 9rem; max-width: 20rem; }
+.exed-pop { position: absolute; z-index: 1000; background: var(--exed-surface); border: 1px solid var(--exed-line); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 0.35rem; min-width: 9rem; max-width: 20rem; overflow: auto; }
 .exed-menu { display: flex; flex-direction: column; gap: 0.1rem; }
 .exed-menu-head { font: 700 0.64rem var(--font-ui, system-ui); text-transform: uppercase; letter-spacing: 0.05em; color: var(--exed-muted); padding: 0.2rem 0.3rem; }
 .exed-hint { font: italic 0.72rem var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.1rem 0.3rem; }
