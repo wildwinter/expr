@@ -499,5 +499,11 @@ export function defaultFor(d: Pick<ScopeDeclaration, "type" | "default" | "value
     case "flags": return [];
     // A quality starts at the first rung of its ladder.
     case "quality": return d.stages?.[0] ?? "";
+    // Unreachable for a well-typed declaration, and deliberately present anyway: a bundle
+    // is DATA, and a hand-edited or newer-than-this-build one can carry a type string the
+    // union does not have. Falling off the switch would seed `undefined`, which is not a
+    // ScalarValue and travels a long way before it fails. Patterplay's copy of this had the
+    // guard and this one did not, which is the drift you only find by removing a duplicate.
+    default: return false;
   }
 }
