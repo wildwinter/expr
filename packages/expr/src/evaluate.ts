@@ -169,18 +169,32 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
 
 /**
  * Equality for `==` / `!=`. Primitives compare by value (JS `===`); arrays
- * (the flags value type) compare element-wise by value, in order. Plain
- * `===` on arrays would be reference equality - two distinct arrays with the
- * same contents would never be equal, and a fresh array (e.g. from a scope
- * read or a function result) would never equal another. Mixed array/non-array
- * operands are unequal. Matches the value-equality the Unreal and Unity
- * runtimes implement for flags.
+ * (the flags value type) compare as SETS: same members, ORDER IRRELEVANT.
+ *
+ * Plain `===` on arrays would be reference equality - two distinct arrays with
+ * the same contents would never be equal, and a fresh array (from a scope read
+ * or a function result) would never equal another. Mixed array/non-array
+ * operands are unequal, and never an error.
+ *
+ * Order was significant until 2026-09-01, and that was wrong: a flags value IS
+ * a set, and its stored order is an artefact of the order somebody happened to
+ * add things in. `set_flags(@f, +a)` then `+b` compared UNEQUAL to the same two
+ * flags added the other way round, which is a difference no author can see and
+ * none intends. The Storylet Engine papered over it by sorting in `set_flags`,
+ * which only holds while every producer sorts: a bundle's declared default, or
+ * a host handing a list in, does not.
+ *
+ * Compared as MULTISETS (sorted copies), so a duplicated flag still counts. A
+ * well-formed flags value has no duplicates, but equality should not be the
+ * thing that decides what happens if one appears.
  */
 function valueEquals(a: ScalarValue, b: ScalarValue): boolean {
   if (Array.isArray(a) || Array.isArray(b)) {
     if (!Array.isArray(a) || !Array.isArray(b)) return false;
     if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    const x = [...a].sort();
+    const y = [...b].sort();
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
     return true;
   }
   return a === b;

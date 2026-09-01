@@ -97,18 +97,30 @@ describe("evaluate - operators", () => {
     expect(evaluate(parse("@name == bob", patter), ctx({ shared: { name: "bob" } }), patter)).toBe(true);
   });
 
-  it("== / != compare arrays (flags) by value, not by reference", () => {
+  it("== / != compare arrays (flags) as a SET, not by reference and not by order", () => {
     // Two DISTINCT arrays with identical contents must be ==. Plain JS === would
-    // be reference equality (false). Order matters; differing contents are !=.
+    // be reference equality (false).
     const same = ctx({ shared: { a: ["x", "y"], b: ["x", "y"] } });
     expect(evaluate(parse("@a == @b", patter), same, patter)).toBe(true);
     expect(evaluate(parse("@a != @b", patter), same, patter)).toBe(false);
 
+    // Order does NOT matter (changed 2026-09-01). A flags value is a set, and
+    // its stored order is an artefact of the order somebody happened to add
+    // things in, which no author can see and none intends.
     const diffOrder = ctx({ shared: { a: ["x", "y"], b: ["y", "x"] } });
-    expect(evaluate(parse("@a == @b", patter), diffOrder, patter)).toBe(false);
+    expect(evaluate(parse("@a == @b", patter), diffOrder, patter)).toBe(true);
+    expect(evaluate(parse("@a != @b", patter), diffOrder, patter)).toBe(false);
+
+    // Order-insensitive must not decay into "any two lists of the same size".
+    const diffMembers = ctx({ shared: { a: ["x", "y"], b: ["x", "z"] } });
+    expect(evaluate(parse("@a == @b", patter), diffMembers, patter)).toBe(false);
 
     const diffLen = ctx({ shared: { a: ["x"], b: ["x", "y"] } });
     expect(evaluate(parse("@a == @b", patter), diffLen, patter)).toBe(false);
+
+    // Compared as MULTISETS, so a duplicate still counts.
+    const dupe = ctx({ shared: { a: ["x", "x"], b: ["x", "y"] } });
+    expect(evaluate(parse("@a == @b", patter), dupe, patter)).toBe(false);
 
     // Array vs non-array operands are never equal.
     const mixed = ctx({ shared: { a: ["x"], b: "x" } });
