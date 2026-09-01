@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/toolkit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Small shared pieces of the authoring tooling: opaque ids, a stable hash, JSON5 source parsing, find/replace matching, and the archive guards. Nothing here runs in a game.",
   "type": "module",
   "license": "MIT",
