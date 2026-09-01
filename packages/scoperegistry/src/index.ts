@@ -312,11 +312,13 @@ export class ScopeRegistry {
    * each declaration's `default` (or a type default). Owned scopes are
    * type-checked (declarations) and serialized by `save`/`load`.
    */
-  defineOwned(token: string, declarations: ScopeDeclaration[]): this {
-    // The scope knows its own token, so its rows can address themselves: `patter.hp`.
-    // A bag MOUNTED here keeps whatever prefix its holder gave it - the holder owns
-    // the addressing, and a shared container may well be reached by another name.
-    return this.mountOwned(token, new PropertyBag(declarations, { pathPrefix: `${token}.` }));
+  defineOwned(token: string, declarations: ScopeDeclaration[], pathPrefix?: string): this {
+    // The scope knows its own token, so its rows can address themselves: `world.hp`.
+    // The ADDRESS GRAMMAR is the product's, though, not the registry's - Patterplay
+    // writes `@patter.gold` where the Storylet Engine writes `world.gold` - so a
+    // caller may say how its addresses look. A bag MOUNTED here keeps whatever prefix
+    // its holder gave it: the holder owns the addressing.
+    return this.mountOwned(token, new PropertyBag(declarations, { pathPrefix: pathPrefix ?? `${token}.` }));
   }
 
   /**
