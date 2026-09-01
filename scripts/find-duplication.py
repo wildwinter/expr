@@ -70,6 +70,16 @@ PAIRS = [
    ["Intermediate", "Binaries", "TestHost", "Demo", "/Expr/"]),
   ("JS",     "storylets/packages", "patter/packages", ["*.ts"],
    ["node_modules", "/test/", ".test.ts", "dist/", "patterpad", "studio", "website"]),
+  # The repo's OWN tooling, which the scan ignored until 2026-09-01 and should not
+  # have: the release scripts and workflows are written by the same hands, solve the
+  # same problem twice, and drift the same way. The release guard was carried from one
+  # repo to the other on the day this line was added, and a bug in it had to be fixed
+  # in both copies within the hour. A duplication scanner that cannot see the
+  # duplication its own author is creating is not much of a scanner.
+  ("Tooling", "storylets/scripts", "patter/scripts", ["*.mjs", "*.sh", "*.py"],
+   ["node_modules"]),
+  ("CI",     "storylets/.github/workflows", "patter/.github/workflows", ["*.yml"],
+   []),
 ]
 
 rows = []
@@ -86,7 +96,16 @@ for label, a, b, globs, skip in PAIRS:
 # as duplication would bury the real findings under the work already done, and
 # would make the list get worse the more of it you fix.
 def vendored(path):
-    return "/expr/" in path.replace("\\", "/") or "/Expr/" in path
+    # Read the banner rather than guessing from the path. The port sources happen to
+    # live under an expr/ directory, but the shared TOOLING lands in scripts/ beside
+    # files nobody vendored, and a path heuristic silently counted those as duplication
+    # the day they were shared. The banner is the actual mark of a generated file.
+    try:
+        with open(ROOT / path, encoding="utf-8", errors="ignore") as fh:
+            head = fh.read(400)
+    except OSError:
+        return False
+    return "vendored from expr/" in head
 
 shared = [r for r in rows if vendored(r[3])]
 rows = [r for r in rows if not vendored(r[3])]

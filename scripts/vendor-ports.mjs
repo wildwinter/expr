@@ -26,7 +26,7 @@
 // of quietly becoming a seventh dialect of the same 200 lines.
 // ---------------------------------------------------------------------------
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -56,6 +56,11 @@ const families = [
     unreal: "storylets/ports/unreal/StoryletEngine/Source/StoryletEngineRuntime/Public/Storylets/Expr",
     unity: "storylets/ports/unity/StoryletEngine/Runtime/Expr",
     cs: { __EXPR_NS__: "StoryletStudio.StoryletEngine", __EXPR_VALUE__: "StoryletValue", __EXPR_KIND__: "StoryletKind" },
+    tooling: {
+      __EXPR_LOCKSTEP__: "@storylet-studio/runtime",
+      __EXPR_FAMILY__: "Storylet Engine",
+      __EXPR_UE_DEMO__: "StoryletEngineDemo",
+    },
     cpp: {
       __EXPR_NS__: "storylets",
       __EXPR_VALUE__: "StoryletValue",
@@ -70,6 +75,11 @@ const families = [
     unreal: "patter/ports/unreal/Patterplay/Source/PatterplayRuntime/Public/Patter/Expr",
     unity: "patter/ports/unity/Patterplay/Runtime/Expr",
     cs: { __EXPR_NS__: "Patterkit.Patterplay", __EXPR_VALUE__: "PatterValue", __EXPR_KIND__: "PatterKind" },
+    tooling: {
+      __EXPR_LOCKSTEP__: "@patterkit/runtime",
+      __EXPR_FAMILY__: "Patterplay",
+      __EXPR_UE_DEMO__: "PatterplayDemo",
+    },
     cpp: {
       __EXPR_NS__: "patter",
       __EXPR_VALUE__: "PatterValue",
@@ -107,6 +117,13 @@ const sources = [
   { from: "ports/unity/Expr.cs", to: (f) => `${f.unity}/Expr.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Specificity.cs", to: (f) => `${f.unity}/Specificity.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Mulberry32.cs", to: (f) => `${f.unity}/Mulberry32.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  // The repos' own release tooling. Not a port, but the same argument applies and the
+  // numbers are worse: 99% and 100% identical once family names are normalised, and a
+  // bug in the guard had to be fixed in both copies within an hour of the second being
+  // written. The duplication scanner could not see either file until it was taught to
+  // look at scripts/ on the same day.
+  { from: "tooling/release-guard.mjs", to: (f) => `${f.repo}/scripts/release-guard.mjs`, comment: "//", subs: (f) => f.tooling },
+  { from: "tooling/check-unreal-plugin.sh", to: (f) => `${f.repo}/scripts/check-unreal-plugin.sh`, comment: "#", subs: (f) => f.tooling, exec: true },
 ];
 
 const banner = (rel, c) =>
@@ -128,7 +145,9 @@ for (const family of families) {
   for (const src of sources) {
     const text = readFileSync(path.join(root, src.from), "utf8");
     const stamped = src.subs ? substitute(text, src.subs(family), src.from) : text;
-    const want = banner(src.from, src.comment) + stamped;
+    // A shebang has to stay on line 1, so the banner goes after it rather than above it.
+    const shebang = stamped.startsWith("#!") ? stamped.slice(0, stamped.indexOf("\n") + 1) : "";
+    const want = shebang + banner(src.from, src.comment) + stamped.slice(shebang.length);
     const dest = path.join(parent, src.to(family));
     mkdirSync(path.dirname(dest), { recursive: true });
     const have = existsSync(dest) ? readFileSync(dest, "utf8") : null;
@@ -141,6 +160,9 @@ for (const family of families) {
       drifted++;
     } else {
       writeFileSync(dest, want);
+      // A vendored shell script that is not executable is a script nobody can run,
+      // and the mode does not travel with the text.
+      if (src.exec) chmodSync(dest, 0o755);
       console.log(`wrote  ${src.to(family)}`);
     }
   }
