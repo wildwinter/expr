@@ -60,6 +60,7 @@ const families = [
       __EXPR_LOCKSTEP__: "@storylet-studio/runtime",
       __EXPR_FAMILY__: "Storylet Engine",
       __EXPR_UE_DEMO__: "StoryletEngineDemo",
+      __EXPR_BAG_LABEL__: "StoryletPropertyBag",
     },
     cpp: {
       __EXPR_NS__: "storylets",
@@ -79,6 +80,7 @@ const families = [
       __EXPR_LOCKSTEP__: "@patterkit/runtime",
       __EXPR_FAMILY__: "Patterplay",
       __EXPR_UE_DEMO__: "PatterplayDemo",
+      __EXPR_BAG_LABEL__: "PatterPropertyBag",
     },
     cpp: {
       __EXPR_NS__: "patter",
@@ -104,6 +106,7 @@ const sources = [
   { from: "ports/godot/expr_eval.gd", to: (f) => `${f.godot}/expr_eval.gd`, comment: "#" },
   { from: "ports/godot/expr_specificity.gd", to: (f) => `${f.godot}/expr_specificity.gd`, comment: "#" },
   { from: "ports/godot/mulberry32.gd", to: (f) => `${f.godot}/mulberry32.gd`, comment: "#" },
+  { from: "ports/godot/property_bag.gd", to: (f) => `${f.godot}/property_bag.gd`, comment: "#", subs: (f) => f.tooling },
   { from: "ports/godot/bundle_view.gd", to: (f) => `${f.godot}/bundle_view.gd`, comment: "#" },
   { from: "ports/godot/bundle_import_plugin.gd", to: (f) => `${f.godot}/bundle_import_plugin.gd`, comment: "#" },
   { from: "ports/godot/bundle_export_plugin.gd", to: (f) => `${f.godot}/bundle_export_plugin.gd`, comment: "#" },
