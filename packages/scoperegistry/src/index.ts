@@ -479,7 +479,17 @@ export class ScopeRegistry {
   }
 }
 
-function defaultFor(d: ScopeDeclaration): ScalarValue {
+/** The seed value for a declared property: its own `default`, else the type's.
+ *
+ *  Exported because it was being written again wherever a declaration needed seeding, and a
+ *  copy of a defaults table is a copy that stops agreeing. Patterplay carried three of them in
+ *  one file, for its shared decls, its host-scope decls and its scene decls - three declaration
+ *  TYPES, one behaviour, and nothing to notice if a case drifted. The parameter is structurally
+ *  typed for exactly that reason: anything with `type` and the optional `default` / `values` /
+ *  `stages` fits, whatever the caller calls its declaration.
+ *
+ *  A quality seeds at the FIRST rung of its ladder: the ladder's start is the story's start. */
+export function defaultFor(d: Pick<ScopeDeclaration, "type" | "default" | "values" | "stages">): ScalarValue {
   if (d.default !== undefined) return d.default;
   switch (d.type) {
     case "boolean": return false;
