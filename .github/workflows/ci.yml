@@ -1,0 +1,33 @@
+# Build, typecheck and test the packages.
+#
+# This repo had no CI at all until 2026-09-01: only publish.yml existed, so
+# nothing ran on a push. That mattered more than usual once the parity corpus
+# landed here, because the corpus is now the contract six hand-written native
+# runtimes are held to, in two other repositories.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+
+      # The corpus is generated from the authored fixtures by the test run
+      # above. If that leaves corpus.json different from what is committed,
+      # the fixtures moved and the artifact the ports consume did not, so the
+      # two repos vendoring it would be held to a contract nobody can read.
+      - name: The committed corpus matches its fixtures
+        run: git diff --exit-code -- packages/conformance/corpus.json
