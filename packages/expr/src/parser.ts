@@ -46,6 +46,18 @@ const KEYWORDS: Record<string, TokKind> = {
   and: "AND", or: "OR", not: "NOT",
 };
 
+/**
+ * The words the tokeniser will not read as a bare identifier, DERIVED from the
+ * table above rather than restated.
+ *
+ * A host that lets people name things needs this: a property called `not` would
+ * parse as the operator. Both product families kept their own hand-written copy
+ * (`["true", "false", "and", "or", "not"]`) of a list they did not own, so a
+ * keyword added here would have left two stale copies and no error. Deriving it
+ * means there is nothing to keep in step.
+ */
+export const KEYWORD_NAMES: readonly string[] = Object.freeze(Object.keys(KEYWORDS));
+
 function tokenise(src: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;

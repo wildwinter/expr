@@ -17,6 +17,14 @@ export { unparse } from "./unparse.js";
 export type { UnparseOptions } from "./unparse.js";
 export { evaluate, EvalError } from "./evaluate.js";
 export { serialiseAst, deserialiseAst } from "./ast.js";
+export { makePrng, toUint32, shuffleInPlace } from "./prng.js";
+export { latchOf, disjuncts, terms, scopedRef } from "./latches.js";
+export {
+  propertyNameify, isValidPropertyName, isCaseOnlyPropertyName, RESERVED_PROPERTY_NAMES,
+} from "./names.js";
+export { KEYWORD_NAMES } from "./parser.js";
+export type { Term, KeyOf } from "./latches.js";
+export type { Prng } from "./prng.js";
 export { validateExpr, validateExpressionAst, parseAndValidate } from "./validate.js";
 export type {
   ExpressionSchema, PropertyType, PropertyMeta,
