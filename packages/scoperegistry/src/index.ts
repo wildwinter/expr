@@ -112,6 +112,22 @@ export interface BagChange {
  *  edit a declared property. */
 export interface PropertyRow {
   name: string;
+  /** The address this property answers to - what getProperty/setProperty take.
+   *  A bag composes it from its own `pathPrefix` and the name, so a row is
+   *  self-describing: an examiner can render and write a row without being told
+   *  separately where it came from.
+   *
+   *  The PREFIX CARRIES ITS OWN SEPARATOR rather than the bag assuming a dot,
+   *  because a prefix is not always a bare scope token: the Storylet Engine
+   *  addresses a deck's properties as `deck.<id>.name`, so the prefix is already
+   *  a dotted path. Patterplay's `@patter.gold` and `@scene.mood` are the plain
+   *  case. (`@gold` also resolves - splitRef defaults an unqualified name to the
+   *  patter scope - but it is the shorthand, not the address a row reports.)
+   *
+   *  With no prefix this is just the name. Both families forked this interface
+   *  to add exactly this field - once per runtime - which is the same reason
+   *  `stages` is here. */
+  path: string;
   type: PropertyType;
   value: ScalarValue | undefined;
   default: ScalarValue;
@@ -141,8 +157,16 @@ export class PropertyBag {
    *  passes identity. */
   private readonly norm: (name: string) => string;
 
-  constructor(declarations: ScopeDeclaration[] = [], opts?: { normalise?: (name: string) => string }) {
+  /** The address prefix this bag's rows carry, separator included (`@`,
+   *  `@scene.`, `world.`, `deck.<id>.`). Empty means a row's path is its name. */
+  readonly pathPrefix: string;
+
+  constructor(
+    declarations: ScopeDeclaration[] = [],
+    opts?: { normalise?: (name: string) => string; pathPrefix?: string },
+  ) {
     this.norm = opts?.normalise ?? ((n) => n.toLowerCase());
+    this.pathPrefix = opts?.pathPrefix ?? "";
     this.seed(declarations);
   }
 
@@ -194,7 +218,7 @@ export class PropertyBag {
   /** Examiner rows: the declared surface only (stray values are storage,
    *  not surface). */
   rows(): PropertyRow[] {
-    return [...this.decls.entries()].map(([name, d]) => rowFor(d, this.get(name), undefined, name));
+    return [...this.decls.entries()].map(([name, d]) => rowFor(d, this.get(name), undefined, name, this.pathPrefix));
   }
 
   declarations(): ScopeDeclaration[] {
@@ -205,7 +229,7 @@ export class PropertyBag {
    *  duplicated, the normalisation policy carried, subscriptions NOT
    *  carried. */
   clone(): PropertyBag {
-    const c = new PropertyBag([], { normalise: this.norm });
+    const c = new PropertyBag([], { normalise: this.norm, pathPrefix: this.pathPrefix });
     c.decls = new Map(this.decls);
     Object.assign(c.values, structuredClone(this.values));
     return c;
@@ -232,13 +256,25 @@ export class PropertyBag {
   }
 }
 
-function rowFor(d: ScopeDeclaration, value: ScalarValue | undefined, writable?: boolean, name?: string): PropertyRow {
+function rowFor(
+  d: ScopeDeclaration,
+  value: ScalarValue | undefined,
+  writable?: boolean,
+  name?: string,
+  pathPrefix = "",
+): PropertyRow {
+  const rowName = name ?? d.name.toLowerCase();
   return {
-    name: name ?? d.name.toLowerCase(),
+    name: rowName,
+    path: pathPrefix + rowName,
     type: d.type,
     value,
     default: d.default ?? defaultFor(d),
     ...(d.values !== undefined ? { values: d.values } : {}),
+    // `stages` was added to the row so an examiner could offer a quality's ladder
+    // instead of a free-text box, and then never populated here: every quality row
+    // this function built came out without one. Fixed 2026-09-02.
+    ...(d.stages !== undefined ? { stages: d.stages } : {}),
     writable: writable ?? d.writable ?? true,
   };
 }
@@ -277,7 +313,10 @@ export class ScopeRegistry {
    * type-checked (declarations) and serialized by `save`/`load`.
    */
   defineOwned(token: string, declarations: ScopeDeclaration[]): this {
-    return this.mountOwned(token, new PropertyBag(declarations));
+    // The scope knows its own token, so its rows can address themselves: `patter.hp`.
+    // A bag MOUNTED here keeps whatever prefix its holder gave it - the holder owns
+    // the addressing, and a shared container may well be reached by another name.
+    return this.mountOwned(token, new PropertyBag(declarations, { pathPrefix: `${token}.` }));
   }
 
   /**
@@ -376,7 +415,8 @@ export class ScopeRegistry {
         for (const d of e.decls.values()) {
           out.push({
             scope: token,
-            ...rowFor(d, e.resolver.get(d.name.toLowerCase()), this.foreignWritable(e, d.name.toLowerCase())),
+            ...rowFor(d, e.resolver.get(d.name.toLowerCase()), this.foreignWritable(e, d.name.toLowerCase()),
+                      undefined, `${token}.`),
           });
         }
       }

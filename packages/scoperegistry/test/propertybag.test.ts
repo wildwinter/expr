@@ -103,10 +103,11 @@ describe("PropertyBag: examiner rows", () => {
     const b = bag();
     b.set("hp", 2);
     const rows = b.rows();
+    // path is the bare name here: this bag was built without a prefix.
     expect(rows.find((r) => r.name === "hp")).toEqual(
-      { name: "hp", type: "number", value: 2, default: 10, writable: true });
+      { name: "hp", path: "hp", type: "number", value: 2, default: 10, writable: true });
     expect(rows.find((r) => r.name === "mood")).toEqual(
-      { name: "mood", type: "enum", value: "calm", default: "calm", values: ["calm", "angry"], writable: true });
+      { name: "mood", path: "mood", type: "enum", value: "calm", default: "calm", values: ["calm", "angry"], writable: true });
     expect(rows.find((r) => r.name === "act")?.writable).toBe(false);
   });
 
@@ -189,8 +190,8 @@ describe("ScopeRegistry: bags as citizens", () => {
       .defineForeign("world", { get: (n) => hostGold[n] }, [{ name: "gold", type: "number" }]);
     const rows = r.listProperties();
     expect(rows).toEqual([
-      { scope: "patter", name: "hp", type: "number", value: 10, default: 10, writable: true },
-      { scope: "world", name: "gold", type: "number", value: 42, default: 0, writable: false },
+      { scope: "patter", name: "hp", path: "patter.hp", type: "number", value: 10, default: 10, writable: true },
+      { scope: "world", name: "gold", path: "world.gold", type: "number", value: 42, default: 0, writable: false },
     ] satisfies ({ scope: string } & PropertyRow)[]);
   });
 });
@@ -214,5 +215,44 @@ describe("ScopeRegistry: the versioned owned-state fragment", () => {
   it("loadFragment rejects an unsupported fragment version", () => {
     const r = new ScopeRegistry().defineOwned("patter", []);
     expect(() => r.loadFragment({ version: 99, scopes: {} })).toThrow(/version/);
+  });
+});
+
+describe("a row addresses itself", () => {
+  it("composes path from the bag's prefix, separator and all", () => {
+    // The prefix carries its own separator rather than the bag assuming a dot, because a
+    // prefix is not always a bare scope token - the Storylet Engine addresses a deck's
+    // properties as `deck.<id>.name`.
+    const globals = new PropertyBag([{ name: "gold", type: "number" }], { pathPrefix: "@patter." });
+    expect(globals.rows()[0]!.path).toBe("@patter.gold");
+
+    const deck = new PropertyBag([{ name: "drawn", type: "number" }], { pathPrefix: "deck.tavern." });
+    expect(deck.rows()[0]!.path).toBe("deck.tavern.drawn");
+
+    const scene = new PropertyBag([{ name: "Mood", type: "string" }], { pathPrefix: "@scene." });
+    expect(scene.rows()[0]!.path).toBe("@scene.mood");
+
+    const world = new PropertyBag([{ name: "gold", type: "number" }], { pathPrefix: "world." });
+    expect(world.rows()[0]!.path).toBe("world.gold");
+  });
+
+  it("falls back to the bare name with no prefix", () => {
+    expect(new PropertyBag([{ name: "hp", type: "number" }]).rows()[0]!.path).toBe("hp");
+  });
+
+  it("carries the prefix through clone, like the normalisation policy", () => {
+    const bag = new PropertyBag([{ name: "hp", type: "number" }], { pathPrefix: "@patter." });
+    expect(bag.clone().rows()[0]!.path).toBe("@patter.hp");
+  });
+});
+
+describe("a quality row", () => {
+  it("carries its ladder", () => {
+    // `stages` was added to PropertyRow so an examiner could offer the ladder instead of
+    // a free-text box, and rowFor never populated it: every quality row came out without
+    // one, in the one place all four runtimes read rows from.
+    const bag = new PropertyBag([{ name: "standing", type: "quality", stages: ["stranger", "friend", "kin"] }]);
+    expect(bag.rows()[0]!.stages).toEqual(["stranger", "friend", "kin"]);
+    expect(bag.rows()[0]!.value).toBe("stranger");
   });
 });
