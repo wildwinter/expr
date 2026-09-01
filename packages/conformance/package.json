@@ -1,0 +1,16 @@
+{
+  "name": "@wildwinter/expr-conformance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The cross-language parity corpus for @wildwinter/expr: a language-agnostic JSON document (PRNG and expression cases) that every hand port of the evaluator, in either product family, must pass.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ian Thomas",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wildwinter/expr": "*"
+  }
+}
