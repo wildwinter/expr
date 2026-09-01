@@ -21,8 +21,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      # Typecheck BEFORE build, matching publish.yml. The other order hides a
+      # real defect: a package whose tsconfig has no path mapping for a sibling
+      # resolves it through dist, which exists once something has built it. CI
+      # then passes and the publish workflow, which typechecks a fresh tree,
+      # fails at the tag. That is precisely what happened to expr 0.5.0.
       - run: npm run typecheck
+      - run: npm run build
       - run: npm test
 
       # The corpus is generated from the authored fixtures by the test run
