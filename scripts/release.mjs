@@ -28,6 +28,7 @@ const PACKAGES = {
   scoperegistry:      { dir: "packages/scoperegistry",      pkg: "@wildwinter/scoperegistry",      tag: (v) => `scoperegistry-v${v}` },
   "expr-editor":      { dir: "packages/expr-editor",        pkg: "@wildwinter/expr-editor",        tag: (v) => `expr-editor-v${v}` },
   "expr-specificity": { dir: "packages/expr-specificity",   pkg: "@wildwinter/expr-specificity",   tag: (v) => `expr-specificity-v${v}` },
+  toolkit:            { dir: "packages/toolkit",            pkg: "@wildwinter/toolkit",            tag: (v) => `toolkit-v${v}` },
 };
 
 const sh   = (cmd) => execSync(cmd, { encoding: "utf8" }).trim();

@@ -17,7 +17,8 @@
     "release:expr": "node scripts/release.mjs expr",
     "release:scoperegistry": "node scripts/release.mjs scoperegistry",
     "release:expr-editor": "node scripts/release.mjs expr-editor",
-    "release:expr-specificity": "node scripts/release.mjs expr-specificity"
+    "release:expr-specificity": "node scripts/release.mjs expr-specificity",
+    "release:toolkit": "node scripts/release.mjs toolkit"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

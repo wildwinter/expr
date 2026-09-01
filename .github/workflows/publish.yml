@@ -1,8 +1,8 @@
 name: Publish
 
-# Publishes the @wildwinter packages (expr, then scoperegistry and expr-editor,
-# which depend on it) to the public
-# npm registry (npmjs.org) when a GitHub Release is published. Cut releases with
+# Publishes the @wildwinter packages to the public npm registry (npmjs.org) when
+# a GitHub Release is published. toolkit stands alone; expr publishes before
+# scoperegistry, expr-specificity and expr-editor, which depend on it. Cut releases with
 # `npm run release:expr -- patch` (etc.) - that script bumps package.json,
 # commits, pushes, and tags in one step, so the released tag always points at a
 # fresh, not-yet-published version. (Tagging a version that's already on the
@@ -45,6 +45,17 @@ jobs:
       - run: npm run typecheck --workspaces --if-present
       - run: npm run build --workspaces --if-present
       - run: npm test --workspaces --if-present
+      # toolkit depends on no other package here, so it can publish first.
+      - name: Publish @wildwinter/toolkit
+        run: |
+          VER=$(node -p "require('./packages/toolkit/package.json').version")
+          if npm view "@wildwinter/toolkit@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/toolkit@$VER already published; skipping."
+          else
+            npm publish -w packages/toolkit
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # Publish expr first (scoperegistry depends on it), then scoperegistry.
       # Skip whichever version is already published so partial releases pass.
       - name: Publish @wildwinter/expr
