@@ -82,6 +82,65 @@ PAIRS = [
    []),
 ]
 
+# --- functions ---------------------------------------------------------------
+# The file-level scan pairs whole files by name, so it cannot see a function
+# duplicated INSIDE one - and that is where the duplication has actually been
+# hiding. @wildwinter/scoperegistry's defaultFor was written out three more
+# times inside one 2000-line engine.ts, agreeing on six cases and differing on
+# the seventh, and no scan reported a thing. Nor can it see a pair whose files
+# were RENAMED (logger.gd against state_logger.gd), because the names key the
+# comparison.
+#
+# So: chop every file into functions, normalise the family names away, and
+# compare every function against every other one ACROSS the whole estate, not
+# just against its opposite number. Quadratic, but the corpus is small enough
+# (a few thousand functions) that it costs seconds.
+
+FUNC_PATTERNS = [
+    # name-capturing, one per language. Bodies run to the next definition at the
+    # same indent or shallower, which is good enough for a similarity scan.
+    (".ts",  re.compile(r"^(?:export\s+)?(?:async\s+)?function\s+(\w+)", re.M)),
+    # The access modifier is REQUIRED, not optional. Without it this pattern matched
+    # every 2-space-indented `name(` in the file - 264 of them in one engine.ts,
+    # nearly all statements - which chopped the real functions into fragments below
+    # the token floor, so the scan reported nothing and looked like it had checked.
+    (".ts",  re.compile(r"^\s{2}(?:private|public|protected|static|async|readonly)\s+(?:static\s+)?(?:async\s+)?(\w+)\s*\(", re.M)),
+    (".gd",  re.compile(r"^(?:static\s+)?func\s+(\w+)", re.M)),
+    (".cs",  re.compile(r"^\s*(?:public|private|internal|protected).*?\s(\w+)\s*\(", re.M)),
+    (".h",   re.compile(r"^\s*(?:static\s+|inline\s+|virtual\s+)*[\w:<>&*\s]+?\s(\w+)\s*\([^;]*$", re.M)),
+    (".cpp", re.compile(r"^[\w:<>&*\s]+?\s([\w:]+)\s*\([^;]*$", re.M)),
+]
+
+def functions(path):
+    """(name, token-list) for each function-ish region of a file."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return []
+    pats = [p for ext, p in FUNC_PATTERNS if path.suffix == ext]
+    if not pats: return []
+    # `if (`, `for (`, `while (` and friends look exactly like a call-shaped
+    # definition to these patterns. Excluding them by name is cruder than parsing
+    # and enough: a control keyword is never a function name.
+    KEYWORDS = {"if", "for", "while", "switch", "catch", "return", "do", "else",
+                "using", "lock", "foreach", "match", "assert", "await", "new"}
+    marks = sorted({(m.start(), m.group(1)) for p in pats for m in p.finditer(text)
+                    if m.group(1) not in KEYWORDS})
+    out = []
+    for i, (pos, name) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(text)
+        body = text[pos:end]
+        toks = norm_text(body)
+        if len(toks) >= 60:            # a one-liner pair proves nothing
+            out.append((name, toks))
+    return out
+
+def norm_text(t):
+    t = re.sub(r"(?m)^\s*(//|#).*$", "", t)
+    for a, b in SUBS:
+        t = re.sub(a, b, t, flags=re.I)
+    return re.findall(r"[A-Za-z_][A-Za-z_0-9]*|[^\s\w]", t)
+
 rows = []
 for label, a, b, globs, skip in PAIRS:
     A, B = collect(a, globs, skip), collect(b, globs, skip)
@@ -119,3 +178,52 @@ for r, label, n, pa, pb in rows:
     print(f"{r*100:4.0f}% {label:<7} {n:7}  {pathlib.Path(pa).name}")
     print(f"{'':22}  SL {pa}")
     print(f"{'':22}  PK {pb}")
+
+# --- the function-level pass -------------------------------------------------
+# Every function against every other, across both estates. A file-level pair is
+# already reported above, so this only prints what that pass CANNOT see: two
+# functions in files that were never compared, because they have different names
+# or live in the same file.
+if "--functions" in sys.argv or "--all" in sys.argv:
+    corpus = []                       # (label, path, name, tokens)
+    for label, a, b, globs, skip in PAIRS:
+        for base in (a, b):
+            for g in globs:
+                for path in (ROOT / base).rglob(g):
+                    if any(k in str(path) for k in skip): continue
+                    if vendored(str(path.relative_to(ROOT))): continue
+                    for name, toks in functions(path):
+                        corpus.append((label, str(path.relative_to(ROOT)), name, toks))
+
+    seen = set()
+    hits = []
+    for i in range(len(corpus)):
+        li, pi, ni, ti = corpus[i]
+        for j in range(i + 1, len(corpus)):
+            lj, pj, nj, tj = corpus[j]
+            if li != lj: continue                       # same language only
+            if abs(len(ti) - len(tj)) > max(len(ti), len(tj)) * 0.5: continue   # cheap reject
+            r = difflib.SequenceMatcher(None, ti, tj).ratio()
+            if r < 0.85: continue
+            key = (pi, ni, pj, nj)
+            if key in seen: continue
+            seen.add(key)
+            hits.append((r, li, min(len(ti), len(tj)), pi, ni, pj, nj))
+
+    hits.sort(key=lambda x: -(x[0] * x[2]))
+    print(f"\n\n{len(hits)} function pairs at 85% or above that the file scan cannot see")
+    print("(same language; a pair whose FILES are already reported above is still worth")
+    print(" listing here, because the duplicated part may be a small piece of a big file)\n")
+    print(f"{'sim':>5} {'plat':<7} {'tokens':>7}  function")
+    LIMIT = 40
+    if len(hits) > LIMIT:
+        # Say what is being withheld. A truncated list that does not admit it reads as a
+        # complete one, and this pass exists because a silent omission is how four copies
+        # of one function stayed invisible.
+        print(f"  (showing the top {LIMIT} by similarity x size; {len(hits) - LIMIT} more not listed"
+              f" - pass --all-functions for every one)\n")
+    shown = hits if "--all-functions" in sys.argv else hits[:LIMIT]
+    for r, label, n, pi, ni, pj, nj in shown:
+        print(f"{r*100:4.0f}% {label:<7} {n:7}  {ni} / {nj}")
+        print(f"{'':22}  A {pi}")
+        print(f"{'':22}  B {pj}")
