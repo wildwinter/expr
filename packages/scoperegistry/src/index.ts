@@ -116,6 +116,15 @@ export interface PropertyRow {
   value: ScalarValue | undefined;
   default: ScalarValue;
   values?: string[];
+  /** A quality's ordered stage ladder, so an inspector can offer the stages
+   *  instead of a free-text box. `quality` has been in PropertyType since the
+   *  ladder landed, and the evaluator compares stages by LADDER POSITION and
+   *  refuses an unknown one, so free text is not a soft failure: a typo breaks
+   *  play rather than being corrected. This row is the only thing an examiner
+   *  sees, so a ladder it cannot carry is a ladder no editor can offer. One
+   *  consumer forked this whole interface to add the field; the field belongs
+   *  here, beside the `values` it is the closed-set twin of. */
+  stages?: string[];
   writable: boolean;
 }
 
