@@ -55,7 +55,7 @@ const families = [
     godot: "storylets/ports/godot/addons/storyletengine/runtime/expr",
     unreal: "storylets/ports/unreal/StoryletEngine/Source/StoryletEngineRuntime/Public/Storylets/Expr",
     unity: "storylets/ports/unity/StoryletEngine/Runtime/Expr",
-    cs: { __EXPR_NS__: "StoryletStudio.StoryletEngine", __EXPR_VALUE__: "StoryletValue", __EXPR_KIND__: "StoryletKind" },
+    cs: { __EXPR_NS__: "StoryletStudio.StoryletEngine", __EXPR_VALUE__: "StoryletValue", __EXPR_KIND__: "StoryletKind", __EXPR_ERROR__: "StoryletError" },
     tooling: {
       __EXPR_LOCKSTEP__: "@storylet-studio/runtime",
       __EXPR_FAMILY__: "Storylet Engine",
@@ -67,6 +67,8 @@ const families = [
       __EXPR_VALUE__: "StoryletValue",
       __EXPR_KIND__: "StoryletKind",
       __EXPR_VALUE_HEADER__: '"Storylets/StoryletValue.h"',
+      __EXPR_ERROR__: "StoryletError",
+      __EXPR_ORDEREDMAP_HEADER__: '"Storylets/Expr/OrderedMap.h"',
       __EXPR_AST_HEADER__: '"Storylets/Expr/Ast.h"',
     },
   },
@@ -75,7 +77,7 @@ const families = [
     godot: "patter/ports/godot/addons/patterplay/runtime/expr",
     unreal: "patter/ports/unreal/Patterplay/Source/PatterplayRuntime/Public/Patter/Expr",
     unity: "patter/ports/unity/Patterplay/Runtime/Expr",
-    cs: { __EXPR_NS__: "Patterkit.Patterplay", __EXPR_VALUE__: "PatterValue", __EXPR_KIND__: "PatterKind" },
+    cs: { __EXPR_NS__: "Patterkit.Patterplay", __EXPR_VALUE__: "PatterValue", __EXPR_KIND__: "PatterKind", __EXPR_ERROR__: "EvalError" },
     tooling: {
       __EXPR_LOCKSTEP__: "@patterkit/runtime",
       __EXPR_FAMILY__: "Patterplay",
@@ -87,6 +89,8 @@ const families = [
       __EXPR_VALUE__: "PatterValue",
       __EXPR_KIND__: "PatterKind",
       __EXPR_VALUE_HEADER__: '"Patter/PatterValue.h"',
+      __EXPR_ERROR__: "EvalError",
+      __EXPR_ORDEREDMAP_HEADER__: '"Patter/Expr/OrderedMap.h"',
       __EXPR_AST_HEADER__: '"Patter/Expr/Ast.h"',
     },
   },
@@ -115,11 +119,14 @@ const sources = [
   { from: "ports/unreal/Expr.h", to: (f) => `${f.unreal}/Expr.h`, comment: "//", subs: (f) => f.cpp },
   { from: "ports/unreal/Specificity.h", to: (f) => `${f.unreal}/Specificity.h`, comment: "//", subs: (f) => f.cpp },
   { from: "ports/unreal/Mulberry32.h", to: (f) => `${f.unreal}/Mulberry32.h`, comment: "//", subs: (f) => f.cpp },
+  { from: "ports/unreal/OrderedMap.h", to: (f) => `${f.unreal}/OrderedMap.h`, comment: "//", subs: (f) => f.cpp },
+  { from: "ports/unreal/PropertyBag.h", to: (f) => `${f.unreal}/PropertyBag.h`, comment: "//", subs: (f) => f.cpp },
   { from: "ports/unity/Value.cs", to: (f) => `${f.unity}/Value.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Ast.cs", to: (f) => `${f.unity}/Ast.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Expr.cs", to: (f) => `${f.unity}/Expr.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Specificity.cs", to: (f) => `${f.unity}/Specificity.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/Mulberry32.cs", to: (f) => `${f.unity}/Mulberry32.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { from: "ports/unity/PropertyBag.cs", to: (f) => `${f.unity}/PropertyBag.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   // The repos' own release tooling. Not a port, but the same argument applies and the
   // numbers are worse: 99% and 100% identical once family names are normalised, and a
   // bug in the guard had to be fixed in both copies within an hour of the second being
