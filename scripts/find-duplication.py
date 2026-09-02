@@ -64,10 +64,18 @@ def collect(base, globs, skip):
 PAIRS = [
   ("Godot",  "storylets/ports/godot", "patter/ports/godot", ["*.gd"],
    [".godot/", "/test/", "demo"]),
+  # NOT skipping /Expr/, though it once did. Those directories hold the vendored shared
+  # sources, and skipping them made the scan blind in both directions: the "tokens no
+  # longer written twice" figure counted Godot's vendored files (its pair never skipped
+  # them) and silently omitted C#'s and C++'s, so the number understated the work by
+  # exactly the platforms that had most of it - and a file sitting in Expr/ WITHOUT a
+  # vendor banner, which is a fork of a shared source, could never be reported at all.
+  # `vendored()` below reads the banner and buckets the copies, so there is nothing to
+  # gain by excluding them by path.
   ("Unity",  "storylets/ports/unity", "patter/ports/unity", ["*.cs"],
-   ["/obj/", "/bin/", "TestHost", "Samples~", "/Expr/"]),
+   ["/obj/", "/bin/", "TestHost", "Samples~"]),
   ("Unreal", "storylets/ports/unreal", "patter/ports/unreal", ["*.h", "*.cpp"],
-   ["Intermediate", "Binaries", "TestHost", "Demo", "/Expr/"]),
+   ["Intermediate", "Binaries", "TestHost", "Demo"]),
   ("JS",     "storylets/packages", "patter/packages", ["*.ts"],
    ["node_modules", "/test/", ".test.ts", "dist/", "patterpad", "studio", "website"]),
   # The repo's OWN tooling, which the scan ignored until 2026-09-01 and should not
