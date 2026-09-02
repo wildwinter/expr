@@ -111,6 +111,7 @@ const sources = [
   { from: "ports/godot/expr_specificity.gd", to: (f) => `${f.godot}/expr_specificity.gd`, comment: "#" },
   { from: "ports/godot/mulberry32.gd", to: (f) => `${f.godot}/mulberry32.gd`, comment: "#" },
   { from: "ports/godot/property_bag.gd", to: (f) => `${f.godot}/property_bag.gd`, comment: "#", subs: (f) => f.tooling },
+  { from: "ports/godot/state_logger.gd", to: (f) => `${f.godot}/state_logger.gd`, comment: "#", subs: (f) => f.tooling },
   { from: "ports/godot/bundle_view.gd", to: (f) => `${f.godot}/bundle_view.gd`, comment: "#" },
   { from: "ports/godot/bundle_import_plugin.gd", to: (f) => `${f.godot}/bundle_import_plugin.gd`, comment: "#" },
   { from: "ports/godot/bundle_export_plugin.gd", to: (f) => `${f.godot}/bundle_export_plugin.gd`, comment: "#" },
