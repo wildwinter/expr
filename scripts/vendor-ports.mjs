@@ -129,6 +129,7 @@ const sources = [
   { from: "ports/unity/Mulberry32.cs", to: (f) => `${f.unity}/Mulberry32.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/OrderedMap.cs", to: (f) => `${f.unity}/OrderedMap.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   { from: "ports/unity/PropertyBag.cs", to: (f) => `${f.unity}/PropertyBag.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { from: "ports/unity/StateLogger.cs", to: (f) => `${f.unity}/StateLogger.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
   // The repos' own release tooling. Not a port, but the same argument applies and the
   // numbers are worse: 99% and 100% identical once family names are normalised, and a
   // bug in the guard had to be fixed in both copies within an hour of the second being

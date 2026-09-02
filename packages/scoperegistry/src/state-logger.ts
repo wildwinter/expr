@@ -35,6 +35,11 @@ export interface StateChange {
 /**
  * One bag on the logger's path space.
  *
+ * Named for the LOG, not the bag: a product may already have its own type for enumerating
+ * bags (the Storylet Engine's LogMount, which labels a mount "story" for its own purposes),
+ * and in the ported runtimes both land in one namespace. They are also not the same thing,
+ * which the prefix rule below is about.
+ *
  * `pathPrefix` is used VERBATIM, separator included, exactly as the bag's own
  * is - it is not a scope token with a dot implied. Omit it and the bag's own
  * `pathPrefix` is used, which is what a product wants whenever its log paths
@@ -45,7 +50,7 @@ export interface StateChange {
  * scene) but has to LOG it as `@scene:kitchen.mood`, because a log covering
  * several scenes needs to say which one.
  */
-export interface BagMount {
+export interface LogMount {
   bag: PropertyBag;
   pathPrefix?: string;
 }
@@ -54,7 +59,7 @@ export interface BagMount {
  *  product that replaces its bags on load re-mounts), and its non-property
  *  state as flattened paths. */
 export interface StateLoggerAdapter {
-  mounts(): BagMount[];
+  mounts(): LogMount[];
   extra?(): StateSnapshot;
 }
 
@@ -89,7 +94,7 @@ export function diffState(prev: StateSnapshot, next: StateSnapshot): StateChange
 
 const show = (v: ScalarValue | undefined): string => (v === undefined ? "<unset>" : JSON.stringify(v));
 
-const prefixOf = (m: BagMount): string => m.pathPrefix ?? m.bag.pathPrefix;
+const prefixOf = (m: LogMount): string => m.pathPrefix ?? m.bag.pathPrefix;
 
 export function createStateLogger(adapter: StateLoggerAdapter, opts: StateLoggerOptions = {}): StateLogger {
   const sink = opts.sink ?? ((line: string) => console.log(line));

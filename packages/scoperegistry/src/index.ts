@@ -554,6 +554,6 @@ export function defaultFor(d: Pick<ScopeDeclaration, "type" | "default" | "value
 // The state logger, which both product families had written twice each.
 // ---------------------------------------------------------------------------
 export type {
-  StateSnapshot, StateChange, BagMount, StateLoggerAdapter, StateLoggerOptions, StateLogger,
+  StateSnapshot, StateChange, LogMount, StateLoggerAdapter, StateLoggerOptions, StateLogger,
 } from "./state-logger.js";
 export { createStateLogger, diffState } from "./state-logger.js";
