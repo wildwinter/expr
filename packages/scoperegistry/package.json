@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/scoperegistry",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "Scope registry / runtime state container for @wildwinter/expr: owned property scopes + foreign (host-resolved) scopes, save/load, and the scopeRegistrySpec interop format. Produces the EvalContext and ExpressionSchema that expr consumes.",
   "type": "module",
   "license": "MIT",
