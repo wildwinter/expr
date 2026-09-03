@@ -54,6 +54,19 @@ equality, the comparison rules, and scope absence.
 Not covered, and deliberately: the parser (no port has one - bundles ship
 compiled ASTs), the quality ladder and `advance()`, and anything dialect-shaped.
 
+Not covered YET, and next: **`registry`**, the scope kernel's own rules. The one
+that surfaced first (storylet-studio `design/joint-demo-findings.md` 9,
+2026-09-03) is `writable`: `PropertyBag.set` on a declaration with
+`writable: false` must throw `'x' is read-only`, a scope-level
+`writable: false` default the same, and a writable one must land. Both
+families reach that rule today - Storylets through its self-backed `@world`
+bag, Patter through its host-scope mount - and neither corpus pins the
+kernel itself, so a port could drift there and both engines' corpora would
+stay green. The brief is in storylet-studio
+`design/port-parity-session-brief.md`, "Addendum, 2026-09-03". Dispatch it in
+every harness that runs this corpus, or it is a check that cannot fail for
+the ones that skip it.
+
 ## The corpus is dialect-free, and that is load-bearing
 
 No case calls a function, and every case populates every scope property it
