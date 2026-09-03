@@ -308,4 +308,57 @@ export const fixtures: Fixtures = {
       c("comparison binds tighter than and", "@v.n < @w.n and @w.n > @v.zero", { expected: true }),
     ];
   })(),
+
+  // -- registry: the scope kernel's `writable` rule -----------------------------
+  //
+  // Written from the rule as @wildwinter/scoperegistry states it, not read off a
+  // bag: a declaration is writable when its own `writable` says so, else when the
+  // scope's default says so, else always (`decl.writable ?? scope.writable ??
+  // true`). A refusal raises `... is read-only` and leaves the value seeded.
+  //
+  // Both families reach this rule today - Storylets through its self-backed
+  // @world bag, Patter through its host-scope mount - and neither corpus pinned
+  // the kernel itself, so a port could drift on it and both engines' corpora
+  // would stay green. `expected` is the value READ BACK after the attempt on BOTH
+  // outcomes: on a refusal it is the seed, which is what makes "refused"
+  // different from "half written".
+  registry: [
+    // the declaration's own flag, with no scope round it
+    { name: "a read-only declaration refuses a write",
+      declarations: [{ name: "hp", type: "number", default: 3, writable: false }],
+      set: { name: "hp", value: 9 }, expectError: true, expected: 3 },
+    { name: "a declaration with no flag takes the write",
+      declarations: [{ name: "hp", type: "number", default: 3 }],
+      set: { name: "hp", value: 9 }, expected: 9 },
+    { name: "a declaration marked writable takes the write",
+      declarations: [{ name: "hp", type: "number", default: 3, writable: true }],
+      set: { name: "hp", value: 9 }, expected: 9 },
+    { name: "a refused write leaves a flags value exactly as seeded",
+      declarations: [{ name: "marks", type: "flags", default: ["a"], writable: false }],
+      set: { name: "marks", value: ["a", "b"] }, expectError: true, expected: ["a"] },
+    { name: "a refusal on one declaration does not touch its neighbour",
+      declarations: [
+        { name: "hp", type: "number", default: 3, writable: false },
+        { name: "mood", type: "string", default: "calm" },
+      ],
+      set: { name: "mood", value: "tense" }, expected: "tense" },
+
+    // the scope's default, and how a declaration's own flag relates to it
+    { name: "a read-only scope default covers a declaration that says nothing",
+      scope: { writable: false },
+      declarations: [{ name: "hp", type: "number", default: 3 }],
+      set: { name: "hp", value: 9 }, expectError: true, expected: 3 },
+    { name: "a declaration's own flag overrides a read-only scope default",
+      scope: { writable: false },
+      declarations: [{ name: "hp", type: "number", default: 3, writable: true }],
+      set: { name: "hp", value: 9 }, expected: 9 },
+    { name: "a declaration's own flag overrides a writable scope default",
+      scope: { writable: true },
+      declarations: [{ name: "hp", type: "number", default: 3, writable: false }],
+      set: { name: "hp", value: 9 }, expectError: true, expected: 3 },
+    { name: "a scope that says nothing is writable",
+      scope: {},
+      declarations: [{ name: "hp", type: "number", default: 3 }],
+      set: { name: "hp", value: 9 }, expected: 9 },
+  ],
 };

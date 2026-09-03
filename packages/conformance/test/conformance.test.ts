@@ -18,18 +18,18 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildCorpus } from "../src/build.js";
 import { fixtures } from "../src/cases.js";
-import { runExpressionCase, runPrngCase, seedValue } from "../src/runner.js";
+import { runExpressionCase, runPrngCase, runRegistryCase, seedValue } from "../src/runner.js";
 // toUint32 comes from the PACKAGE, so this test holds the shipped one to the
 // contract rather than a copy kept beside it.
 import { toUint32 } from "@wildwinter/expr";
-import type { PrngCase } from "../src/types.js";
+import type { PrngCase, RegistryCase } from "../src/types.js";
 
 const corpus = buildCorpus(fixtures);
 const corpusPath = fileURLToPath(new URL("../corpus.json", import.meta.url));
 
 describe("corpus shape", () => {
   it("case names are unique within each family", () => {
-    for (const family of ["prng", "expressions"] as const) {
+    for (const family of ["prng", "expressions", "registry"] as const) {
       const names = corpus[family].map((c) => c.name);
       expect(new Set(names).size, family).toBe(names.length);
     }
@@ -63,6 +63,42 @@ describe("corpus shape", () => {
     }
   });
 
+  it("registry cases name a declared property, and a refusal reads back the seed", () => {
+
+    for (const c of corpus.registry) {
+
+      const decl = c.declarations.find((d) => d.name.toLowerCase() === c.set.name.toLowerCase());
+
+      expect(decl, `${c.name}: set names an undeclared property`).toBeDefined();
+
+      if (c.expectError) expect(c.expected, `${c.name}: a refusal must read back the seed`).toEqual(decl!.default);
+
+      else expect(c.expected, `${c.name}: a landed write must read back what was written`).toEqual(c.set.value);
+
+    }
+
+  });
+
+  
+
+  it("registry covers both levels of the rule and both outcomes at each", () => {
+
+    const bagLevel = corpus.registry.filter((c) => c.scope === undefined);
+
+    const scopeLevel = corpus.registry.filter((c) => c.scope !== undefined);
+
+    for (const [label, cases] of [["bag", bagLevel], ["scope", scopeLevel]] as const) {
+
+      expect(cases.some((c) => c.expectError), `${label}: a refusal`).toBe(true);
+
+      expect(cases.some((c) => !c.expectError), `${label}: a landed write`).toBe(true);
+
+    }
+
+  });
+
+  
+
   it("the non-finite seeds travel as strings, since JSON has no literal", () => {
     const seeds = corpus.prng.map((c) => c.seed);
     for (const s of ["NaN", "Infinity", "-Infinity"]) expect(seeds).toContain(s);
@@ -80,8 +116,21 @@ describe("the reference runtime meets the contract", () => {
   });
 
   it("passes every expression case", () => {
+
     const fails = corpus.expressions.flatMap(runExpressionCase);
+
     expect(fails).toEqual([]);
+
+  });
+
+  
+
+  it("passes every registry case", () => {
+
+    const fails = corpus.registry.flatMap(runRegistryCase);
+
+    expect(fails).toEqual([]);
+
   });
 });
 
@@ -160,5 +209,30 @@ describe("corpus.json", () => {
     writeFileSync(corpusPath, JSON.stringify(corpus, null, 2) + "\n");
     expect(corpus.prng.length).toBeGreaterThan(0);
     expect(corpus.expressions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the registry runner can actually fail", () => {
+  const refused = corpus.registry.find((c) => c.expectError && c.scope === undefined)!;
+  const landed = corpus.registry.find((c) => !c.expectError && c.scope === undefined)!;
+  const scoped = corpus.registry.find((c) => c.expectError && c.scope !== undefined)!;
+
+  it("rejects a landed write where a refusal was contracted", () => {
+    const broken: RegistryCase = { ...refused, declarations: refused.declarations.map((d) => ({ ...d, writable: true })) };
+    expect(runRegistryCase(broken).length).toBeGreaterThan(0);
+  });
+
+  it("rejects a refusal where a landed write was contracted", () => {
+    const broken: RegistryCase = { ...landed, declarations: landed.declarations.map((d) => ({ ...d, writable: false })) };
+    expect(runRegistryCase(broken).length).toBeGreaterThan(0);
+  });
+
+  it("rejects a wrong read-back on either outcome", () => {
+    expect(runRegistryCase({ ...refused, expected: 999 }).length).toBeGreaterThan(0);
+    expect(runRegistryCase({ ...landed, expected: 999 }).length).toBeGreaterThan(0);
+  });
+
+  it("rejects a scope default the kernel does not apply", () => {
+    expect(runRegistryCase({ ...scoped, scope: { writable: true } }).length).toBeGreaterThan(0);
   });
 });

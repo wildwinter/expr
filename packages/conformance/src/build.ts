@@ -11,7 +11,7 @@ import { conformanceDialect } from "./dialect.js";
 import type { Corpus, Fixtures } from "./types.js";
 
 /** Bumped when the corpus gains cases or changes shape. */
-export const CORPUS_VERSION = 1;
+export const CORPUS_VERSION = 2;   // 2: the registry family
 
 export function buildCorpus(fixtures: Fixtures): Corpus {
   return {
@@ -24,5 +24,6 @@ export function buildCorpus(fixtures: Fixtures): Corpus {
       scopes: f.scopes,
       ...(f.expectError ? { expectError: true as const } : { expected: f.expected }),
     })),
+    registry: fixtures.registry.map((f) => ({ ...f })),
   };
 }

@@ -16,7 +16,8 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@wildwinter/expr": ["../expr/src/index.ts"]
+      "@wildwinter/expr": ["../expr/src/index.ts"],
+      "@wildwinter/scoperegistry": ["../scoperegistry/src/index.ts"]
     }
   },
   "include": ["src", "test"]
