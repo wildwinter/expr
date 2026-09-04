@@ -57,7 +57,7 @@ const families = [
     unity: "storylets/ports/unity/StoryletEngine/Runtime/Expr",
     cs: { __EXPR_NS__: "StoryletStudio.StoryletEngine", __EXPR_VALUE__: "StoryletValue", __EXPR_KIND__: "StoryletKind", __EXPR_ERROR__: "StoryletError" },
     tooling: {
-      __EXPR_LOCKSTEP__: "@storylet-studio/runtime",
+      __EXPR_LOCKSTEP__: "@storylet-studio/runtime,@storylet-studio/play-helpers",
       __EXPR_FAMILY__: "Storylet Engine",
       __EXPR_UE_DEMO__: "StoryletEngineDemo",
       __EXPR_BAG_LABEL__: "StoryletPropertyBag",
