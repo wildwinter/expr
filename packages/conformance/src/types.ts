@@ -91,6 +91,11 @@ export interface RegistryCase {
   scope?: { writable?: boolean };
   declarations: RegistryDeclaration[];
   set: { name: string; value: ScalarValue };
+  /** Make the write as the HOST rather than as the story: `writable: false` is
+   *  the story's promise, so the host's own surface passes this and is not
+   *  refused (ruled 2026-09-05). A port whose bag has no such option fails
+   *  these cases until it grows one - which is the point of pinning it here. */
+  host?: true;
   /** The write must be refused with an error whose message contains
    *  `is read-only`. */
   expectError?: true;

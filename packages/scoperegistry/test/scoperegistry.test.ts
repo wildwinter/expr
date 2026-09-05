@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parse, evaluate, validateExpr } from "@wildwinter/expr";
 import type { Dialect, ScalarValue } from "@wildwinter/expr";
-import { ScopeRegistry, readScopeRegistrySpec } from "../src/index.js";
+import { ScopeRegistry, PropertyBag, readScopeRegistrySpec } from "../src/index.js";
 
 // A dialect whose scope tokens match the registry: `patter` (default, owned) and
 // `game` (foreign). No functions needed for these tests.
@@ -218,5 +218,65 @@ describe("a quality declared on the registry", () => {
     const r2 = reg();
     r2.load(saved);
     expect(evalSrc('@debt == "confronted"', r2)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `writable: false` is the STORY's promise, not the game's (ruled 2026-09-05).
+// A host passes `{ host: true }` and writes; the story's path never does and is
+// refused. Both products met this the hard way: the Storylet Engine's venue
+// clock and Patter's coverage driver were each locked out of the one property
+// they existed to move, because the kernel refused every caller alike.
+// ---------------------------------------------------------------------------
+describe("a read-only declaration refuses the story and admits the host", () => {
+  it("owned: the story is refused, the host writes, the value follows", () => {
+    const r = new ScopeRegistry().defineOwned("patter", [{ name: "act", type: "number", default: 1, writable: false }]);
+    expect(() => r.set("patter", "act", 2)).toThrow("read-only");
+    expect(r.get("patter", "act")).toBe(1);           // refused, not half written
+    r.set("patter", "act", 2, { host: true });
+    expect(r.get("patter", "act")).toBe(2);
+  });
+
+  it("foreign: the story is refused, the host reaches the resolver's set", () => {
+    const store: Record<string, ScalarValue> = { clock: "day" };
+    const r = new ScopeRegistry().defineForeign(
+      "game",
+      { get: (n) => store[n], set: (n, v) => { store[n] = v; } },
+      [{ name: "clock", type: "string", writable: false }],
+    );
+    expect(() => r.set("game", "clock", "night")).toThrow("'@game.clock' is read-only");
+    expect(store.clock).toBe("day");                  // the resolver's set was never called
+    r.set("game", "clock", "night", { host: true });
+    expect(store.clock).toBe("night");
+  });
+
+  it("a resolver with no set refuses EVERYONE, the host included", () => {
+    // Not a rule to bypass: a game that gave no setter has nowhere for the write to land.
+    const r = new ScopeRegistry().defineForeign("game", { get: () => "day" }, [{ name: "clock", type: "string" }]);
+    expect(() => r.set("game", "clock", "night", { host: true })).toThrow("'@game.clock' is read-only");
+  });
+
+  it("a writable declaration is unchanged for either caller", () => {
+    const r = new ScopeRegistry().defineOwned("patter", [{ name: "hp", type: "number", default: 3 }]);
+    r.set("patter", "hp", 4);
+    r.set("patter", "hp", 5, { host: true });
+    expect(r.get("patter", "hp")).toBe(5);
+  });
+
+  it("the examiner still shows the declaration as read-only", () => {
+    // The flag keeps its meaning in a state panel: it says the STORY cannot write it.
+    const r = new ScopeRegistry().defineOwned("patter", [{ name: "act", type: "number", default: 1, writable: false }]);
+    r.set("patter", "act", 7, { host: true });
+    const row = r.listProperties().find((x) => x.name === "act")!;
+    expect(row.writable).toBe(false);
+    expect(row.value).toBe(7);
+  });
+
+  it("the bag's own set takes the same authority, and silent stays separate", () => {
+    const bag = new PropertyBag([{ name: "act", type: "number", default: 1, writable: false }]);
+    expect(() => bag.set("act", 2)).toThrow("read-only");
+    const change = bag.set("act", 2, { host: true });  // host, and NOT silent
+    expect(change.silent).toBe(false);
+    expect(bag.get("act")).toBe(2);
   });
 });

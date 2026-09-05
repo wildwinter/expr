@@ -116,6 +116,9 @@ export function runExpressionCase(c: ExpressionCase): string[] {
  *
  * On both outcomes the value is read back and compared, so a refusal that
  * half-wrote is a failure, and so is a "landed" write that went nowhere.
+ *
+ * A case with `host: true` makes the write as the HOST, which `writable: false`
+ * never bound: it is the story's promise about the story's own writes.
  */
 export function runRegistryCase(c: RegistryCase): string[] {
   const decls: ScopeDeclaration[] = c.declarations.map((d) => ({ ...d }));
@@ -125,7 +128,7 @@ export function runRegistryCase(c: RegistryCase): string[] {
   try {
     if (c.scope === undefined) {
       const bag = new PropertyBag(decls);
-      try { bag.set(c.set.name, c.set.value); } catch (e) { error = String(e); }
+      try { bag.set(c.set.name, c.set.value, c.host ? { host: true } : undefined); } catch (e) { error = String(e); }
       readBack = bag.get(c.set.name);
     } else {
       // A foreign scope over a record: the registry's rule, not the bag's.
@@ -137,7 +140,7 @@ export function runRegistryCase(c: RegistryCase): string[] {
         decls,
         c.scope.writable ?? true,
       );
-      try { registry.set("s", c.set.name, c.set.value); } catch (e) { error = String(e); }
+      try { registry.set("s", c.set.name, c.set.value, c.host ? { host: true } : undefined); } catch (e) { error = String(e); }
       readBack = registry.get("s", c.set.name);
     }
   } catch (e) {

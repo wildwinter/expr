@@ -28,7 +28,15 @@ export type { EvalContext, ExpressionSchema, PropertyType, ScalarValue, ScopeRes
 /**
  * A property declaration. `default` is used by an *owned* scope to seed its bag
  * (foreign scopes ignore it - the host owns the value). `writable: false` makes
- * a property read-only; default is read/write. (`type`/`values` feed validation.)
+ * a property read-only TO THE STORY; the HOST still writes it, by passing
+ * `{ host: true }` (see `set`). Default is read/write. (`type`/`values` feed
+ * validation.)
+ *
+ * The distinction is the whole point of the flag on a foreign scope, where the
+ * value is the game's own: a flag carried in the story's bundle must not lock a
+ * game out of its own state. Ruled 2026-09-05, after both products met it - the
+ * Storylet Engine's venue clock and Patter's coverage driver were each blocked
+ * from the one property they existed to move.
  */
 export interface ScopeDeclaration {
   name: string;
@@ -186,10 +194,14 @@ export class PropertyBag {
 
   /** Write a property. Engine writes (the default) notify subscribers;
    *  pass `silent: true` for a host write, which reaches only the audit
-   *  hook. Throws on a read-only property. Returns the change. */
-  set(name: string, value: ScalarValue, opts?: { silent?: boolean; reason?: string }): BagChange {
+   *  hook. Throws on a read-only property unless the caller says it is the
+   *  HOST (`host: true`), for whom `writable: false` was never a rule - it is
+   *  the story's promise, not the game's. `silent` and `host` are separate on
+   *  purpose: one is about who hears the write, the other about who may make
+   *  it. Returns the change. */
+  set(name: string, value: ScalarValue, opts?: { silent?: boolean; reason?: string; host?: boolean }): BagChange {
     const n = this.norm(name);
-    if (this.decls.get(n)?.writable === false) throw new Error(`'${name}' is read-only`);
+    if (!opts?.host && this.decls.get(n)?.writable === false) throw new Error(`'${name}' is read-only`);
     const change: BagChange = {
       name: n,
       prev: this.values[n],
@@ -382,22 +394,29 @@ export class ScopeRegistry {
   }
 
   /** Write a property (an ENGINE write: the bag's subscribers fire; use
-   *  the bag directly for silent host writes). Throws on an unknown or
-   *  read-only scope/property. */
-  set(scope: string, name: string, value: ScalarValue): void {
+   *  the bag directly for silent host writes). Throws on an unknown scope.
+   *
+   *  `writable: false` is the STORY's promise, so a story write is refused and
+   *  a HOST write is not: pass `{ host: true }` from a host's own surface (its
+   *  `setProperty`, its tooling, a coverage driver) and never from the path an
+   *  outcome or effect takes. A foreign scope whose resolver has no `set` is
+   *  refused for everyone, host included - that is not a rule to bypass, it is
+   *  a game that gave no way to write. */
+  set(scope: string, name: string, value: ScalarValue, opts?: { host?: boolean }): void {
     const e = this.scopes.get(scope);
     if (!e) throw new Error(`unknown scope '@${scope}'`);
     if (e.kind === "owned") {
       try {
-        e.bag.set(name, value);
+        e.bag.set(name, value, opts?.host ? { host: true } : undefined);
       } catch {
         throw new Error(`'@${scope}.${name}' is read-only`);
       }
       return;
     }
     const n = name.toLowerCase();
-    if (!this.foreignWritable(e, n)) throw new Error(`'@${scope}.${name}' is read-only`);
-    e.resolver.set!(n, value);
+    if (!e.resolver.set) throw new Error(`'@${scope}.${name}' is read-only`);
+    if (!opts?.host && !this.foreignWritable(e, n)) throw new Error(`'@${scope}.${name}' is read-only`);
+    e.resolver.set(n, value);
   }
 
   private foreignWritable(e: ForeignScope, name: string): boolean {

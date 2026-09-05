@@ -336,6 +336,21 @@ export const fixtures: Fixtures = {
     { name: "a refused write leaves a flags value exactly as seeded",
       declarations: [{ name: "marks", type: "flags", default: ["a"], writable: false }],
       set: { name: "marks", value: ["a", "b"] }, expectError: true, expected: ["a"] },
+    // The host half of the rule (2026-09-05). `writable: false` is what the STORY
+    // promises, so the game's own surface still writes: both products shipped a
+    // kernel that refused every caller, and both found it the same way - a venue
+    // clock and a coverage driver, each locked out of the property it existed to
+    // move. A port that refuses these has the same bug.
+    { name: "a read-only declaration takes a HOST write",
+      declarations: [{ name: "hp", type: "number", default: 3, writable: false }],
+      set: { name: "hp", value: 9 }, host: true, expected: 9 },
+    { name: "a read-only declaration in a read-only scope takes a HOST write",
+      scope: { writable: false },
+      declarations: [{ name: "clock", type: "string", default: "day" }],
+      set: { name: "clock", value: "night" }, host: true, expected: "night" },
+    { name: "a host write to a writable declaration is an ordinary write",
+      declarations: [{ name: "mood", type: "string", default: "calm" }],
+      set: { name: "mood", value: "tense" }, host: true, expected: "tense" },
     { name: "a refusal on one declaration does not touch its neighbour",
       declarations: [
         { name: "hp", type: "number", default: 3, writable: false },
