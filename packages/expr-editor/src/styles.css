@@ -126,7 +126,7 @@
 /* popover */
 .exed-pop { position: absolute; z-index: 1000; background: var(--exed-surface); border: 1px solid var(--exed-line); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 0.35rem; min-width: 9rem; max-width: 20rem; overflow: auto; }
 .exed-menu { display: flex; flex-direction: column; gap: 0.1rem; }
-.exed-menu-head { font: 700 0.64rem var(--font-ui, system-ui); text-transform: uppercase; letter-spacing: 0.05em; color: var(--exed-muted); padding: 0.2rem 0.3rem; }
+.exed-menu-head { font: 600 12.5px/1.2 var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.2rem 0.3rem; }
 .exed-hint { font: italic 0.72rem var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.1rem 0.3rem; }
 .exed-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; text-align: left; width: 100%; background: none; border: 0; border-radius: 5px; cursor: pointer; color: var(--exed-ink); font: 0.8rem var(--font-ui, system-ui); padding: 0.3rem 0.4rem; }
 .exed-opt:hover { background: color-mix(in oklab, var(--exed-accent) 12%, transparent); }
@@ -159,7 +159,7 @@
 .exed-vwiz-body { display: flex; flex-direction: column; gap: 0.1rem; }
 .exed-vwiz-other { background: none; border: 0; cursor: pointer; color: var(--exed-muted); font: 0.72rem var(--font-ui, system-ui); text-align: left; padding: 0.25rem 0.4rem; margin-top: 0.15rem; }
 .exed-vwiz-other:hover { color: var(--exed-accent); }
-.exed-field-cap, .exed-picker-scope { font: 700 0.64rem var(--font-ui, system-ui); text-transform: uppercase; letter-spacing: 0.05em; color: var(--exed-muted); padding: 0.2rem 0.3rem 0.1rem; }
+.exed-field-cap, .exed-picker-scope { font: 600 12.5px/1.2 var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.2rem 0.3rem 0.1rem; }
 .exed-input { font: 0.82rem var(--font-ui, system-ui); color: var(--exed-ink); background: var(--exed-bg); border: 1px solid var(--exed-line); border-radius: 5px; padding: 0.25rem 0.4rem; flex: 1; min-width: 6rem; }
 .exed-input:focus { outline: none; border-color: var(--exed-accent); }
 .exed-btn { background: var(--exed-accent); color: #fff; border: 0; border-radius: 5px; cursor: pointer; font: 600 0.72rem var(--font-ui, system-ui); padding: 0.25rem 0.55rem; }
