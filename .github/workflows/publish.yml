@@ -16,16 +16,24 @@ name: Publish
 # depends on it), and each publish is guarded so a release that only bumps one
 # package does not fail trying to republish the unchanged one.
 #
-# Requires an NPM_TOKEN repo secret: an npm automation token for an account with
-# publish rights to the @wildwinter scope on npmjs.org. The packages publish
-# publicly via `publishConfig.access: public`.
+# Publishing authenticates via npm TRUSTED PUBLISHING (OIDC): each package
+# trusts this repo + this workflow file on npmjs.com, so no npm token is
+# stored anywhere, and provenance attestations are generated automatically.
+# Requirements: `id-token: write` below, and an OIDC-aware npm CLI (>= 11.5.1)
+# on the runner. The packages publish publicly via publishConfig.access: public.
+#
+# `workflow_dispatch` reruns the publish for the versions currently on main,
+# for the case where a release's own run failed: every step skips a version
+# that is already on the registry, so a rerun publishes only what is missing.
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write        # npm trusted publishing (OIDC) + provenance
 
 jobs:
   publish:
@@ -36,11 +44,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          # Inject npm auth from NODE_AUTH_TOKEN at runtime, so the committed
-          # .npmrc carries no token line (which would shadow a local token for
-          # anyone running npm in this repo).
-          registry-url: https://registry.npmjs.org
-          scope: '@wildwinter'
+      # Needs >= 11.5.1 for OIDC trusted publishing. Pinned to the 11.x line on purpose:
+      # npm 12.0.0 ships a broken provenance path ("Cannot find module 'sigstore'"),
+      # which aborts every publish once `@latest` rolls over to it - npm/cli#9722.
+      - name: OIDC-aware npm (>= 11.5.1; pin off the broken npm 12.x)
+        run: npm install -g npm@11
+      # No token anywhere: npm's OIDC detection handles auth by itself.
+      - run: echo "# auth via npm trusted publishing (OIDC) - no token" > ~/.npmrc
       - run: npm ci
       - run: npm run typecheck --workspaces --if-present
       - run: npm run build --workspaces --if-present
@@ -54,8 +64,6 @@ jobs:
           else
             npm publish -w packages/toolkit
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # Publish expr first (scoperegistry depends on it), then scoperegistry.
       # Skip whichever version is already published so partial releases pass.
       - name: Publish @wildwinter/expr
@@ -66,8 +74,6 @@ jobs:
           else
             npm publish -w packages/expr
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish @wildwinter/scoperegistry
         run: |
           VER=$(node -p "require('./packages/scoperegistry/package.json').version")
@@ -76,8 +82,6 @@ jobs:
           else
             npm publish -w packages/scoperegistry
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # expr-specificity peer-depends on expr, so it publishes after it too.
       - name: Publish @wildwinter/expr-specificity
         run: |
@@ -87,8 +91,6 @@ jobs:
           else
             npm publish -w packages/expr-specificity
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # expr-editor also depends on expr, so it publishes after it too.
       - name: Publish @wildwinter/expr-editor
         run: |
@@ -98,5 +100,3 @@ jobs:
           else
             npm publish -w packages/expr-editor
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
