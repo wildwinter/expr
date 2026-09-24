@@ -95,7 +95,13 @@ properties by engine.
 - **`defineForeign(token, resolver, declarations?, { writable?, normalise?, owner? })`**:
   a scope the game keeps. `writable` is the scope-level default for its
   declarations. (The fourth argument may still be that boolean alone.)
-- **`remove(token, { keep? })`**, **`discardParked()`**, **`has(token)`**.
+- **`remove(token, { keep? })`**, **`discardParked(prefix?)`**, **`has(token)`**.
+  With a prefix, `discardParked` drops only the parked keys that start with it,
+  so an engine resetting itself leaves other engines' values alone.
+- **`revision`**: a counter that moves on each registration or removal and at no
+  other time. A caller caching a context from `toEvalContext()` rebuilds it when
+  the counter moves; the values a context reads are live, its set of scopes is
+  not.
 - **`get(scope, name)`** and **`set(scope, name, value, { host? })`**.
   `writable: false` is the *story's* promise: a story write is refused, and the
   game's own write, passing `{ host: true }`, is not. A declaration's own flag
@@ -106,8 +112,10 @@ properties by engine.
 - **`listProperties()`**: examiner rows across owned scopes and declared foreign
   scopes, each with its `scope`, `owner` (when given), `path`, `value`, and
   `writable`.
-- **`save()`** and **`load(blob)`**: bare values of owned scopes, keyed by token,
-  plus parked values.
+- **`save()`** and **`load(blob, { keepParked? })`**: bare values of owned
+  scopes, keyed by token, plus parked values. Each load replaces what an earlier
+  load parked, unless `keepParked` says to add to it: for an engine moving an
+  older save's values into a registry the game has already loaded.
 - **`readScopeRegistrySpec(json)`**: extract a `scopeRegistrySpec` (the interop
   format one owner exports so another engine can validate references into its
   scopes) from any parsed JSON value.

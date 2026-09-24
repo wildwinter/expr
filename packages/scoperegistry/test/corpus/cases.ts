@@ -348,6 +348,58 @@ export const cases: RegistryCase[] = [
       { op: "save", expect: { b: { y: 2 } } },
     ],
   },
+  {
+    name: "a load that keeps what is parked adds to it, and replaces a section for the same key",
+    steps: [
+      { op: "load", blob: { a: { x: 1 }, b: { y: 1 } } },
+      { op: "load", blob: { b: { y: 2 }, c: { z: 3 } }, keepParked: true },
+      { op: "save", expect: { a: { x: 1 }, b: { y: 2 }, c: { z: 3 } } },
+    ],
+  },
+  {
+    name: "a load that keeps what is parked still lays values over a registered scope",
+    steps: [
+      { op: "owned", token: "game", declarations: [num("hp", 10)] },
+      { op: "load", blob: { a: { x: 1 } } },
+      { op: "load", blob: { game: { hp: 6 } }, keepParked: true },
+      { op: "get", scope: "game", name: "hp", expect: 6 },
+      { op: "save", expect: { game: { hp: 6 }, a: { x: 1 } } },
+    ],
+  },
+  {
+    name: "discardParked with a prefix drops only the keys that start with it",
+    steps: [
+      { op: "load", blob: { "e/1/here/inn": { x: 1 }, "e/2/here/inn": { x: 2 }, "f/1/here/inn": { x: 3 }, e: { x: 4 } } },
+      { op: "discardParked", prefix: "e/1/" },
+      { op: "save", expect: { "e/2/here/inn": { x: 2 }, "f/1/here/inn": { x: 3 }, e: { x: 4 } } },
+      { op: "discardParked", prefix: "e/" },
+      { op: "save", expect: { "f/1/here/inn": { x: 3 }, e: { x: 4 } } },
+    ],
+  },
+
+  // -- the revision counter --------------------------------------------------------
+  {
+    name: "the revision moves on each registration and removal, and on nothing else",
+    steps: [
+      { op: "revision", expect: 0 },
+      { op: "owned", token: "game", declarations: [num("hp", 10)] },
+      { op: "revision", expect: 1 },
+      { op: "foreign", token: "world", store: { gold: 1 } },
+      { op: "mount", token: "e/1/here/inn", declarations: [num("x", 0)] },
+      { op: "revision", expect: 3 },
+      { op: "set", scope: "game", name: "hp", value: 4 },
+      { op: "load", blob: { game: { hp: 5 }, later: { x: 1 } } },
+      { op: "save", expect: { game: { hp: 5 }, "e/1/here/inn": { x: 0 }, later: { x: 1 } } },
+      { op: "discardParked" },
+      { op: "revision", expect: 3 },
+      { op: "owned", token: "game", declarations: [num("hp", 10)], expectError: "is already registered" },
+      { op: "revision", expect: 3 },
+      { op: "remove", token: "e/1/here/inn", keep: true },
+      { op: "revision", expect: 4 },
+      { op: "remove", token: "nowhere", expectError: "unknown scope" },
+      { op: "revision", expect: 4 },
+    ],
+  },
 
   // -- remove, and keep ------------------------------------------------------------
   {

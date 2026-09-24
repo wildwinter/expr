@@ -132,11 +132,15 @@ export function runRegistryCase(c: RegistryCase): string[] {
       }
 
       case "load":
-        attempt(at, undefined, () => r.load(structuredClone(step.blob)));
+        attempt(at, undefined, () => r.load(structuredClone(step.blob), step.keepParked ? { keepParked: true } : undefined));
         break;
 
       case "discardParked":
-        r.discardParked();
+        r.discardParked(step.prefix);
+        break;
+
+      case "revision":
+        if (r.revision !== step.expect) fails.push(`${at}: revision is ${r.revision}, expected ${step.expect}`);
         break;
 
       case "store": {

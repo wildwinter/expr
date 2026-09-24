@@ -24,7 +24,12 @@ registry, saved and loaded as one.
 - `remove(token, { keep? })`: unregister a scope. With `keep`, an owned scope's
   values are parked for the next registration of the same key, which is how a
   rebuilt engine hands its state to its replacement.
-- `discardParked()`: drop the parked values nobody claimed.
+- `discardParked(prefix?)`: drop the parked values nobody claimed, or only
+  those whose key starts with `prefix`.
+- `load(blob, { keepParked: true })`: add to what earlier loads parked instead
+  of replacing it.
+- `revision`: a counter that moves on each registration or removal, so a caller
+  caching an evaluation context knows when to rebuild it.
 - Aliases: `toEvalContext(host, { aliases })` and `toSchema({ aliases })` map an
   expression token to a registered key for one context, applied to scopes,
   quality ladders, and validation alike. An alias to a key that is not registered

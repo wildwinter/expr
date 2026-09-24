@@ -370,6 +370,15 @@ export interface RemoveOptions {
   keep?: boolean;
 }
 
+/** Options for `load`. */
+export interface LoadOptions {
+  /** Keep what earlier loads parked, adding this blob's unclaimed sections to
+   *  it (a section for the same key replaces the parked one). Without it, each
+   *  load replaces whatever an earlier load parked. For an engine moving an
+   *  older save's values into a registry the game has already loaded. */
+  keepParked?: boolean;
+}
+
 /**
  * The versioned owned-state fragment.
  *
@@ -389,6 +398,18 @@ export class ScopeRegistry {
   private readonly scopes = new Map<string, Entry>();
   /** Values loaded for keys nobody has registered yet, waiting to be claimed. */
   private readonly parked = new Map<string, Record<string, ScalarValue>>();
+  private rev = 0;
+
+  /**
+   * A counter that moves whenever a scope is registered or removed, and at no
+   * other time: it starts at 0 and each registration or removal adds 1. Values
+   * changing does not move it. A caller that caches a context built by
+   * `toEvalContext()` rebuilds it when this moves, because the context's set of
+   * scopes is fixed when it is built while the values it reads stay live.
+   */
+  get revision(): number {
+    return this.rev;
+  }
 
   /**
    * Register a scope this registry **owns and stores**. Its bag is seeded from
@@ -422,6 +443,7 @@ export class ScopeRegistry {
   mountOwned(token: string, bag: PropertyBag, opts?: { owner?: string }): this {
     this.assertFree(token, opts?.owner);
     this.scopes.set(token, { kind: "owned", bag, ...(opts?.owner !== undefined ? { owner: opts.owner } : {}) });
+    this.rev++;
     const waiting = this.parked.get(token);
     if (waiting) {
       bag.load(waiting);
@@ -440,16 +462,22 @@ export class ScopeRegistry {
     if (!e) throw new Error(`unknown scope '@${token}'`);
     if (opts?.keep && e.kind === "owned") this.parked.set(token, e.bag.save());
     this.scopes.delete(token);
+    this.rev++;
     return this;
   }
 
   /**
-   * Drop every parked value nobody claimed. Parked values are kept in the next
-   * save by default, so nothing loaded is lost to a flow or deck that simply has
-   * not reopened yet; a game that knows they are dead drops them here.
+   * Drop parked values nobody claimed. Parked values are kept in the next save by
+   * default, so nothing loaded is lost to a flow or deck that simply has not
+   * reopened yet; a game that knows they are dead drops them here.
+   *
+   * With a `prefix`, only keys starting with it are dropped: an engine resetting
+   * itself drops its own instance keys (`my-engine/`) and leaves every other
+   * engine's alone.
    */
-  discardParked(): this {
-    this.parked.clear();
+  discardParked(prefix?: string): this {
+    if (prefix === undefined) this.parked.clear();
+    else for (const key of [...this.parked.keys()]) if (key.startsWith(prefix)) this.parked.delete(key);
     return this;
   }
 
@@ -494,6 +522,7 @@ export class ScopeRegistry {
       kind: "foreign", resolver, decls, scopeWritable: o.writable ?? true, norm,
       ...(o.owner !== undefined ? { owner: o.owner } : {}),
     });
+    this.rev++;
     return this;
   }
 
@@ -659,8 +688,8 @@ export class ScopeRegistry {
    *
    * Changed in 0.7.0: sections for unregistered keys used to be dropped.
    */
-  load(blob: Record<string, Record<string, ScalarValue>>): void {
-    this.parked.clear();
+  load(blob: Record<string, Record<string, ScalarValue>>, opts?: LoadOptions): void {
+    if (!opts?.keepParked) this.parked.clear();
     for (const [token, vals] of Object.entries(blob)) {
       const e = this.scopes.get(token);
       if (e?.kind === "owned") e.bag.load(vals);

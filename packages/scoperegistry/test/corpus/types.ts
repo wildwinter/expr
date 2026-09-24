@@ -59,8 +59,10 @@ export type Step =
   | { op: "remove"; token: string; keep?: true; expectError?: string }
   /** Exact: keys, values, flags in order. */
   | { op: "save"; expect: Blob }
-  | { op: "load"; blob: Blob }
-  | { op: "discardParked" }
+  | { op: "load"; blob: Blob; keepParked?: boolean }
+  | { op: "discardParked"; prefix?: string }
+  /** The registry's revision counter: 0 when made, +1 per registration or removal. */
+  | { op: "revision"; expect: number }
   /** The foreign scope's backing map, exactly: proves where a write did or did
    *  not land. */
   | { op: "store"; scope: string; expect: Record<string, Value> }

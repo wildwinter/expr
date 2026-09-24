@@ -55,7 +55,7 @@ describe("registry corpus shape", () => {
   it("covers every step kind a port's runner must implement", () => {
     const kinds = new Set(steps().map((s) => s.op));
     for (const k of ["owned", "mount", "foreign", "set", "get", "has", "remove", "save", "load",
-      "discardParked", "store", "rows", "eval", "spec"] as const) expect(kinds.has(k), k).toBe(true);
+      "discardParked", "store", "rows", "eval", "spec", "revision"] as const) expect(kinds.has(k), k).toBe(true);
   });
 
   it("uses no product's token: the registry's contract is product-neutral", () => {
@@ -125,6 +125,10 @@ describe("the registry runner can actually fail", () => {
       ({ op: "eval", src: "@here.seen", ast: compile("@here.seen", corpusDialect).ast, ...e });
     expect(probe({ name: "p", steps: [m, ev({ aliases: { here: "k" }, expect: false })] })).not.toEqual([]);
     expect(probe({ name: "p", steps: [m, ev({ aliases: { here: "k" }, expectError: "is not registered" })] })).not.toEqual([]);
+  });
+
+  it("rejects a wrong revision", () => {
+    expect(probe({ name: "p", steps: [base.owned, { op: "revision", expect: 0 }] })).not.toEqual([]);
   });
 
   it("rejects a spec read wrongly", () => {
