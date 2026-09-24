@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.0] - 2026-09-24
 
 One registry per game: everything a game's engines need to share a single
 registry, saved and loaded as one.
