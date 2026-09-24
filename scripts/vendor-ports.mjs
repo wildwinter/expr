@@ -48,19 +48,31 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const parent = path.resolve(root, "..");
 const check = process.argv.includes("--check");
 
-/** One vendored file per family. `ns` is the identity stamped in at copy time. */
+/**
+ * One vendored file per family. `ns` is the identity stamped in at copy time.
+ *
+ * Every target is OPTIONAL. A family names the engines it ships (`godot`, `unreal`,
+ * `unity`), the test hosts that run the shared corpora on them (`godotTest`,
+ * `unrealTest`, `unityTest`), and whether it takes the shared release scripts
+ * (`tooling`); a source whose target a family leaves out is simply not copied there.
+ * A C#-only family is therefore a few lines: `repo`, `unity`, `unityTest`, and `cs`.
+ */
 const families = [
   {
     repo: "storylets",
     godot: "storylets/ports/godot/addons/storyletengine/runtime/expr",
     unreal: "storylets/ports/unreal/StoryletEngine/Source/StoryletEngineRuntime/Public/Storylets/Expr",
     unity: "storylets/ports/unity/StoryletEngine/Runtime/Expr",
+    godotTest: "storylets/ports/godot/test",
+    unrealTest: "storylets/ports/unreal/TestHost",
+    unityTest: "storylets/ports/unity/TestHost",
     cs: { __EXPR_NS__: "StoryletStudio.StoryletEngine", __EXPR_VALUE__: "StoryletValue", __EXPR_KIND__: "StoryletKind", __EXPR_ERROR__: "StoryletError" },
+    // GDScript names: the family's class_name shims, for the shared sources' messages.
+    gd: { __EXPR_BAG_LABEL__: "StoryletPropertyBag", __EXPR_REGISTRY_LABEL__: "StoryletScopeRegistry" },
     tooling: {
       __EXPR_LOCKSTEP__: "@storylet-studio/runtime,@storylet-studio/play-helpers",
       __EXPR_FAMILY__: "Storylet Engine",
       __EXPR_UE_DEMO__: "StoryletEngineDemo",
-      __EXPR_BAG_LABEL__: "StoryletPropertyBag",
     },
     cpp: {
       __EXPR_NS__: "storylets",
@@ -71,6 +83,8 @@ const families = [
       __EXPR_ORDEREDMAP_HEADER__: '"Storylets/Expr/OrderedMap.h"',
         __EXPR_PROPERTYBAG_HEADER__: '"Storylets/Expr/PropertyBag.h"',
       __EXPR_AST_HEADER__: '"Storylets/Expr/Ast.h"',
+      __EXPR_EXPR_HEADER__: '"Storylets/Expr/Expr.h"',
+      __EXPR_SCOPEREGISTRY_HEADER__: '"Storylets/Expr/ScopeRegistry.h"',
     },
   },
   {
@@ -78,12 +92,16 @@ const families = [
     godot: "patter/ports/godot/addons/patterplay/runtime/expr",
     unreal: "patter/ports/unreal/Patterplay/Source/PatterplayRuntime/Public/Patter/Expr",
     unity: "patter/ports/unity/Patterplay/Runtime/Expr",
+    godotTest: "patter/ports/godot/test",
+    unrealTest: "patter/ports/unreal/TestHost",
+    unityTest: "patter/ports/unity/TestHost",
     cs: { __EXPR_NS__: "Patterkit.Patterplay", __EXPR_VALUE__: "PatterValue", __EXPR_KIND__: "PatterKind", __EXPR_ERROR__: "EvalError" },
+    // GDScript names: the family's class_name shims, for the shared sources' messages.
+    gd: { __EXPR_BAG_LABEL__: "PatterPropertyBag", __EXPR_REGISTRY_LABEL__: "PatterScopeRegistry" },
     tooling: {
       __EXPR_LOCKSTEP__: "@patterkit/runtime",
       __EXPR_FAMILY__: "Patterplay",
       __EXPR_UE_DEMO__: "PatterplayDemo",
-      __EXPR_BAG_LABEL__: "PatterPropertyBag",
     },
     cpp: {
       __EXPR_NS__: "patter",
@@ -94,6 +112,8 @@ const families = [
       __EXPR_ORDEREDMAP_HEADER__: '"Patter/Expr/OrderedMap.h"',
         __EXPR_PROPERTYBAG_HEADER__: '"Patter/Expr/PropertyBag.h"',
       __EXPR_AST_HEADER__: '"Patter/Expr/Ast.h"',
+      __EXPR_EXPR_HEADER__: '"Patter/Expr/Expr.h"',
+      __EXPR_SCOPEREGISTRY_HEADER__: '"Patter/Expr/ScopeRegistry.h"',
     },
   },
 ];
@@ -108,38 +128,46 @@ const substitute = (text, map, rel) => {
 };
 
 const sources = [
-  { from: "ports/godot/values.gd", to: (f) => `${f.godot}/values.gd`, comment: "#" },
-  { from: "ports/godot/expr_eval.gd", to: (f) => `${f.godot}/expr_eval.gd`, comment: "#" },
-  { from: "ports/godot/expr_specificity.gd", to: (f) => `${f.godot}/expr_specificity.gd`, comment: "#" },
-  { from: "ports/godot/mulberry32.gd", to: (f) => `${f.godot}/mulberry32.gd`, comment: "#" },
-  { from: "ports/godot/property_bag.gd", to: (f) => `${f.godot}/property_bag.gd`, comment: "#", subs: (f) => f.tooling },
-  { from: "ports/godot/state_logger.gd", to: (f) => `${f.godot}/state_logger.gd`, comment: "#", subs: (f) => f.tooling },
-  { from: "ports/godot/bundle_view.gd", to: (f) => `${f.godot}/bundle_view.gd`, comment: "#" },
-  { from: "ports/godot/bundle_import_plugin.gd", to: (f) => `${f.godot}/bundle_import_plugin.gd`, comment: "#" },
-  { from: "ports/godot/bundle_export_plugin.gd", to: (f) => `${f.godot}/bundle_export_plugin.gd`, comment: "#" },
-  { from: "ports/unreal/Value.h", to: (f) => `${f.unreal}/Value.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/Ast.h", to: (f) => `${f.unreal}/Ast.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/Expr.h", to: (f) => `${f.unreal}/Expr.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/Specificity.h", to: (f) => `${f.unreal}/Specificity.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/Mulberry32.h", to: (f) => `${f.unreal}/Mulberry32.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/OrderedMap.h", to: (f) => `${f.unreal}/OrderedMap.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/PropertyBag.h", to: (f) => `${f.unreal}/PropertyBag.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unreal/StateLogger.h", to: (f) => `${f.unreal}/StateLogger.h`, comment: "//", subs: (f) => f.cpp },
-  { from: "ports/unity/Value.cs", to: (f) => `${f.unity}/Value.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/Ast.cs", to: (f) => `${f.unity}/Ast.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/Expr.cs", to: (f) => `${f.unity}/Expr.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/Specificity.cs", to: (f) => `${f.unity}/Specificity.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/Mulberry32.cs", to: (f) => `${f.unity}/Mulberry32.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/OrderedMap.cs", to: (f) => `${f.unity}/OrderedMap.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/PropertyBag.cs", to: (f) => `${f.unity}/PropertyBag.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
-  { from: "ports/unity/StateLogger.cs", to: (f) => `${f.unity}/StateLogger.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "godot", from: "ports/godot/values.gd", to: (f) => `${f.godot}/values.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/expr_eval.gd", to: (f) => `${f.godot}/expr_eval.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/expr_specificity.gd", to: (f) => `${f.godot}/expr_specificity.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/mulberry32.gd", to: (f) => `${f.godot}/mulberry32.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/property_bag.gd", to: (f) => `${f.godot}/property_bag.gd`, comment: "#", subs: (f) => f.gd },
+  { target: "godot", from: "ports/godot/state_logger.gd", to: (f) => `${f.godot}/state_logger.gd`, comment: "#", subs: (f) => f.gd },
+  { target: "godot", from: "ports/godot/bundle_view.gd", to: (f) => `${f.godot}/bundle_view.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/bundle_import_plugin.gd", to: (f) => `${f.godot}/bundle_import_plugin.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/bundle_export_plugin.gd", to: (f) => `${f.godot}/bundle_export_plugin.gd`, comment: "#" },
+  { target: "godot", from: "ports/godot/scope_registry.gd", to: (f) => `${f.godot}/scope_registry.gd`, comment: "#", subs: (f) => f.gd },
+  { target: "unreal", from: "ports/unreal/Value.h", to: (f) => `${f.unreal}/Value.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/Ast.h", to: (f) => `${f.unreal}/Ast.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/Expr.h", to: (f) => `${f.unreal}/Expr.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/Specificity.h", to: (f) => `${f.unreal}/Specificity.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/Mulberry32.h", to: (f) => `${f.unreal}/Mulberry32.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/OrderedMap.h", to: (f) => `${f.unreal}/OrderedMap.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/PropertyBag.h", to: (f) => `${f.unreal}/PropertyBag.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/StateLogger.h", to: (f) => `${f.unreal}/StateLogger.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unreal", from: "ports/unreal/ScopeRegistry.h", to: (f) => `${f.unreal}/ScopeRegistry.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unity", from: "ports/unity/Value.cs", to: (f) => `${f.unity}/Value.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/Ast.cs", to: (f) => `${f.unity}/Ast.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/Expr.cs", to: (f) => `${f.unity}/Expr.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/Specificity.cs", to: (f) => `${f.unity}/Specificity.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/Mulberry32.cs", to: (f) => `${f.unity}/Mulberry32.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/OrderedMap.cs", to: (f) => `${f.unity}/OrderedMap.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/PropertyBag.cs", to: (f) => `${f.unity}/PropertyBag.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/StateLogger.cs", to: (f) => `${f.unity}/StateLogger.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  { target: "unity", from: "ports/unity/ScopeRegistry.cs", to: (f) => `${f.unity}/ScopeRegistry.cs`, comment: "//", subs: (f) => f.cs, meta: "file" },
+  // The registry corpus runners (test code, never shipped): each family's test host runs
+  // packages/scoperegistry/corpus.json, vendored beside its own corpus, through these.
+  { target: "godotTest", from: "ports/godot/testing/registry_corpus.gd", to: (f) => `${f.godotTest}/registry_corpus.gd`, comment: "#", subs: (f) => f.gd },
+  { target: "unrealTest", from: "ports/unreal/testing/RegistryCorpus.h", to: (f) => `${f.unrealTest}/RegistryCorpus.h`, comment: "//", subs: (f) => f.cpp },
+  { target: "unityTest", from: "ports/unity/testing/RegistryCorpus.cs", to: (f) => `${f.unityTest}/RegistryCorpus.cs`, comment: "//", subs: (f) => f.cs },
   // The repos' own release tooling. Not a port, but the same argument applies and the
   // numbers are worse: 99% and 100% identical once family names are normalised, and a
   // bug in the guard had to be fixed in both copies within an hour of the second being
   // written. The duplication scanner could not see either file until it was taught to
   // look at scripts/ on the same day.
-  { from: "tooling/release-guard.mjs", to: (f) => `${f.repo}/scripts/release-guard.mjs`, comment: "//", subs: (f) => f.tooling },
-  { from: "tooling/check-unreal-plugin.sh", to: (f) => `${f.repo}/scripts/check-unreal-plugin.sh`, comment: "#", subs: (f) => f.tooling, exec: true },
+  { target: "tooling", from: "tooling/release-guard.mjs", to: (f) => `${f.repo}/scripts/release-guard.mjs`, comment: "//", subs: (f) => f.tooling },
+  { target: "tooling", from: "tooling/check-unreal-plugin.sh", to: (f) => `${f.repo}/scripts/check-unreal-plugin.sh`, comment: "#", subs: (f) => f.tooling, exec: true },
 ];
 
 const banner = (rel, c) =>
@@ -159,6 +187,9 @@ for (const family of families) {
     continue;
   }
   for (const src of sources) {
+    // A target the family does not have (an engine it does not ship, release scripts it
+    // does not share) is not a gap: that source is simply not the family's.
+    if (!family[src.target]) continue;
     const text = readFileSync(path.join(root, src.from), "utf8");
     const stamped = src.subs ? substitute(text, src.subs(family), src.from) : text;
     // A shebang has to stay on line 1, so the banner goes after it rather than above it.
@@ -185,6 +216,9 @@ for (const family of families) {
 
   // Unity .meta sidecars for the vendored C# and its folder.
   if (family.unity) {
+    // New vendored files get a path-derived GUID. OrderedMap, PropertyBag, and StateLogger
+    // predate this list and carry GUIDs minted by the editor; they are left as they are,
+    // since changing a GUID breaks every reference to it.
     const metas = [
       [path.join(parent, `${family.unity}.meta`), folderMeta(`${family.unity}`)],
       [path.join(parent, `${family.unity}/Value.cs.meta`), fileMeta(`${family.unity}/Value.cs`)],
@@ -192,6 +226,7 @@ for (const family of families) {
       [path.join(parent, `${family.unity}/Expr.cs.meta`), fileMeta(`${family.unity}/Expr.cs`)],
       [path.join(parent, `${family.unity}/Specificity.cs.meta`), fileMeta(`${family.unity}/Specificity.cs`)],
       [path.join(parent, `${family.unity}/Mulberry32.cs.meta`), fileMeta(`${family.unity}/Mulberry32.cs`)],
+      [path.join(parent, `${family.unity}/ScopeRegistry.cs.meta`), fileMeta(`${family.unity}/ScopeRegistry.cs`)],
     ];
     for (const [dest, want] of metas) {
       const rel = path.relative(parent, dest);

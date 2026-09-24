@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@wildwinter/expr": "*",
-    "@wildwinter/scoperegistry": "*"
+    "@wildwinter/expr": "*"
   }
 }

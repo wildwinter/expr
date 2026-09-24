@@ -54,19 +54,11 @@ equality, the comparison rules, and scope absence.
 Not covered, and deliberately: the parser (no port has one - bundles ship
 compiled ASTs), the quality ladder and `advance()`, and anything dialect-shaped.
 
-**`registry`** (9 cases) pins the scope kernel's `writable` rule, which both
-families reach and neither corpus pinned: Storylets through its self-backed
-`@world` bag, Patter through its host-scope mount (storylet-studio
-`design/joint-demo-findings.md` 9, 2026-09-03). A port could have drifted on it
-and both engines' corpora would have stayed green.
-
-The rule, stated once: a declaration is writable when its own `writable` says
-so, else when its scope's default says so, else always -
-`decl.writable ?? scope.writable ?? true`. A refused write raises an error
-whose message contains `is read-only` and leaves the value exactly as seeded.
-Every case carries `declarations`, one `set`, and `expected`: the value READ
-BACK after the attempt, on both outcomes. On a refusal that is the seed, which
-is what separates "refused" from "half written".
+**The registry's `writable` rule** was a `registry` family here until
+2026-09-24 (corpus version 2). It moved, with every case, to the registry's own
+corpus, `packages/scoperegistry/corpus.json`, which covers the whole
+ScopeRegistry and which every native copy of the registry runs (version 3 of
+this corpus has no `registry` key).
 
 Cases without a `scope` are the kernel's declaration-level rule, the bag alone.
 Cases with a `scope` are its scope-level rule: a declaration's own flag wins
@@ -117,29 +109,6 @@ without pinning a policy.
 5. Compare with value equality, not identity: flags compare element-wise, in
    order. A port comparing by reference reports false for two identical lists;
    one comparing as sets reports true for a reordering. Both are cases here.
-
-**For a `registry` case:**
-
-1. Build the declarations. Each is the shared kernel's ScopeDeclaration shape:
-   `name`, `type`, `default`, and an optional `writable`.
-2. If the case has no `scope`, seed a PropertyBag from them and call its `set`
-   with `set.name` / `set.value`.
-3. If it has a `scope` and your runtime has a ScopeRegistry, mount the
-   declarations as a FOREIGN scope over a plain record, with `scope.writable`
-   (default true) as the scope default, and write through the registry. That
-   exercises the registry's own `decl.writable ?? scopeWritable`.
-   If your runtime has no registry - Patterplay's ports mount host scopes by
-   hand - fold the default first: for each declaration with no `writable` of
-   its own, set it to `scope.writable` when that is present. Then run it as a
-   bag case. **The fold IS the rule**, and a harness that does it pins the bag
-   against the same nine cases; say in the harness that this is the bag being
-   pinned, not a registry the port does not have.
-4. Catch whatever your language uses for a refusal. `expectError` means the
-   write must be refused AND the message must contain `is read-only` (the bag
-   says `'x' is read-only`, a registry says `'@scope.x' is read-only`; both
-   satisfy it). No `expectError` means any refusal is a failure.
-5. Read the value back and compare it to `expected` with value equality, on
-   BOTH outcomes.
 
 **And a rule about the fixture itself.** A missing `expr-corpus.json` must be a
 FAILURE, not a skip. This codebase has shipped several checks that could not

@@ -9,9 +9,11 @@
 //   - expressions: a compiled `ast` + `scopes` -> an `expected` scalar, or
 //     `expectError`. Cases carry the COMPILED ast, so a runtime-only port
 //     consumes the corpus with no parser; `src` is informational.
-//   - registry: the scope kernel's own `writable` rule. Declarations, one
-//     write, and what the kernel must do with it: refuse it as read-only, or
-//     land it. No evaluator involved.
+//
+// The registry's own contract, which this corpus carried as a `registry` family
+// until 2026-09-24, is @wildwinter/scoperegistry's corpus now
+// (packages/scoperegistry/corpus.json): every writable case moved there, run by
+// every native copy of the registry.
 //
 // DELIBERATELY DIALECT-FREE. No case calls a dialect function, and every case
 // populates every scope it reads, so no case depends on a dialect's function
@@ -68,55 +70,10 @@ export interface ExpressionCase {
   expectError?: true;
 }
 
-/**
- * One registry case: the scope kernel's `writable` rule, which both product
- * families reach and neither corpus pinned.
- *
- * The rule, stated once: a declaration is writable when its own `writable`
- * says so, else when the scope's default says so, else always -
- * `decl.writable ?? scope.writable ?? true`. A refused write raises an error
- * whose message contains `is read-only`, and leaves the value exactly as it
- * was seeded.
- *
- * `expected` is the value READ BACK after the attempt, on both outcomes. On a
- * refusal that pins the second half of the rule - a refusal is not a partial
- * write - and on a landed write it pins that the write went where it was
- * aimed.
- */
-export interface RegistryCase {
-  name: string;
-  /** Scope-level default for its declarations. Absent = the bag alone, with
-   *  no scope wrapped round it. A port without a registry folds this into each
-   *  declaration (see README) - the fold IS the rule. */
-  scope?: { writable?: boolean };
-  declarations: RegistryDeclaration[];
-  set: { name: string; value: ScalarValue };
-  /** Make the write as the HOST rather than as the story: `writable: false` is
-   *  the story's promise, so the host's own surface passes this and is not
-   *  refused (ruled 2026-09-05). A port whose bag has no such option fails
-   *  these cases until it grows one - which is the point of pinning it here. */
-  host?: true;
-  /** The write must be refused with an error whose message contains
-   *  `is read-only`. */
-  expectError?: true;
-  /** The value read back after the attempt. */
-  expected: ScalarValue;
-}
-
-/** A declaration as the corpus carries it: the shared kernel's ScopeDeclaration
- *  shape, restricted to what these cases use. */
-export interface RegistryDeclaration {
-  name: string;
-  type: "boolean" | "number" | "string" | "flags";
-  default: ScalarValue;
-  writable?: boolean;
-}
-
 export interface Corpus {
   version: number;
   prng: PrngCase[];
   expressions: ExpressionCase[];
-  registry: RegistryCase[];
 }
 
 // --- Authoring fixtures (source form, compiled into the corpus) -------------
@@ -133,11 +90,7 @@ export interface ExpressionFixture {
   expectError?: true;
 }
 
-/** A registry fixture is the case: nothing to compile. */
-export type RegistryFixture = RegistryCase;
-
 export interface Fixtures {
   prng: PrngFixture[];
   expressions: ExpressionFixture[];
-  registry: RegistryFixture[];
 }

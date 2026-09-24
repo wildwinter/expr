@@ -154,9 +154,9 @@ All four steps are done, on all three platforms.
 
 | Platform | Shared source | Vendored as |
 |---|---|---|
-| Godot | `values.gd`, `mulberry32.gd`, `expr_eval.gd`, `expr_specificity.gd`, `bundle_export_plugin.gd` | byte-identical in both addons |
-| Unreal | `Value.h`, `Mulberry32.h`, `Ast.h`, `Expr.h`, `Specificity.h` | `__EXPR_NS__` / `__EXPR_VALUE__` / `__EXPR_KIND__` |
-| Unity | `Value.cs`, `Mulberry32.cs`, `Ast.cs`, `Expr.cs`, `Specificity.cs` | same, to each root namespace |
+| Godot | `values.gd`, `mulberry32.gd`, `expr_eval.gd`, `expr_specificity.gd`, `property_bag.gd`, `state_logger.gd`, `scope_registry.gd`, the bundle view and plugins | byte-identical in both addons, bar the shims' names in messages |
+| Unreal | `Value.h`, `Mulberry32.h`, `Ast.h`, `Expr.h`, `Specificity.h`, `OrderedMap.h`, `PropertyBag.h`, `StateLogger.h`, `ScopeRegistry.h` | `__EXPR_NS__` / `__EXPR_VALUE__` / `__EXPR_KIND__` and the include paths |
+| Unity | `Value.cs`, `Mulberry32.cs`, `Ast.cs`, `Expr.cs`, `Specificity.cs`, `OrderedMap.cs`, `PropertyBag.cs`, `StateLogger.cs`, `ScopeRegistry.cs` | same, to each root namespace |
 | JavaScript | `packages/expr/src/prng.ts` | imported, not vendored |
 
 The **value type** went the same way. Both families had their own (68% alike on
@@ -210,6 +210,59 @@ The vendor step also writes Unity's `.meta` sidecars, with GUIDs derived from
 the asset path so they are stable across regeneration. A random GUID would make
 `--check` fail on every run, which is the same class of mistake as a check that
 cannot fail, pointing the other way.
+
+## The ScopeRegistry, and its own corpus
+
+Added 2026-09-24 by the one-registry programme (`patterkit/design/one-registry-handover.md`).
+A game has one registry holding every property of every engine, so the registry is shared
+code in the strictest sense: both families' engines register into the same object at run time.
+It was also the one piece of the state kernel still hand-ported: the Storylet Engine had three
+copies of its own and Patterplay had none.
+
+- **One source per platform**, in the same tier as the evaluator: `ports/unity/ScopeRegistry.cs`,
+  `ports/unreal/ScopeRegistry.h`, and `ports/godot/scope_registry.gd`, vendored into each
+  family's `Expr` folder beside `PropertyBag`. The GDScript copy has the usual `class_name`
+  shims, `StoryletScopeRegistry` and `PatterScopeRegistry`. The source is the TypeScript
+  package's 0.7 surface, less the deprecated fragment API and the schema builder, which no
+  runtime uses.
+- **Its own corpus.** `packages/scoperegistry/corpus.json` is a scripted contract (register,
+  write, save, load, park, remove, alias, evaluate) with product-neutral tokens. The package's
+  tests run it, and `scripts/sync-conformance.mjs` vendors it beside the expr corpus as each
+  product's `packages/conformance/registry-corpus.json`, with the same drift check in both
+  products' `ports.yml`.
+- **One runner per platform, shared too.** `ports/<platform>/testing/` holds the corpus
+  interpreter for each language, vendored into each family's test host rather than its
+  plugin, because it is test code. A runner reimplements
+  `packages/scoperegistry/test/corpus/runner.ts`, which is the normative statement of what
+  each step means.
+- **Retired from the expr corpus.** The expr parity corpus carried the registry's `writable`
+  rule as a `registry` family (12 cases) because no native registry was shared. Every case
+  moved to the registry corpus, and the expr corpus is version 3 without it.
+
+Each platform spells the surface its own way, and the differences are idiom, not behaviour:
+
+| | C# | C++ | GDScript |
+|---|---|---|---|
+| Names | `DefineOwned`, `MountOwned`, `Remove`, `DiscardParked`, `Revision` | `defineOwned`, `mountOwned`, `remove`, `discardParked`, `revision()` | `define_owned`, `mount_owned`, `remove`, `discard_parked`, `revision`, `get_value`, `set_value` |
+| Options | `OwnedScopeOptions`, `ForeignScopeOptions` objects | option structs, and plain `keep`, `keepParked`, `host` arguments | Dictionaries with snake_case keys |
+| A refusal | throws the family's error type | throws the family's error type | returns the message as a String (`""` on success), with a `push_error` |
+| Spec reader | over the neutral tree the AST loader takes | a template read through a `RegistrySpecJson<J>` traits struct, like `AstJson<J>` | over parsed Dictionaries and Arrays |
+
+Every message is the TypeScript package's, word for word, because the corpus matches them.
+The older call forms (a path prefix string for an owned scope, a bool for a foreign scope's
+writable default) still work on all three, so the Storylet Engine's existing callers did not
+change. GDScript is the one real break for them: a registration no longer returns the
+registry, so it cannot be chained.
+
+## A family is whatever it ships
+
+`vendor-ports.mjs` used to assume every family had all three engines and the shared release
+scripts. Every target is now optional: a family names the engines it ships (`godot`,
+`unreal`, `unity`), its test hosts (`godotTest`, `unrealTest`, `unityTest`), and whether it
+takes the release scripts (`tooling`), and a source whose target a family leaves out is not
+copied there. GDScript's placeholders moved to their own `gd` map for the same reason. A family
+that ships only C#, such as Lockstep, is a few lines: its `repo`, `unity`, `unityTest`, and
+`cs` identity (`__EXPR_NS__`, `__EXPR_VALUE__`, `__EXPR_KIND__`, `__EXPR_ERROR__`).
 
 ## What each family still owns, and why
 
