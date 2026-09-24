@@ -280,3 +280,68 @@ describe("a read-only declaration refuses the story and admits the host", () => 
     expect(bag.get("act")).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 0.7.0: one registry per game. The shared behaviours (parking, remove, aliases
+// in evaluation, owners, normalisation) are pinned by the registry corpus, which
+// every port runs. What is here is the TypeScript-only surface: the validator's
+// schema (no native runtime validates), and the pre-0.7 call forms.
+// ---------------------------------------------------------------------------
+describe("aliases reach the validation schema", () => {
+  // `here` is NOT the default scope, as an engine's instance token never is (Patter's
+  // default is `patter`, its `@scene` is scoped), so a miss is a scoped miss.
+  const aliasDialect: Dialect = {
+    defaultScope: "game",
+    scopes: [{ token: "here" }, { token: "game" }],
+    functions: {},
+  };
+  const reg = () => new ScopeRegistry()
+    .mountOwned("e/1/here/inn", new PropertyBag([{ name: "noise", type: "number", default: 1 }]));
+  const check = (src: string, r: ScopeRegistry, aliases?: Record<string, string>) =>
+    validateExpr(parse(src, aliasDialect), r.toSchema(aliases ? { aliases } : undefined), aliasDialect);
+
+  it("a condition written against the alias validates against the instance bag", () => {
+    expect(check("@here.noise > 0", reg(), { here: "e/1/here/inn" })).toEqual([]);
+    expect(check("@here.nosie > 0", reg(), { here: "e/1/here/inn" }).some((i) => i.kind === "unresolved-scoped-property")).toBe(true);
+  });
+
+  it("without the alias the token is not in the schema, so it is not flagged (opaque, as before)", () => {
+    expect(check("@here.nosie > 0", reg())).toEqual([]);
+  });
+
+  it("an alias to a key nobody registered throws here too", () => {
+    expect(() => reg().toSchema({ aliases: { here: "e/1/here/nowhere" } })).toThrow("is not registered");
+  });
+
+  it("an identity scope keys its schema and ladders as written, not folded", () => {
+    const r = new ScopeRegistry().defineOwned("game", [
+      { name: "Standing", type: "quality", stages: ["low", "high"] },
+    ], { normalise: (n) => n });
+    expect([...r.toSchema().properties.get("game")!.keys()]).toEqual(["Standing"]);
+    const ctx = r.toEvalContext();
+    expect(ctx.qualities!("game", "Standing")).toEqual(["low", "high"]);
+    expect(ctx.qualities!("game", "standing")).toBeUndefined();
+  });
+});
+
+describe("the pre-0.7 call forms still work", () => {
+  it("defineOwned's third argument may still be the path prefix alone", () => {
+    const r = new ScopeRegistry().defineOwned("patter", [{ name: "gold", type: "number" }], "@patter.");
+    expect(r.listProperties()[0]!.path).toBe("@patter.gold");
+  });
+
+  it("defineForeign's fourth argument may still be the writable default alone", () => {
+    const r = new ScopeRegistry().defineForeign("world", { get: () => 1, set: () => {} }, [{ name: "x", type: "number" }], false);
+    expect(() => r.set("world", "x", 2)).toThrow("read-only");
+  });
+
+  it("the deprecated fragment still round-trips, and carries parked values like save", () => {
+    const r = new ScopeRegistry().defineOwned("game", [{ name: "hp", type: "number", default: 10 }]);
+    r.load({ game: { hp: 4 }, later: { x: 1 } });
+    const frag = r.saveFragment();
+    expect(frag).toEqual({ version: 1, scopes: { game: { hp: 4 }, later: { x: 1 } } });
+    const r2 = new ScopeRegistry().defineOwned("game", [{ name: "hp", type: "number", default: 10 }]);
+    r2.loadFragment(frag);
+    expect(r2.get("game", "hp")).toBe(4);
+  });
+});

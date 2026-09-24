@@ -34,5 +34,6 @@ jobs:
       # above. If that leaves corpus.json different from what is committed,
       # the fixtures moved and the artifact the ports consume did not, so the
       # two repos vendoring it would be held to a contract nobody can read.
-      - name: The committed corpus matches its fixtures
-        run: git diff --exit-code -- packages/conformance/corpus.json
+      # The same holds for the registry's own corpus, built by scoperegistry's tests.
+      - name: The committed corpora match their fixtures
+        run: git diff --exit-code -- packages/conformance/corpus.json packages/scoperegistry/corpus.json
