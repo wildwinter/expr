@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "scopes": [
+    { "token": "patter", "engine": "Patterplay", "means": "Patter's shared globals" },
+    { "token": "story", "engine": "Storylet Engine", "means": "the Storylet Engine's shared @story properties" }
+  ]
+}

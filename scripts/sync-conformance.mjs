@@ -1,7 +1,9 @@
 // ---------------------------------------------------------------------------
 // Copy the shared corpora into the sibling repos that consume them: the expr
 // parity corpus (packages/conformance) and the registry corpus
-// (packages/scoperegistry), which every native copy of the ScopeRegistry runs.
+// (packages/scoperegistry), which every native copy of the ScopeRegistry runs;
+// and the family's shared vocabulary (family/engine-scopes.json), which each
+// product's compiler reads.
 //
 // The corpus is authored here and vendored there, rather than read across a
 // checkout boundary, so each port repo stays self-contained: its test hosts
@@ -35,6 +37,34 @@ const corpora = [
     targets: ["storylets/packages/conformance/registry-corpus.json", "patter/packages/conformance/registry-corpus.json"],
   },
 ];
+
+/** The family's shared vocabulary, written into each product as a TypeScript module (their
+ *  packages do not import JSON), with a banner, so the product's compiler reads the same list. */
+const vocabulary = {
+  source: path.join(root, "family/engine-scopes.json"),
+  targets: ["storylets/packages/dialect/src/engine-scopes.ts", "patter/packages/dialect/src/engine-scopes.ts"],
+  render: (json) => {
+    const { scopes } = JSON.parse(json);
+    const rows = scopes.map((s) => `  { token: ${JSON.stringify(s.token)}, engine: ${JSON.stringify(s.engine)}, means: ${JSON.stringify(s.means)} },`).join("\n");
+    return [
+      "// GENERATED - vendored from expr/family/engine-scopes.json by scripts/sync-conformance.mjs.",
+      "// Do not edit here; edit the shared list and re-run the script.",
+      "",
+      "/** Every engine's game-wide scope token across the family. A compiler accepts every token here",
+      " *  that is not its own engine's, unchecked: the other engine owns those names and types. */",
+      "export interface EngineScope {",
+      "  token: string;",
+      "  engine: string;",
+      "  means: string;",
+      "}",
+      "",
+      "export const ENGINE_SCOPES: readonly EngineScope[] = [",
+      rows,
+      "];",
+      "",
+    ].join("\n");
+  },
+};
 
 const check = process.argv.includes("--check");
 
@@ -71,6 +101,19 @@ for (const { source, rebuild, targets } of corpora) {
       writeFileSync(dest, want);
       console.log(`wrote  ${rel}`);
     }
+  }
+}
+
+{
+  const want = vocabulary.render(readFileSync(vocabulary.source, "utf8"));
+  for (const rel of vocabulary.targets) {
+    total++;
+    const dest = path.join(parent, rel);
+    if (!existsSync(path.dirname(dest))) { console.log(`skip   ${rel} (sibling not checked out)`); missing++; continue; }
+    const have = existsSync(dest) ? readFileSync(dest, "utf8") : null;
+    if (have === want) { console.log(`ok     ${rel}`); continue; }
+    if (check) { console.error(`DRIFT  ${rel} ${have === null ? "(missing)" : "(differs from the family list)"}`); drifted++; }
+    else { writeFileSync(dest, want); console.log(`wrote  ${rel}`); }
   }
 }
 
