@@ -11,6 +11,7 @@ import { BINARY_LABEL, UNARY_LABEL, OP_WORD, opSwapGroup, needsParens, formatNum
 import {
   type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
   propertyTip,
+  propertyPillNote,
 } from "./schema.js";
 import { el, button, textField, propertyMenuBody } from "./dom.js";
 import { issuesAt } from "./validate.js";
@@ -70,8 +71,9 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       const label = displayName({ scope: node.scope, name: node.name }, ctx.defaultScope);
       // The rollover: an issue outranks it (pill() prefers `issue`), so a
       // broken reference explains itself and a healthy one says what it means.
+      const note = propertyPillNote(entry, node.scope, label, ctx.otherEngineScopes);
       const varPill = pill("var", label, (b) => variableEditor(ctx, path, node, b),
-        { issue: issue ?? (entry ? undefined : `Unknown property ${label}`), title: propertyTip(entry) });
+        { issue: issue ?? note.issue, title: note.title });
       attachPropertyMenu(ctx, node, varPill);
       return varPill;
     }

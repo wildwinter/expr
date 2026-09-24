@@ -11,7 +11,7 @@ import type { Dialect, ExprNode, ExpressionSchema } from "@wildwinter/expr";
 import { validateSource } from "./validate.js";
 import { renderNode } from "./flat.js";
 import { el, openPopover, propertyMenuBody } from "./dom.js";
-import { propertyTip, refOf, type CatalogueEntry } from "./schema.js";
+import { otherEngineTip, propertyTip, refOf, scopeOfRef, type CatalogueEntry } from "./schema.js";
 import type { EditCtx } from "./types.js";
 import { isSelfAdvance, type EditorEffect } from "./effects.js";
 
@@ -20,6 +20,10 @@ export interface PreviewOptions {
   dialect: Dialect;
   catalogue: CatalogueEntry[];
   scopeOrder?: string[];
+  /** Scopes another engine owns (a product family's shared vocabulary, such as `patter` in a
+   *  Storylets card): the catalogue never lists their names, and the other engine checks them, so a
+   *  reference into one renders as an ordinary property pill instead of an unknown one. */
+  otherEngineScopes?: readonly string[];
   /** Resolve a node id to a readable label for seen()/visits() node pills. */
   nodeLabel?: (id: string) => string;
   /** Host actions for a property pill (e.g. "Go to definition"). When set, the
@@ -39,6 +43,7 @@ function frozenCtx(src: string, o: PreviewOptions, selfAdvanceRef?: string): { c
   const ctx: EditCtx = {
     schema: o.schema, dialect: o.dialect, defaultScope: o.dialect.defaultScope,
     catalogue: o.catalogue, scopeOrder: o.scopeOrder ?? [], functions: [],
+    ...(o.otherEngineScopes ? { otherEngineScopes: o.otherEngineScopes } : {}),
     compact: true,
     byPath: v.byPath,
     getAst: () => v.ast as ExprNode,
@@ -77,7 +82,11 @@ export function renderConditionPreview(src: string, o: PreviewOptions): HTMLElem
 function targetPill(ref: string, o: PreviewOptions): HTMLElement {
   const pill = el("span", "exed-pill exed-pill-prop", [ref || "(property)"]);
   const entry = o.catalogue.find((e) => refOf(e, o.dialect.defaultScope) === ref);
-  if (!entry) return pill;
+  if (!entry) {
+    const scope = scopeOfRef(ref);
+    if (scope !== undefined && o.otherEngineScopes?.includes(scope)) pill.title = otherEngineTip(ref);
+    return pill;
+  }
   const tip = propertyTip(entry);
   if (tip) pill.title = tip;
   const actions = o.propertyActions?.({ scope: entry.scope, name: entry.name }) ?? [];

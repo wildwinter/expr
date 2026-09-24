@@ -84,6 +84,26 @@ export function searchCatalogue(entries: readonly CatalogueEntry[], query: strin
     displayName(e, defaultScope).toLowerCase().includes(q) || (e.purpose ?? "").toLowerCase().includes(q));
 }
 
+/** The tip on a pill naming another engine's property (see `otherEngineScopes`). */
+export function otherEngineTip(label: string): string {
+  return `${label} belongs to another engine, which checks it`;
+}
+
+/** What a property pill says about itself: an issue when the catalogue does not know it, unless its
+ *  scope is another engine's (that engine checks it), and the tip on hover. */
+export function propertyPillNote(
+  entry: CatalogueEntry | null | undefined, scope: string, label: string, otherEngineScopes?: readonly string[],
+): { issue?: string; title?: string } {
+  if (entry) { const title = propertyTip(entry); return title ? { title } : {}; }
+  if (otherEngineScopes?.includes(scope)) return { title: otherEngineTip(label) };
+  return { issue: `Unknown property ${label}` };
+}
+
+/** The scope of a written reference (`@patter.gold` -> "patter"), or undefined for a bare `@name`. */
+export function scopeOfRef(ref: string): string | undefined {
+  return /^@([^.\s]+)\./.exec(ref)?.[1];
+}
+
 /** Group entries by scope, scopes in `scopeOrder` first (then alphabetical), names sorted within. */
 export function groupByScope(entries: readonly CatalogueEntry[], scopeOrder: string[] = []): Array<{ scope: string; entries: CatalogueEntry[] }> {
   const byScope = new Map<string, CatalogueEntry[]>();

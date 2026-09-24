@@ -17,7 +17,7 @@ import { el, button, openPopover, type Popover, propertyMenuBody } from "./dom.j
 import {
   type CatalogueEntry, type PropertyType,
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf, targetRefOf,
-  choicesOf, propertyTip,
+  choicesOf, propertyTip, otherEngineTip, scopeOfRef,
 } from "./schema.js";
 import type { FunctionTemplateSpec } from "./types.js";
 import { advancedRef, normaliseRef } from "./ast.js";
@@ -60,6 +60,10 @@ export interface EffectsEditorOptions {
   /** Properties the target picker + value editors offer. */
   catalogue: CatalogueEntry[];
   scopeOrder?: string[];
+  /** Scopes another engine owns (a product family's shared vocabulary, such as `patter` in a
+   *  Storylets card): the catalogue never lists their names, and the other engine checks them, so a
+   *  reference into one renders as an ordinary property pill instead of an unknown one. */
+  otherEngineScopes?: readonly string[];
   /** Dialect clause templates passed through to each value editor. */
   functions?: FunctionTemplateSpec[];
   /** Known host event names to suggest when adding an `emit` (optional). */
@@ -228,6 +232,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     inner.push(mountExpressionEditor(sub, {
       value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
+      ...(opts.otherEngineScopes ? { otherEngineScopes: opts.otherEngineScopes } : {}),
       // Every editor here holds a VALUE (a set's value, an emit's argument), never a condition. Say
       // so, or emptying one falls back to the condition empty state and an outcome row reads
       // "always / + Add your first condition" - condition vocabulary, offering clauses where a value
@@ -289,7 +294,9 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     // The same affordances the pills inside values carry: the declaration's
     // purpose (and ladder) on hover, the host's menu on right-click. Left-click
     // stays the repick, which the fallback title still teaches.
-    const tip = propertyTip(targetEntry);
+    const targetScope = targetEntry ? undefined : scopeOfRef(eff.target);
+    const tip = targetScope !== undefined && opts.otherEngineScopes?.includes(targetScope)
+      ? otherEngineTip(eff.target) : propertyTip(targetEntry);
     if (tip) targetBtn.title = tip;
     if (targetEntry && opts.propertyActions) {
       const actions = opts.propertyActions({ scope: targetEntry.scope, name: targetEntry.name });

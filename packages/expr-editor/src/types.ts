@@ -48,6 +48,8 @@ export interface EditCtx {
   defaultScope: string;
   catalogue: CatalogueEntry[];
   scopeOrder: string[];
+  /** See ExpressionEditorOptions.otherEngineScopes. */
+  otherEngineScopes?: readonly string[];
   functions: FunctionTemplateSpec[];
   byPath: Map<string, ExpressionValidationIssue[]>;
   /** The current root AST (never null here; the empty/always state is handled by mount). */

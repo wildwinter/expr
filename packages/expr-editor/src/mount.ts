@@ -27,6 +27,10 @@ export interface ExpressionEditorOptions {
   catalogue: CatalogueEntry[];
   /** Scope display order for the picker groups. */
   scopeOrder?: string[];
+  /** Scopes another engine owns (a product family's shared vocabulary, such as `patter` in a
+   *  Storylets card): the catalogue never lists their names, and the other engine checks them, so a
+   *  reference into one renders as an ordinary property pill instead of an unknown one. */
+  otherEngineScopes?: readonly string[];
   /** Dialect-specific clause templates (beyond the generic property comparisons). */
   functions?: FunctionTemplateSpec[];
   /** "tree" (default) for conditions, "flat" for a single inline expression. */
@@ -115,6 +119,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
     return {
       schema: opts.schema, dialect: opts.dialect, defaultScope,
       catalogue: opts.catalogue, scopeOrder: opts.scopeOrder ?? [], functions: opts.functions ?? [],
+      ...(opts.otherEngineScopes ? { otherEngineScopes: opts.otherEngineScopes } : {}),
       byPath: v.byPath,
       getAst: () => ast,
       apply: (next) => emit(toSrc(next)),

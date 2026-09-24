@@ -35,6 +35,12 @@ Notable options beyond the basics:
   multi-step flow (e.g. tag → operator → threshold) with no editor changes.
   Templates without a wizard insert-then-refine: the editor auto-opens the
   first unfilled slot of the inserted clause.
+- `otherEngineScopes`: scopes another engine owns (a product family's shared
+  vocabulary, such as `patter` in a Storylets card). Their names never appear in
+  the host's catalogue, because the other engine checks them, so a reference into
+  one renders as an ordinary property pill with a tip saying whose it is, instead
+  of an unknown property. Accepted by the expression editor, the effects editor,
+  and the previews.
 - **Qualities** (the `quality` property type) need nothing from the host beyond a
   catalogue entry carrying `stages` — the ladder, in order. The editor then offers
   the property in a comparison clause, gives it the **ordering** operators (a
