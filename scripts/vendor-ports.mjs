@@ -266,6 +266,22 @@ const families = [
     // registry corpus runner finds the family's copy of the kernel.
     cppTest: { __EXPR_SCOPEREGISTRY_HEADER__: '"Patter/Expr/ScopeRegistry.h"' },
   },
+  {
+    // C# only. The kernel is its own dotnet project here (nullable off), which Lockstep's
+    // runtime references; Lockstep's pack.mjs copies the folder into the Unity package.
+    repo: "lockstep",
+    unity: "lockstep/runtime/csharp/Wildwinter.Expr",
+    unityTest: "lockstep/runtime/csharp/Storytools.Lockstep.Tests",
+    unityKernel: {
+      assembly: "Lockstep.Expr",
+      package: "se.storytools.lockstep",
+      product: "Lockstep",
+      deferTo: [
+        { family: "patter", version: "0.14.0" },
+        { family: "storylets", version: "0.8.0" },
+      ],
+    },
+  },
 ];
 
 /** Replace every placeholder, and refuse to ship a file that still has one. */

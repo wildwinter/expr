@@ -34,7 +34,7 @@ const corpora = [
   {
     source: path.join(root, "packages/scoperegistry/corpus.json"),
     rebuild: "npm test -w @wildwinter/scoperegistry",
-    targets: ["storylets/packages/conformance/registry-corpus.json", "patter/packages/conformance/registry-corpus.json"],
+    targets: ["storylets/packages/conformance/registry-corpus.json", "patter/packages/conformance/registry-corpus.json", "lockstep/runtime/csharp/Storytools.Lockstep.Tests/registry-corpus.json"],
   },
 ];
 
