@@ -16,14 +16,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     /// <summary>One flattened state transition. Null = unset.</summary>
     public sealed class StateChange
     {
         public string Path;
-        public __EXPR_VALUE__ From;
-        public __EXPR_VALUE__ To;
+        public ExprValue From;
+        public ExprValue To;
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ namespace __EXPR_NS__
     public sealed class StateLoggerAdapter
     {
         public Func<List<LogMount>> Mounts;
-        public Func<OrderedMap<string, __EXPR_VALUE__>> Extra;
+        public Func<OrderedMap<string, ExprValue>> Extra;
     }
 
     public sealed class StateLogger : IDisposable
@@ -65,7 +65,7 @@ namespace __EXPR_NS__
         private readonly StateLoggerAdapter _adapter;
         private readonly Action<string> _sink;
         private readonly string _label;
-        private OrderedMap<string, __EXPR_VALUE__> _baseline;
+        private OrderedMap<string, ExprValue> _baseline;
         private List<StateChange> _pushed = new List<StateChange>();
         private List<Mounted> _mounted = new List<Mounted>();
 
@@ -79,7 +79,7 @@ namespace __EXPR_NS__
             Mount();
         }
 
-        private static string Show(__EXPR_VALUE__ v) => v == null ? "<unset>" : v.ToJsonString();
+        private static string Show(ExprValue v) => v == null ? "<unset>" : v.ToJsonString();
 
         private static string PrefixOf(LogMount m) => m.PathPrefix ?? m.Bag.PathPrefix;
 
@@ -87,11 +87,11 @@ namespace __EXPR_NS__
 
         /// <summary>The full flattened snapshot: every mounted bag's values under its prefix,
         /// plus the adapter's non-property paths.</summary>
-        public OrderedMap<string, __EXPR_VALUE__> Snapshot() => Full();
+        public OrderedMap<string, ExprValue> Snapshot() => Full();
 
-        private OrderedMap<string, __EXPR_VALUE__> Full()
+        private OrderedMap<string, ExprValue> Full()
         {
-            var snapshot = new OrderedMap<string, __EXPR_VALUE__>();
+            var snapshot = new OrderedMap<string, ExprValue>();
             foreach (var mount in _adapter.Mounts())
             {
                 string prefix = PrefixOf(mount);
@@ -161,7 +161,7 @@ namespace __EXPR_NS__
 
         /// <summary>The changed paths between two snapshots, sorted; null = unset.</summary>
         public static List<StateChange> DiffState(
-            OrderedMap<string, __EXPR_VALUE__> prev, OrderedMap<string, __EXPR_VALUE__> next)
+            OrderedMap<string, ExprValue> prev, OrderedMap<string, ExprValue> next)
         {
             var paths = new List<string>();
             var seen = new HashSet<string>();

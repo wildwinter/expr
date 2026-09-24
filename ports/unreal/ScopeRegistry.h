@@ -17,17 +17,22 @@
 // registered yet are PARKED and handed over when that key registers, so a game
 // can load before its engines have reopened their flows or decks.
 //
-// Carries no family identity: it lands in the plugin's own namespace, and
-// every name here is declared by this file or by the shared headers it
-// includes. The family supplies its value type, EvalError and the error type
-// it throws here (see port-sharing.md in expr/docs).
+// Part of the kernel, in wildwinter::expr with no product identity, which is
+// what lets a game hand ONE registry object to every engine it runs: see
+// Errors.h and port-sharing.md in expr/docs. Every refusal here is a
+// RegistryError, which each engine rethrows as its own error type where it
+// calls the registry.
 //
 // Not ported, on purpose: the deprecated save fragment (saveFragment,
 // loadFragment, OwnedStateFragment), whose versioning belongs to the save
 // that embeds the values, and toSchema, which no native runtime validates
 // against.
 // ---------------------------------------------------------------------------
-#pragma once
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___SCOPEREGISTRY_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___SCOPEREGISTRY_H
 
 #include <cstddef>
 #include <functional>
@@ -38,25 +43,25 @@
 #include <utility>
 #include <vector>
 
-#include __EXPR_VALUE_HEADER__
-#include __EXPR_ORDEREDMAP_HEADER__
-#include __EXPR_PROPERTYBAG_HEADER__
-#include __EXPR_EXPR_HEADER__
+#include "Value.h"
+#include "OrderedMap.h"
+#include "PropertyBag.h"
+#include "Expr.h"
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     /** A scope backed by a host resolver rather than a bag this registry
      *  stores: the basis of a foreign scope, whose values live in the game or
      *  in another engine. get returns nullopt when the scope does not have the
      *  property. */
-    class IScopeResolver : public IScopeSource
+    class WILDWINTER_EXPR_VISIBLE IScopeResolver : public IScopeSource
     {
     public:
         /** Whether the resolver accepts writes at all (a TypeScript resolver
          *  without `set`). A resolver that cannot be written is refused for
          *  every writer, the host included. */
         virtual bool canSet() const = 0;
-        virtual void set(const std::string& name, const __EXPR_VALUE__& value) = 0;
+        virtual void set(const std::string& name, const ExprValue& value) = 0;
     };
 
     /** One scope in a scopeRegistrySpec: a token and (optional) declarations.
@@ -151,14 +156,14 @@ namespace __EXPR_NS__
          *  context outlives nothing it reads, and it reads the live values by
          *  the name as written, exactly as the TypeScript context reads
          *  `bag.values[name]`. */
-        class OwnedBagSource : public IScopeSource
+        class WILDWINTER_EXPR_VISIBLE OwnedBagSource : public IScopeSource
         {
         public:
             explicit OwnedBagSource(std::shared_ptr<PropertyBag> bag) : bag_(std::move(bag)) {}
-            std::optional<__EXPR_VALUE__> get(const std::string& name) const override
+            std::optional<ExprValue> get(const std::string& name) const override
             {
-                const __EXPR_VALUE__* v = bag_->values().get(name);
-                return v ? std::optional<__EXPR_VALUE__>(*v) : std::nullopt;
+                const ExprValue* v = bag_->values().get(name);
+                return v ? std::optional<ExprValue>(*v) : std::nullopt;
             }
         private:
             std::shared_ptr<PropertyBag> bag_;
@@ -169,7 +174,7 @@ namespace __EXPR_NS__
     {
     public:
         /** Saved values: each owned (or parked) scope's bare values, by key. */
-        using SaveBlob = OrderedMap<std::string, OrderedMap<std::string, __EXPR_VALUE__>>;
+        using SaveBlob = OrderedMap<std::string, OrderedMap<std::string, ExprValue>>;
         /** Expression token to registered key, for one context. */
         using Aliases = OrderedMap<std::string, std::string>;
 
@@ -240,7 +245,7 @@ namespace __EXPR_NS__
         ScopeRegistry& remove(const std::string& token, bool keep = false)
         {
             const Entry* e = scopes_.get(token);
-            if (!e) throw __EXPR_ERROR__("unknown scope '@" + token + "'");
+            if (!e) throw RegistryError("unknown scope '@" + token + "'");
             if (keep && e->kind == Entry::Owned) parked_.set(token, e->bag->save());
             scopes_.remove(token);
             rev_++;
@@ -271,7 +276,7 @@ namespace __EXPR_NS__
         const std::shared_ptr<PropertyBag>& ownedBag(const std::string& token) const
         {
             const Entry* e = scopes_.get(token);
-            if (!e || e->kind != Entry::Owned) throw __EXPR_ERROR__("'@" + token + "' is not an owned scope");
+            if (!e || e->kind != Entry::Owned) throw RegistryError("'@" + token + "' is not an owned scope");
             return e->bag;
         }
 
@@ -326,7 +331,7 @@ namespace __EXPR_NS__
         bool has(const std::string& token) const { return scopes_.contains(token); }
 
         /** Read a property; nullopt if the scope or property is not present. */
-        std::optional<__EXPR_VALUE__> get(const std::string& scope, const std::string& name) const
+        std::optional<ExprValue> get(const std::string& scope, const std::string& name) const
         {
             const Entry* e = scopes_.get(scope);
             if (!e) return std::nullopt;
@@ -343,10 +348,10 @@ namespace __EXPR_NS__
          *  path an outcome or effect takes. A foreign scope whose resolver
          *  cannot be written is refused for everyone, host included: that is not
          *  a rule to bypass, it is a game that gave no way to write. */
-        void set(const std::string& scope, const std::string& name, const __EXPR_VALUE__& value, bool host = false)
+        void set(const std::string& scope, const std::string& name, const ExprValue& value, bool host = false)
         {
             Entry* e = scopes_.get(scope);
-            if (!e) throw __EXPR_ERROR__("unknown scope '@" + scope + "'");
+            if (!e) throw RegistryError("unknown scope '@" + scope + "'");
             if (e->kind == Entry::Owned)
             {
                 try
@@ -355,13 +360,13 @@ namespace __EXPR_NS__
                 }
                 catch (const std::exception&)
                 {
-                    throw __EXPR_ERROR__("'@" + scope + "." + name + "' is read-only");
+                    throw RegistryError("'@" + scope + "." + name + "' is read-only");
                 }
                 return;
             }
             const std::string n = e->norm(name);
-            if (!e->resolver->canSet()) throw __EXPR_ERROR__("'@" + scope + "." + name + "' is read-only");
-            if (!host && !foreignWritable(*e, n)) throw __EXPR_ERROR__("'@" + scope + "." + name + "' is read-only");
+            if (!e->resolver->canSet()) throw RegistryError("'@" + scope + "." + name + "' is read-only");
+            if (!host && !foreignWritable(*e, n)) throw RegistryError("'@" + scope + "." + name + "' is read-only");
             e->resolver->set(n, value);
         }
 
@@ -384,7 +389,7 @@ namespace __EXPR_NS__
                 }
                 for (const auto& decl : e.decls)
                 {
-                    std::optional<__EXPR_VALUE__> value = e.resolver->get(decl.first);
+                    std::optional<ExprValue> value = e.resolver->get(decl.first);
                     PropertyRow row = PropertyBag::RowFor(decl.second,
                         value.has_value() ? *value : decl.second.defaultOrTypeDefault(),
                         foreignWritable(e, decl.first), decl.first, pair.first + ".");
@@ -415,7 +420,7 @@ namespace __EXPR_NS__
                 const Entry* target = scopes_.get(alias.second);
                 if (!target)
                 {
-                    throw __EXPR_ERROR__("alias '@" + alias.first + "' names '" + alias.second + "', which is not registered");
+                    throw RegistryError("alias '@" + alias.first + "' names '" + alias.second + "', which is not registered");
                 }
                 view.set(alias.first, target);
             }
@@ -503,24 +508,24 @@ namespace __EXPR_NS__
             if (!raw) return std::nullopt;
             // A JSON array is an object to the TypeScript reference, so it falls
             // through to the version check there; it does here too.
-            if (!A::isObject(*raw) && !A::isArray(*raw)) throw __EXPR_ERROR__("scopeRegistrySpec must be an object");
+            if (!A::isObject(*raw) && !A::isArray(*raw)) throw RegistryError("scopeRegistrySpec must be an object");
             const J* version = A::isObject(*raw) ? A::find(*raw, "version") : nullptr;
-            if (!version || !A::isNumber(*version)) throw __EXPR_ERROR__("scopeRegistrySpec.version must be a number");
+            if (!version || !A::isNumber(*version)) throw RegistryError("scopeRegistrySpec.version must be a number");
             if (A::num(*version) != static_cast<double>(SUPPORTED_SPEC_VERSION))
             {
-                throw __EXPR_ERROR__("unsupported scopeRegistrySpec version "
-                    + __EXPR_VALUE__::JsNumber(A::num(*version))
+                throw RegistryError("unsupported scopeRegistrySpec version "
+                    + ExprValue::JsNumber(A::num(*version))
                     + " (supported: " + std::to_string(SUPPORTED_SPEC_VERSION) + ")");
             }
             const J* scopes = A::find(*raw, "scopes");
-            if (!scopes || !A::isArray(*scopes)) throw __EXPR_ERROR__("scopeRegistrySpec.scopes must be an array");
+            if (!scopes || !A::isArray(*scopes)) throw RegistryError("scopeRegistrySpec.scopes must be an array");
             ScopeRegistrySpec spec;
             spec.version = static_cast<int>(A::num(*version));
             for (std::size_t i = 0; i < A::size(*scopes); ++i)
             {
                 const J& s = A::at(*scopes, i);
                 const J* token = A::isObject(s) ? A::find(s, "token") : nullptr;
-                if (!token || !A::isString(*token)) throw __EXPR_ERROR__("each scopeRegistrySpec scope needs a string token");
+                if (!token || !A::isString(*token)) throw RegistryError("each scopeRegistrySpec scope needs a string token");
                 ScopeSpec scope;
                 scope.token = A::str(*token);
                 const J* writable = A::find(s, "writable");
@@ -559,13 +564,13 @@ namespace __EXPR_NS__
         /** A JSON scalar (boolean, number, string, list of strings) as a
          *  runtime value; nullopt for null, an object, or anything else. */
         template <typename J>
-        static std::optional<__EXPR_VALUE__> ReadSpecValue(const J& v)
+        static std::optional<ExprValue> ReadSpecValue(const J& v)
         {
             using A = RegistrySpecJson<J>;
-            if (A::isBool(v)) return __EXPR_VALUE__::Bool(A::boolean(v));
-            if (A::isNumber(v)) return __EXPR_VALUE__::Num(A::num(v));
-            if (A::isString(v)) return __EXPR_VALUE__::Str(A::str(v));
-            if (A::isArray(v)) return __EXPR_VALUE__::Flags(StringList<J>(v));
+            if (A::isBool(v)) return ExprValue::Bool(A::boolean(v));
+            if (A::isNumber(v)) return ExprValue::Num(A::num(v));
+            if (A::isString(v)) return ExprValue::Str(A::str(v));
+            if (A::isArray(v)) return ExprValue::Flags(StringList<J>(v));
             return std::nullopt;
         }
 
@@ -660,7 +665,7 @@ namespace __EXPR_NS__
             if (!e) return;
             const std::string by = e->owner.has_value() ? " by " + *e->owner : "";
             const std::string wants = owner.has_value() ? " (wanted by " + *owner + ")" : "";
-            throw __EXPR_ERROR__("scope '@" + token + "' is already registered" + by + wants);
+            throw RegistryError("scope '@" + token + "' is already registered" + by + wants);
         }
 
         OrderedMap<std::string, Entry> scopes_;
@@ -668,4 +673,6 @@ namespace __EXPR_NS__
         SaveBlob parked_;
         int rev_ = 0;
     };
-}
+}}} // namespace wildwinter::expr
+
+#endif

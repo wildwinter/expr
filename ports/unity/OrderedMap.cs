@@ -9,7 +9,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     public sealed class OrderedMap<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
     {

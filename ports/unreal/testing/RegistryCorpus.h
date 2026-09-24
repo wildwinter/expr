@@ -18,10 +18,17 @@
 // nodes have the neutral shape the shared Ast.h deserialiser and the
 // registry's spec reader both read by default.
 //
-// A host calls RunRegistryCorpus(path) and gets passed, total and one line
-// per failure; it prints them and adds the failures to its own count.
+// A host calls wildwinter::expr::testing::RunRegistryCorpus(path) and gets
+// passed, total and one line per failure; it prints them and adds the
+// failures to its own count. The only per-family substitution is the include
+// of the family's copy of the kernel below.
 // ---------------------------------------------------------------------------
-#pragma once
+// The family's copy of the kernel, whose Errors.h holds the kernel id tripwire.
+#include __EXPR_SCOPEREGISTRY_HEADER__
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___TESTING_REGISTRYCORPUS_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___TESTING_REGISTRYCORPUS_H
 
 #include <cmath>
 #include <cstddef>
@@ -38,9 +45,7 @@
 #include <utility>
 #include <vector>
 
-#include __EXPR_SCOPEREGISTRY_HEADER__
-
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__ { namespace testing
 {
     namespace registrycorpus
     {
@@ -274,8 +279,8 @@ namespace __EXPR_NS__
             {
                 case Json::Null: return "null";
                 case Json::Bool: return v.b ? "true" : "false";
-                case Json::Number: return __EXPR_VALUE__::JsNumber(v.num);
-                case Json::String: return __EXPR_VALUE__::JsonQuote(v.str);
+                case Json::Number: return ExprValue::JsNumber(v.num);
+                case Json::String: return ExprValue::JsonQuote(v.str);
                 case Json::Array:
                 {
                     std::string out = "[";
@@ -287,7 +292,7 @@ namespace __EXPR_NS__
                     std::string out = "{";
                     for (std::size_t i = 0; i < v.obj.size(); ++i)
                     {
-                        out += (i ? "," : "") + __EXPR_VALUE__::JsonQuote(v.obj[i].first) + ":" + Show(v.obj[i].second);
+                        out += (i ? "," : "") + ExprValue::JsonQuote(v.obj[i].first) + ":" + Show(v.obj[i].second);
                     }
                     return out + "}";
                 }
@@ -341,7 +346,7 @@ namespace __EXPR_NS__
         // Between the corpus's JSON and the registry's values.
         // -------------------------------------------------------------------
 
-        inline Json ToJson(const __EXPR_VALUE__& v)
+        inline Json ToJson(const ExprValue& v)
         {
             if (v.isBool()) return Json::MakeBool(v.asBool());
             if (v.isNumber()) return Json::MakeNumber(v.asNumber());
@@ -351,12 +356,12 @@ namespace __EXPR_NS__
             return out;
         }
 
-        inline std::optional<Json> ToJson(const std::optional<__EXPR_VALUE__>& v)
+        inline std::optional<Json> ToJson(const std::optional<ExprValue>& v)
         {
             return v.has_value() ? std::optional<Json>(ToJson(*v)) : std::nullopt;
         }
 
-        inline Json ToJson(const OrderedMap<std::string, __EXPR_VALUE__>& values)
+        inline Json ToJson(const OrderedMap<std::string, ExprValue>& values)
         {
             Json out = Json::MakeObject();
             for (const auto& pair : values) out.obj.emplace_back(pair.first, ToJson(pair.second));
@@ -371,17 +376,17 @@ namespace __EXPR_NS__
         }
 
         /** A corpus value (boolean, number, string, list of strings). */
-        inline __EXPR_VALUE__ ToValue(const Json& v)
+        inline ExprValue ToValue(const Json& v)
         {
-            std::optional<__EXPR_VALUE__> value = ScopeRegistry::ReadSpecValue<Json>(v);
+            std::optional<ExprValue> value = ScopeRegistry::ReadSpecValue<Json>(v);
             if (!value.has_value()) throw std::runtime_error("the corpus carries a value that is not a scalar: " + Show(v));
             return *value;
         }
 
-        inline OrderedMap<std::string, __EXPR_VALUE__> ToValues(const Json& obj)
+        inline OrderedMap<std::string, ExprValue> ToValues(const Json& obj)
         {
             if (!obj.isObject()) throw std::runtime_error("the corpus carries a bag that is not an object: " + Show(obj));
-            OrderedMap<std::string, __EXPR_VALUE__> out;
+            OrderedMap<std::string, ExprValue> out;
             for (const auto& kv : obj.obj) out.set(kv.first, ToValue(kv.second));
             return out;
         }
@@ -404,19 +409,19 @@ namespace __EXPR_NS__
 
         /** The game's own store behind a foreign scope: a plain map, kept by the
          *  runner so a `store` step can prove where a write did or did not land. */
-        using Store = OrderedMap<std::string, __EXPR_VALUE__>;
+        using Store = OrderedMap<std::string, ExprValue>;
 
         class StoreResolver : public IScopeResolver
         {
         public:
             StoreResolver(std::shared_ptr<Store> store, bool settable) : store_(std::move(store)), settable_(settable) {}
-            std::optional<__EXPR_VALUE__> get(const std::string& name) const override
+            std::optional<ExprValue> get(const std::string& name) const override
             {
-                const __EXPR_VALUE__* v = store_->get(name);
-                return v ? std::optional<__EXPR_VALUE__>(*v) : std::nullopt;
+                const ExprValue* v = store_->get(name);
+                return v ? std::optional<ExprValue>(*v) : std::nullopt;
             }
             bool canSet() const override { return settable_; }
-            void set(const std::string& name, const __EXPR_VALUE__& value) override { store_->set(name, value); }
+            void set(const std::string& name, const ExprValue& value) override { store_->set(name, value); }
         private:
             std::shared_ptr<Store> store_;
             bool settable_;
@@ -546,7 +551,7 @@ namespace __EXPR_NS__
                     {
                         const std::string scope = Need(step, "scope").str;
                         const std::string name = Need(step, "name").str;
-                        const __EXPR_VALUE__ value = ToValue(Need(step, "value"));
+                        const ExprValue value = ToValue(Need(step, "value"));
                         const bool host = Flag(step, "host");
                         attempt(at, expectError, [&]() { r.set(scope, name, value, host); });
                     }
@@ -600,7 +605,7 @@ namespace __EXPR_NS__
                         const double expect = Need(step, "expect").num;
                         if (static_cast<double>(r.revision()) != expect)
                         {
-                            fails.push_back(at + ": revision is " + std::to_string(r.revision()) + ", expected " + __EXPR_VALUE__::JsNumber(expect));
+                            fails.push_back(at + ": revision is " + std::to_string(r.revision()) + ", expected " + ExprValue::JsNumber(expect));
                         }
                     }
                     else if (op == "store")
@@ -641,7 +646,7 @@ namespace __EXPR_NS__
                         {
                             for (const auto& kv : a->obj) aliases.set(kv.first, kv.second.str);
                         }
-                        std::optional<__EXPR_VALUE__> got;
+                        std::optional<ExprValue> got;
                         const bool ok = attempt(at, expectError, [&]()
                         {
                             EvalContext ctx = r.toEvalContext(nullptr, aliases);
@@ -758,4 +763,6 @@ namespace __EXPR_NS__
         }
         return result;
     }
-}
+}}}} // namespace wildwinter::expr::testing
+
+#endif

@@ -72,6 +72,15 @@ abseil-style trick) is deliberate, for three reasons.
    evaluator at runtime, and a bug in one would silently reach the other. Two
    separately versioned products want independent copies.
 
+This held until 2026-09-24, when one registry per game made the collapse the
+point: a combined game has to hand one registry object to both engines. The C#
+and C++ kernels are now one type per platform, and reasons 1 and 2 are answered
+by what the two sections near the end of this page describe: C++ scopes by a
+CONTENT HASH rather than a version (identical text is the only thing that
+collapses, and differing text is a compile error), and C# by one product
+hosting the kernel. Reason 3 is the price, paid on purpose: the two products
+release a kernel change together.
+
 ## Vendor at commit time, not build time
 
 The copies are checked in, and CI runs the vendor step and fails on
@@ -155,7 +164,7 @@ All four steps are done, on all three platforms.
 | Platform | Shared source | Vendored as |
 |---|---|---|
 | Godot | `values.gd`, `mulberry32.gd`, `expr_eval.gd`, `expr_specificity.gd`, `property_bag.gd`, `state_logger.gd`, `scope_registry.gd`, the bundle view and plugins | byte-identical in both addons, bar the shims' names in messages |
-| Unreal | `Value.h`, `Mulberry32.h`, `Ast.h`, `Expr.h`, `Specificity.h`, `OrderedMap.h`, `PropertyBag.h`, `StateLogger.h`, `ScopeRegistry.h` | `__EXPR_NS__` / `__EXPR_VALUE__` / `__EXPR_KIND__` and the include paths |
+| Unreal | `Value.h`, `Mulberry32.h`, `Ast.h`, `Expr.h`, `Specificity.h`, `OrderedMap.h`, `PropertyBag.h`, `StateLogger.h`, `ScopeRegistry.h` (and, since 2026-09-24, `Errors.h`, `Fwd.h`) | `__EXPR_NS__` / `__EXPR_VALUE__` / `__EXPR_KIND__` and the include paths until 2026-09-24; now byte-identical in both plugins, stamped only with the kernel id |
 | Unity | `Value.cs`, `Mulberry32.cs`, `Ast.cs`, `Expr.cs`, `Specificity.cs`, `OrderedMap.cs`, `PropertyBag.cs`, `StateLogger.cs`, `ScopeRegistry.cs` | same, to each root namespace |
 | JavaScript | `packages/expr/src/prng.ts` | imported, not vendored |
 
@@ -245,7 +254,7 @@ Each platform spells the surface its own way, and the differences are idiom, not
 |---|---|---|---|
 | Names | `DefineOwned`, `MountOwned`, `Remove`, `DiscardParked`, `Revision` | `defineOwned`, `mountOwned`, `remove`, `discardParked`, `revision()` | `define_owned`, `mount_owned`, `remove`, `discard_parked`, `revision`, `get_value`, `set_value` |
 | Options | `OwnedScopeOptions`, `ForeignScopeOptions` objects | option structs, and plain `keep`, `keepParked`, `host` arguments | Dictionaries with snake_case keys |
-| A refusal | throws the family's error type | throws the family's error type | returns the message as a String (`""` on success), with a `push_error` |
+| A refusal | throws the kernel's `RegistryError`, which each engine rethrows as its own | the same, `wildwinter::expr::RegistryError` | returns the message as a String (`""` on success), with a `push_error` |
 | Spec reader | over the neutral tree the AST loader takes | a template read through a `RegistrySpecJson<J>` traits struct, like `AstJson<J>` | over parsed Dictionaries and Arrays |
 
 Every message is the TypeScript package's, word for word, because the corpus matches them.
@@ -262,19 +271,116 @@ scripts. Every target is now optional: a family names the engines it ships (`god
 takes the release scripts (`tooling`), and a source whose target a family leaves out is not
 copied there. GDScript's placeholders moved to their own `gd` map for the same reason. A family
 that ships only C#, such as Lockstep, is a few lines: its `repo`, `unity`, `unityTest`, and
-`cs` identity (`__EXPR_NS__`, `__EXPR_VALUE__`, `__EXPR_KIND__`, `__EXPR_ERROR__`).
+`unityKernel` (below).
+
+## One kernel type in Unity (2026-09-24)
+
+Family-scoping had one cost the rest of this page did not foresee: a game that runs Patterplay
+and the Storylet Engine side by side has to hand ONE registry object to both, and with the
+C# stamped per family, `Patterkit.Patterplay.ScopeRegistry` and
+`StoryletStudio.StoryletEngine.ScopeRegistry` were two types. So the C# is no longer stamped.
+The nine shared files plus `Errors.cs` are one kernel, in `Wildwinter.Expr` (`ExprValue`,
+`ExprKind`, `ScopeRegistry`, the evaluator, and the rest), vendored byte-identical into each
+family's `Runtime/Expr`, each copy in the family's own kernel assembly definition
+(`Patterplay.Expr`, `StoryletEngine.Expr`), which `vendor-ports.mjs` writes from the family's
+`unityKernel` entry.
+
+- **One family hosts the kernel.** Patterplay's kernel assembly always compiles.
+- **Every other family defers.** The Storylet Engine's kernel assembly carries
+  `defineConstraints: ["!PATTERPLAY_EXPR_OK"]` and a `versionDefines` entry defining
+  `PATTERPLAY_EXPR_OK` when `com.patterkit.patterplay` is at least 0.14.0, the first
+  Patterplay carrying the kernel. A bare version is Unity's "at least"; an open range such as
+  `"[0.14.0,)"` never matches. With a new enough Patterplay installed the Storylet Engine's copy
+  is not compiled at all, and both engines run on Patterplay's.
+- **Every runtime assembly references both kernel assembly names.** Unity ignores a reference
+  to an assembly that is not there, so each package works alone and together.
+- **Skew fails loudly.** A deferring family also ships a one-line `#error` assembly
+  (`StoryletEngine.ExprSkew`), compiled only when Patterplay is installed but older than the
+  minimum, naming the fix.
+- **Errors.** The kernel throws `ExprError` (evaluation) and `RegistryError` (registration,
+  writes, spec reading). Each engine catches them where it calls the kernel and rethrows its
+  own type with the same message, so a game's existing `catch` keeps working.
+- **Within a kernel version, changes are additive only**, because a deferring family runs on
+  whichever kernel the host ships.
+
+This was proven in real Unity 6000.4.6f1 (both packages together, each alone, the skew error)
+and in a macOS IL2CPP player. GDScript is unchanged: it is duck typed, so one registry already
+passes between the two addons. C++ followed, below.
+
+## One kernel type in Unreal (2026-09-24)
+
+The same problem in C++, where `patter::ScopeRegistry` and `storylets::ScopeRegistry` were two
+types, and a harder one to solve: a C++ header is compiled into every module that includes it,
+so there is no "one product hosts it" as there is with a C# assembly. The route chosen
+(`patterkit/design/shared-kernel-plan.md`, route H, proven by prototype in a UE 5.7 editor on
+arm64 and x86_64 and in a packaged game) is header-only, in one namespace, with the identity
+taken off and a content hash put on:
+
+- **One namespace, stamped with the kernel's id.** The nine headers plus `Errors.h` and `Fwd.h`
+  are one kernel in `wildwinter::expr` (`ExprValue`, `ExprKind`, `ScopeRegistry`, the evaluator,
+  and the rest), whose inline namespace is the KERNEL ID: `k` and the first eight hex digits of
+  a SHA-256 over the kernel headers' shared source, which `vendor-ports.mjs` computes and stamps
+  into every copy alike (`__EXPR_KERNEL_ID__`, and `__EXPR_KERNEL_HASH__` for the same number as
+  the preprocessor compares it). The copies are byte-identical, `--check` says so, and any change
+  to a kernel header changes the id. `vendor-ports.mjs` prints it.
+- **Guards, not `#pragma once`.** Each header's include guard carries the id, so a game module
+  including both plugins compiles every kernel class once: the second plugin's copy is a
+  different file with the same guards, and `#pragma once` would compile it again. Includes
+  between kernel headers are relative, so each copy reads its own siblings.
+- **A tripwire outside the guards.** Every kernel header includes `Errors.h` above its own
+  guard, and `Errors.h` checks, above ITS guard, that no different kernel id has been seen in
+  the translation unit (`WILDWINTER_EXPR_KERNEL`, a name every kernel version keeps). Two
+  plugins built from different kernels stop at an `#error` saying the Patterplay and Storylet
+  Engine plugins must be built from the same kernel and naming the fix, instead of building two
+  types, or one type with two definitions.
+- **Visible types.** `ExprError`, `RegistryError` and every polymorphic kernel type are marked
+  `WILDWINTER_EXPR_VISIBLE` (`visibility("default")`, empty on MSVC), so an Unreal editor, which
+  loads every module as its own library, sees one type across them.
+- **No process-wide state in statics.** Statics are per module in an editor and shared in a
+  packaged game. The kernel keeps none: the one function-local static it had (specificity's
+  default counting rule) is built per call, and what is left is constant (`PropertyTypes`,
+  compared by content).
+- **One specialisation of a kernel template, per game.** The kernel is one type across every
+  plugin in a game, so a specialisation of a kernel template is too, and a second one of the
+  same template anywhere in the game (another plugin, or the Storylet Engine one day) is an ODR
+  violation nothing reports. Patterplay specialises `AstJson<TSharedPtr<FJsonValue>>` in its
+  own `PatterBundleLoader.cpp` today, a known risk recorded at the specialisation: any such
+  specialisation belongs in the shared kernel, once, not in a plugin.
+- **Errors.** As in C#: the kernel throws `ExprError` and `RegistryError`, and each engine
+  catches them where it calls the kernel and rethrows its own with the same message
+  (Patterplay's `EvalError`; the Storylet Engine's `EvalError` for an `ExprError`, its
+  `StoryletError` for a `RegistryError`), so no kernel exception crosses a plugin's API. Each
+  family's TestHost holds one case per rethrow site.
+- **Source compatibility.** Each family names the kernel's types in its own namespace, in a
+  light header that throws nothing (`Patter/PatterValue.h`, `Storylets/StoryletValue.h`:
+  `PatterValue` / `StoryletValue` and `...Kind` as aliases, and the kernel's classes by
+  using-declaration, declared through the kernel's `Fwd.h`) and a full one (`Patter/Kernel.h`,
+  `Storylets/Kernel.h`), so `patter::ScopeRegistry` and `storylets::StoryletValue` still
+  resolve and game code does not change. An Unreal public header includes only the light one,
+  so a game module that merely calls an engine needs no exceptions; one that makes a registry
+  includes the full one and sets `bEnableExceptions`.
+- **The registry corpus runner** (`testing/RegistryCorpus.h`) is test code, not kernel: it
+  lives in `wildwinter::expr::testing`, carries the kernel id, and takes one per-family
+  substitution, the include of that family's kernel copy.
+
+The consequence to accept: an Unreal game combining both plugins needs both built from the same
+kernel, so the two products release a kernel change together. The combined proof lives in the
+storylets repo: `ports/unreal/TestHost/with-patter/` (both cores in one translation unit, the
+JS combined-game test ported case for case, and the tripwire shown firing), and a real UE 5.7
+project with both plugins was checked in the editor and as a packaged game.
 
 ## What each family still owns, and why
 
 The shared source is the algorithm. Three things cannot be in it, and each
 family keeps its own:
 
-- **The value type.** `StoryletValue` and `PatterValue` carry family-specific
-  rendering and JSON. They already expose the same predicate and accessor set,
-  which is what lets one evaluator read both.
-- **The error type.** The shared evaluator throws `EvalError`; each family
-  declares it, so the Storylet Engine keeps `EvalError : StoryletError` and a
-  host can still catch its own hierarchy.
+- **The value type's name.** There is one value type per platform since
+  2026-09-24, `ExprValue` (C# and C++); each family keeps its old name for it
+  in C++ as an alias (`patter::PatterValue`, `storylets::StoryletValue`).
+- **The error type.** The kernel throws its own `ExprError` and `RegistryError`
+  (C# and C++), and each engine rethrows them as its own, so the Storylet
+  Engine keeps `EvalError : StoryletError` and a host can still catch its own
+  hierarchy.
 - **Scope adapters.** `BagScope` reaches into the Storylet Engine's `OrderedMap`;
   Patterplay's wraps a plain dictionary and a resolver callback. Both satisfy the
   shared `IScopeSource`.

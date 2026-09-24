@@ -9,22 +9,24 @@
 // is not here, because that needs a JSON type and each plugin ships its own;
 // each family keeps its own DeserialiseAst / parseAst beside this.
 //
-// Lands directly in the plugin's own namespace (`storylets` / `patter`), which
-// is what keeps two installed plugins from colliding: `storylets::AstNode` and
-// `patter::AstNode` are distinct types, so a game may install both. Identity
-// belongs to the installing plugin, never to the shared source. See
-// expr/docs/port-sharing.md.
+// Part of the kernel, in wildwinter::expr with no product identity: see
+// Errors.h for how the kernel stays one type across plugins. A malformed tree
+// is an ExprError.
 // ---------------------------------------------------------------------------
-#pragma once
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___AST_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___AST_H
 
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include __EXPR_VALUE_HEADER__   // the family's EvalError
+#include "Value.h"
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     enum class AstTag { Bool, Number, Str, ScopedVar, Unary, Binary, Call, FlagDelta };
 
@@ -86,12 +88,12 @@ namespace __EXPR_NS__
         using A = AstJson<J>;
         if (!A::isArray(node) || A::size(node) < 1 || !A::isString(A::at(node, 0)))
         {
-            throw EvalError("malformed ast node");
+            throw ExprError("malformed ast node");
         }
         const std::string tag = A::str(A::at(node, 0));
         auto arity = [&](std::size_t n)
         {
-            if (A::size(node) < n) throw EvalError("malformed '" + tag + "' ast node");
+            if (A::size(node) < n) throw ExprError("malformed '" + tag + "' ast node");
         };
         auto out = std::make_shared<AstNode>();
         if (tag == "b") { arity(2); out->tag = AstTag::Bool; out->b = A::boolean(A::at(node, 1)); }
@@ -128,7 +130,9 @@ namespace __EXPR_NS__
             out->fn = A::str(A::at(node, 1));
             for (std::size_t i = 2; i < A::size(node); ++i) out->args.push_back(DeserialiseAstFrom<J>(A::at(node, i)));
         }
-        else throw EvalError("unknown ast tag: " + tag);
+        else throw ExprError("unknown ast tag: " + tag);
         return out;
     }
-}
+}}} // namespace wildwinter::expr
+
+#endif

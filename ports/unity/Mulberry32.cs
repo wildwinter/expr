@@ -17,7 +17,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     public sealed class Mulberry32
     {

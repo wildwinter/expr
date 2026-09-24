@@ -12,8 +12,13 @@
 //
 // Line format: `${label}${path}: ${from} -> ${to}`, `<unset>` for nullopt.
 // Port of @wildwinter/scoperegistry's state logger (expr/packages/scoperegistry/src/state-logger.ts).
+// Part of the shared kernel, vendored from expr/ports/unreal: see Errors.h.
 
-#pragma once
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___STATELOGGER_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___STATELOGGER_H
 
 #include <cstdio>
 #include <functional>
@@ -24,21 +29,21 @@
 #include <utility>
 #include <vector>
 
-#include __EXPR_ORDEREDMAP_HEADER__
-#include __EXPR_PROPERTYBAG_HEADER__
-#include __EXPR_VALUE_HEADER__
+#include "OrderedMap.h"
+#include "PropertyBag.h"
+#include "Value.h"
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     /** A flattened snapshot: path -> value. */
-    using StateSnapshot = OrderedMap<std::string, __EXPR_VALUE__>;
+    using StateSnapshot = OrderedMap<std::string, ExprValue>;
 
     /** One flattened state transition. nullopt = unset. */
     struct StateChange
     {
         std::string path;
-        std::optional<__EXPR_VALUE__> from;
-        std::optional<__EXPR_VALUE__> to;
+        std::optional<ExprValue> from;
+        std::optional<ExprValue> to;
     };
 
     /**
@@ -46,7 +51,7 @@ namespace __EXPR_NS__
      *
      * Named for the LOG, not the bag: a product may already have its own type for enumerating
      * bags (the Storylet Engine's BagMount labels a mount "story" for its own purposes), and
-     * here the shared file lands in the SAME NAMESPACE as that type.
+     * each product brings the kernel's names into its own namespace beside that type.
      *
      * `pathPrefix` is used VERBATIM, separator included, exactly as the bag's own is. Leave it
      * empty and the bag's own pathPrefix is used, which is what a product wants whenever its
@@ -86,8 +91,8 @@ namespace __EXPR_NS__
         std::vector<StateChange> changes;
         for (const std::string& path : paths)
         {
-            const __EXPR_VALUE__* from = prev.get(path);
-            const __EXPR_VALUE__* to = next.get(path);
+            const ExprValue* from = prev.get(path);
+            const ExprValue* to = next.get(path);
             bool equal = from == nullptr ? to == nullptr : (to != nullptr && from->valueEquals(*to));
             if (equal) continue;
             StateChange c;
@@ -151,7 +156,7 @@ namespace __EXPR_NS__
             PropertyBag::Unsubscribe off;
         };
 
-        static std::string show(const std::optional<__EXPR_VALUE__>& v)
+        static std::string show(const std::optional<ExprValue>& v)
         {
             return v.has_value() ? v->toJsonString() : "<unset>";
         }
@@ -222,4 +227,6 @@ namespace __EXPR_NS__
         std::vector<StateChange> pushed_;
         std::vector<Mounted> mounted_;
     };
-}
+}}} // namespace wildwinter::expr
+
+#endif

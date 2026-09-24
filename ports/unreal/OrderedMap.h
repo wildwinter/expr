@@ -7,7 +7,14 @@
 // 4), so every ordered structure in the port goes through this one type.
 // (std::map is SORTED and std::unordered_map is unordered; neither carries JS
 // Map semantics, hence this type.)
-#pragma once
+//
+// Part of the shared kernel, vendored from expr/ports/unreal: see Errors.h. A
+// missing key in at() is a RegistryError.
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___ORDEREDMAP_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___ORDEREDMAP_H
 
 #include <cstddef>
 #include <string>
@@ -15,9 +22,9 @@
 #include <utility>
 #include <vector>
 
-#include __EXPR_VALUE_HEADER__
+#include "Value.h"
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     template <typename K, typename V>
     class OrderedMap
@@ -55,14 +62,14 @@ namespace __EXPR_NS__
         const V& at(const K& key) const
         {
             const V* v = get(key);
-            if (!v) throw __EXPR_ERROR__("OrderedMap: missing key");
+            if (!v) throw RegistryError("OrderedMap: missing key");
             return *v;
         }
 
         V& at(const K& key)
         {
             V* v = get(key);
-            if (!v) throw __EXPR_ERROR__("OrderedMap: missing key");
+            if (!v) throw RegistryError("OrderedMap: missing key");
             return *v;
         }
 
@@ -116,4 +123,6 @@ namespace __EXPR_NS__
         std::vector<Entry> entries_;
         std::unordered_map<K, size_t> index_;
     };
-}
+}}} // namespace wildwinter::expr
+
+#endif

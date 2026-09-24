@@ -28,7 +28,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-namespace __EXPR_NS__.TestHost
+namespace Wildwinter.Expr.Testing
 {
     /// <summary>What a run of the registry corpus found: cases passed, cases run, and
     /// every failure (each names its case and step).</summary>
@@ -105,7 +105,7 @@ namespace __EXPR_NS__.TestHost
         {
             var fails = new List<string>();
             var r = new ScopeRegistry();
-            var stores = new Dictionary<string, OrderedMap<string, __EXPR_VALUE__>>();
+            var stores = new Dictionary<string, OrderedMap<string, ExprValue>>();
             string caseName = NameOf(c);
             var steps = (List<object>)c.GetOrDefault("steps");
 
@@ -159,7 +159,7 @@ namespace __EXPR_NS__.TestHost
 
                     case "foreign":
                     {
-                        var store = new OrderedMap<string, __EXPR_VALUE__>();
+                        var store = new OrderedMap<string, ExprValue>();
                         if (step.GetOrDefault("store") is OrderedMap<string, object> seed)
                         {
                             foreach (var pair in seed) store.Set(pair.Key, ToValue(pair.Value));
@@ -343,11 +343,11 @@ namespace __EXPR_NS__.TestHost
         /// (`settable: false`) it refuses every write, for everyone.</summary>
         private sealed class MapResolver : IScopeResolver
         {
-            private readonly OrderedMap<string, __EXPR_VALUE__> _store;
-            public MapResolver(OrderedMap<string, __EXPR_VALUE__> store, bool canSet) { _store = store; CanSet = canSet; }
+            private readonly OrderedMap<string, ExprValue> _store;
+            public MapResolver(OrderedMap<string, ExprValue> store, bool canSet) { _store = store; CanSet = canSet; }
             public bool CanSet { get; }
-            public __EXPR_VALUE__ Get(string name) => _store.GetOrDefault(name);
-            public void Set(string name, __EXPR_VALUE__ value)
+            public ExprValue Get(string name) => _store.GetOrDefault(name);
+            public void Set(string name, ExprValue value)
             {
                 if (!CanSet) throw new InvalidOperationException("this resolver has no set");
                 _store.Set(name, value);
@@ -390,24 +390,24 @@ namespace __EXPR_NS__.TestHost
 
         /// <summary>A corpus scalar as a runtime value. The corpus carries only the
         /// four kinds, so anything else is a malformed corpus and says so.</summary>
-        private static __EXPR_VALUE__ ToValue(object node)
+        private static ExprValue ToValue(object node)
         {
             switch (node)
             {
-                case bool b: return __EXPR_VALUE__.Bool(b);
-                case double n: return __EXPR_VALUE__.Num(n);
-                case string s: return __EXPR_VALUE__.Str(s);
-                case List<object> items: return __EXPR_VALUE__.Flags(Strings(items));
+                case bool b: return ExprValue.Bool(b);
+                case double n: return ExprValue.Num(n);
+                case string s: return ExprValue.Str(s);
+                case List<object> items: return ExprValue.Flags(Strings(items));
                 default: throw new InvalidOperationException($"not a corpus value: {Show(node)}");
             }
         }
 
-        private static OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>> ToBlob(object node)
+        private static OrderedMap<string, OrderedMap<string, ExprValue>> ToBlob(object node)
         {
-            var blob = new OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>>();
+            var blob = new OrderedMap<string, OrderedMap<string, ExprValue>>();
             foreach (var section in (OrderedMap<string, object>)node)
             {
-                var values = new OrderedMap<string, __EXPR_VALUE__>();
+                var values = new OrderedMap<string, ExprValue>();
                 foreach (var pair in (OrderedMap<string, object>)section.Value) values.Set(pair.Key, ToValue(pair.Value));
                 blob.Set(section.Key, values);
             }
@@ -416,7 +416,7 @@ namespace __EXPR_NS__.TestHost
 
         /// <summary>A runtime value in the corpus's own terms: null (the registry's
         /// "not there") becomes Unset.</summary>
-        private static object Neutral(__EXPR_VALUE__ v)
+        private static object Neutral(ExprValue v)
         {
             if (v == null) return Unset;
             if (v.IsBool) return v.AsBool;
@@ -427,14 +427,14 @@ namespace __EXPR_NS__.TestHost
             return list;
         }
 
-        private static OrderedMap<string, object> NeutralMap(OrderedMap<string, __EXPR_VALUE__> values)
+        private static OrderedMap<string, object> NeutralMap(OrderedMap<string, ExprValue> values)
         {
             var m = new OrderedMap<string, object>();
             foreach (var pair in values) m.Set(pair.Key, Neutral(pair.Value));
             return m;
         }
 
-        private static OrderedMap<string, object> NeutralBlob(OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>> blob)
+        private static OrderedMap<string, object> NeutralBlob(OrderedMap<string, OrderedMap<string, ExprValue>> blob)
         {
             var m = new OrderedMap<string, object>();
             foreach (var pair in blob) m.Set(pair.Key, NeutralMap(pair.Value));
@@ -513,8 +513,8 @@ namespace __EXPR_NS__.TestHost
             {
                 case null: sb.Append("null"); return;
                 case bool b: sb.Append(Js(b)); return;
-                case double n: sb.Append(__EXPR_VALUE__.JsNumber(n)); return;
-                case string s: sb.Append(__EXPR_VALUE__.JsonQuote(s)); return;
+                case double n: sb.Append(ExprValue.JsNumber(n)); return;
+                case string s: sb.Append(ExprValue.JsonQuote(s)); return;
                 case List<object> list:
                     sb.Append('[');
                     for (int i = 0; i < list.Count; i++)
@@ -534,7 +534,7 @@ namespace __EXPR_NS__.TestHost
                         if (pair.Value == Unset) continue;
                         if (!first) sb.Append(',');
                         first = false;
-                        sb.Append(__EXPR_VALUE__.JsonQuote(pair.Key)).Append(':');
+                        sb.Append(ExprValue.JsonQuote(pair.Key)).Append(':');
                         Write(sb, pair.Value);
                     }
                     sb.Append('}');

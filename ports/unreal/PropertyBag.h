@@ -3,7 +3,14 @@
 // silent but always auditable), examiner rows, one sanctioned clone door, and
 // bare-value save/load. Port of @wildwinter/scoperegistry's PropertyBag
 // (expr/packages/scoperegistry/src/index.ts).
-#pragma once
+//
+// Part of the shared kernel, vendored from expr/ports/unreal: see Errors.h. A
+// refused write is a RegistryError.
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___PROPERTYBAG_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___PROPERTYBAG_H
 
 #include <algorithm>
 #include <cctype>
@@ -14,14 +21,15 @@
 #include <utility>
 #include <vector>
 
-#include __EXPR_ORDEREDMAP_HEADER__
-#include __EXPR_VALUE_HEADER__
+#include "OrderedMap.h"
+#include "Value.h"
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     /** The property type vocabulary (boolean / number / string / enum /
      *  flags). Kept as strings, exactly as the kernel and the bundle carry
-     *  it; an enum value is a string at runtime. */
+     *  it; an enum value is a string at runtime. Constants, not state: each
+     *  module may hold its own copy, and every comparison is by content. */
     namespace PropertyTypes
     {
         inline const char* const Boolean = "boolean";
@@ -41,28 +49,28 @@ namespace __EXPR_NS__
         std::optional<std::vector<std::string>> values;    // for enum / flags
         /** A quality's ordered ladder of stage names (quality.md). */
         std::optional<std::vector<std::string>> stages;
-        std::optional<__EXPR_VALUE__> defaultValue;         // owned scopes: seed value
+        std::optional<ExprValue> defaultValue;         // owned scopes: seed value
         std::optional<bool> writable;                      // default true
 
         /** The type default when no explicit default is declared (the kernel's
          *  defaultFor). */
-        __EXPR_VALUE__ defaultOrTypeDefault() const
+        ExprValue defaultOrTypeDefault() const
         {
             if (defaultValue.has_value()) return *defaultValue;
-            if (type == PropertyTypes::Boolean) return __EXPR_VALUE__::Bool(false);
-            if (type == PropertyTypes::Number) return __EXPR_VALUE__::Num(0);
-            if (type == PropertyTypes::String) return __EXPR_VALUE__::Str("");
+            if (type == PropertyTypes::Boolean) return ExprValue::Bool(false);
+            if (type == PropertyTypes::Number) return ExprValue::Num(0);
+            if (type == PropertyTypes::String) return ExprValue::Str("");
             if (type == PropertyTypes::Enum)
             {
-                return __EXPR_VALUE__::Str(values.has_value() && !values->empty() ? (*values)[0] : "");
+                return ExprValue::Str(values.has_value() && !values->empty() ? (*values)[0] : "");
             }
-            if (type == PropertyTypes::Flags) return __EXPR_VALUE__::Flags({});
+            if (type == PropertyTypes::Flags) return ExprValue::Flags({});
             // A quality starts at the first rung of its ladder (quality.md).
             if (type == PropertyTypes::Quality)
             {
-                return __EXPR_VALUE__::Str(stages.has_value() && !stages->empty() ? (*stages)[0] : "");
+                return ExprValue::Str(stages.has_value() && !stages->empty() ? (*stages)[0] : "");
             }
-            return __EXPR_VALUE__::Bool(false);
+            return ExprValue::Bool(false);
         }
     };
 
@@ -72,8 +80,8 @@ namespace __EXPR_NS__
     struct BagChange
     {
         std::string name;
-        std::optional<__EXPR_VALUE__> prev;     // absent when the property had no value
-        __EXPR_VALUE__ next;
+        std::optional<ExprValue> prev;     // absent when the property had no value
+        ExprValue next;
         bool silent = false;
         std::string reason;
     };
@@ -89,8 +97,8 @@ namespace __EXPR_NS__
          *  field, once per runtime. */
         std::string path;
         std::string type;
-        __EXPR_VALUE__ value;
-        __EXPR_VALUE__ defaultValue;
+        ExprValue value;
+        ExprValue defaultValue;
         std::optional<std::vector<std::string>> values;
         /** A quality's ladder, when this row is one. Present on the JS and
          *  Godot rows since the qualities work and absent here, so the same
@@ -129,7 +137,7 @@ namespace __EXPR_NS__
         /** The live values map (stable identity across reseed, so an eval
          *  context built over it stays valid). Read-path for evaluation; writes
          *  go through set() so the firing rule applies. */
-        const OrderedMap<std::string, __EXPR_VALUE__>& values() const { return values_; }
+        const OrderedMap<std::string, ExprValue>& values() const { return values_; }
 
         /** The address prefix this bag composes its rows' paths from, separator included. */
         const std::string& pathPrefix() const { return pathPrefix_; }
@@ -139,10 +147,10 @@ namespace __EXPR_NS__
          *  (identity) bag is not folded to lower case one layer up. */
         std::string normalise(const std::string& name) const { return norm_(name); }
 
-        std::optional<__EXPR_VALUE__> get(const std::string& name) const
+        std::optional<ExprValue> get(const std::string& name) const
         {
-            const __EXPR_VALUE__* v = values_.get(norm_(name));
-            return v ? std::optional<__EXPR_VALUE__>(*v) : std::nullopt;
+            const ExprValue* v = values_.get(norm_(name));
+            return v ? std::optional<ExprValue>(*v) : std::nullopt;
         }
 
         /** Write a property. Engine writes (the default) notify subscribers;
@@ -152,17 +160,17 @@ namespace __EXPR_NS__
          *  it (ruled 2026-09-05). The two are separate: one says who hears the
          *  write, the other who may make it. Throws on a read-only property.
          *  Returns the change. */
-        BagChange set(const std::string& name, const __EXPR_VALUE__& value, bool silent = false, const std::string& reason = "", bool host = false)
+        BagChange set(const std::string& name, const ExprValue& value, bool silent = false, const std::string& reason = "", bool host = false)
         {
             std::string n = norm_(name);
             const ScopeDeclaration* decl = decls_.get(n);
             if (!host && decl && decl->writable.has_value() && !*decl->writable)
             {
-                throw __EXPR_ERROR__("'" + name + "' is read-only");
+                throw RegistryError("'" + name + "' is read-only");
             }
             BagChange change;
             change.name = n;
-            const __EXPR_VALUE__* prev = values_.get(n);
+            const ExprValue* prev = values_.get(n);
             if (prev) change.prev = *prev;
             change.next = value;
             change.silent = silent;
@@ -195,7 +203,7 @@ namespace __EXPR_NS__
             std::vector<PropertyRow> out;
             for (const auto& pair : decls_)
             {
-                std::optional<__EXPR_VALUE__> value = get(pair.first);
+                std::optional<ExprValue> value = get(pair.first);
                 out.push_back(RowFor(pair.second,
                     value.has_value() ? *value : pair.second.defaultOrTypeDefault(),
                     std::nullopt, pair.first, pathPrefix_));
@@ -231,9 +239,9 @@ namespace __EXPR_NS__
         }
 
         /** Bare values, ready to embed in a product's save. */
-        OrderedMap<std::string, __EXPR_VALUE__> save() const
+        OrderedMap<std::string, ExprValue> save() const
         {
-            OrderedMap<std::string, __EXPR_VALUE__> copy;
+            OrderedMap<std::string, ExprValue> copy;
             for (const auto& pair : values_) copy.set(pair.first, pair.second);
             return copy;
         }
@@ -241,14 +249,14 @@ namespace __EXPR_NS__
         /** Lay saved values over the current ones (call after a fresh seed:
          *  orphans land as strays, new declarations keep their defaults; the
          *  product decides whether to prune). Does not fire events. */
-        void load(const OrderedMap<std::string, __EXPR_VALUE__>& values)
+        void load(const OrderedMap<std::string, ExprValue>& values)
         {
             for (const auto& pair : values) values_.set(norm_(pair.first), pair.second);
         }
 
         static PropertyRow RowFor(
             const ScopeDeclaration& d,
-            const __EXPR_VALUE__& value,
+            const ExprValue& value,
             std::optional<bool> writable,
             const std::string& name = "",
             const std::string& pathPrefix = "")
@@ -278,7 +286,7 @@ namespace __EXPR_NS__
             {
                 std::string name = norm_(d.name);
                 decls_.set(name, d);
-                // __EXPR_VALUE__ is a value type, so seeding shares no mutable
+                // ExprValue is a value type, so seeding shares no mutable
                 // default (the kernel structuredClones for the same reason).
                 values_.set(name, d.defaultOrTypeDefault());
             }
@@ -306,7 +314,7 @@ namespace __EXPR_NS__
             return out;
         }
 
-        OrderedMap<std::string, __EXPR_VALUE__> values_;
+        OrderedMap<std::string, ExprValue> values_;
         OrderedMap<std::string, ScopeDeclaration> decls_;
         std::vector<Entry> subscribers_;
         std::vector<Entry> auditors_;
@@ -317,4 +325,6 @@ namespace __EXPR_NS__
         std::string pathPrefix_;
         Normalise norm_;
     };
-}
+}}} // namespace wildwinter::expr
+
+#endif

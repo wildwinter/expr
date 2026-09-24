@@ -16,7 +16,11 @@
 // behaviour once it leaves that type's range, and gave two wrong answers
 // (seed 1e19 and Infinity) before the parity corpus pinned them.
 // ---------------------------------------------------------------------------
-#pragma once
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___MULBERRY32_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___MULBERRY32_H
 
 #include <cmath>
 #include <cstddef>
@@ -24,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
     class Mulberry32
     {
@@ -76,4 +80,6 @@ namespace __EXPR_NS__
             std::swap(arr[i], arr[j]);
         }
     }
-}
+}}} // namespace wildwinter::expr
+
+#endif

@@ -13,10 +13,16 @@
 // its own code reads `v.n` and `v.kind` thirty-five times and the Storylet
 // Engine's reads the accessors three.
 //
-// Lands in the plugin's own namespace, so two installed plugins never collide.
-// The family supplies its own EvalError before including this.
+// ExprValue, one type in every product since 2026-09-24 (it was stamped as
+// PatterValue and StoryletValue until then, which each product keeps as an
+// alias), so one registry can hold every engine's values. Part of the kernel:
+// see Errors.h for how the kernel stays one type.
 // ---------------------------------------------------------------------------
-#pragma once
+#include "Errors.h"   // the kernel id tripwire, WILDWINTER_EXPR_VISIBLE, ExprError, RegistryError
+// Compiled once per translation unit, and never beside a different kernel: Errors.h stops
+// that build with an #error, and this copy then stays out of the way of the first.
+#if !defined(WILDWINTER_EXPR___EXPR_KERNEL_ID___VALUE_H) && WILDWINTER_EXPR_KERNEL == __EXPR_KERNEL_HASH__
+#define WILDWINTER_EXPR___EXPR_KERNEL_ID___VALUE_H
 
 #include <algorithm>
 #include <cmath>
@@ -25,28 +31,28 @@
 #include <string>
 #include <vector>
 
-namespace __EXPR_NS__
+namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
 {
-    enum class __EXPR_KIND__ { Bool, Number, Str, Flags };
+    enum class ExprKind { Bool, Number, Str, Flags };
 
-    struct __EXPR_VALUE__
+    struct ExprValue
     {
-        __EXPR_KIND__ kind = __EXPR_KIND__::Bool;
+        ExprKind kind = ExprKind::Bool;
         bool b = false;
         double n = 0;
         std::string s;
         std::vector<std::string> f;
 
-        static __EXPR_VALUE__ Bool(bool v) { __EXPR_VALUE__ x; x.kind = __EXPR_KIND__::Bool; x.b = v; return x; }
-        static __EXPR_VALUE__ Num(double v) { __EXPR_VALUE__ x; x.kind = __EXPR_KIND__::Number; x.n = v; return x; }
-        static __EXPR_VALUE__ Str(std::string v) { __EXPR_VALUE__ x; x.kind = __EXPR_KIND__::Str; x.s = std::move(v); return x; }
+        static ExprValue Bool(bool v) { ExprValue x; x.kind = ExprKind::Bool; x.b = v; return x; }
+        static ExprValue Num(double v) { ExprValue x; x.kind = ExprKind::Number; x.n = v; return x; }
+        static ExprValue Str(std::string v) { ExprValue x; x.kind = ExprKind::Str; x.s = std::move(v); return x; }
         /** Flags list (copied in; a value is a value). */
-        static __EXPR_VALUE__ Flags(std::vector<std::string> v) { __EXPR_VALUE__ x; x.kind = __EXPR_KIND__::Flags; x.f = std::move(v); return x; }
+        static ExprValue Flags(std::vector<std::string> v) { ExprValue x; x.kind = ExprKind::Flags; x.f = std::move(v); return x; }
 
-        bool isBool() const { return kind == __EXPR_KIND__::Bool; }
-        bool isNumber() const { return kind == __EXPR_KIND__::Number; }
-        bool isString() const { return kind == __EXPR_KIND__::Str; }
-        bool isFlags() const { return kind == __EXPR_KIND__::Flags; }
+        bool isBool() const { return kind == ExprKind::Bool; }
+        bool isNumber() const { return kind == ExprKind::Number; }
+        bool isString() const { return kind == ExprKind::Str; }
+        bool isFlags() const { return kind == ExprKind::Flags; }
 
         bool asBool() const { return b; }
         double asNumber() const { return n; }
@@ -60,11 +66,11 @@ namespace __EXPR_NS__
          *  value IS a set, and its stored order is an artefact of the order
          *  somebody happened to add things in. Compared as MULTISETS (sorted
          *  copies), so a duplicate still counts. */
-        bool valueEquals(const __EXPR_VALUE__& o) const
+        bool valueEquals(const ExprValue& o) const
         {
-            if (kind == __EXPR_KIND__::Flags || o.kind == __EXPR_KIND__::Flags)
+            if (kind == ExprKind::Flags || o.kind == ExprKind::Flags)
             {
-                if (kind != __EXPR_KIND__::Flags || o.kind != __EXPR_KIND__::Flags) return false;
+                if (kind != ExprKind::Flags || o.kind != ExprKind::Flags) return false;
                 if (f.size() != o.f.size()) return false;
                 std::vector<std::string> x = f, y = o.f;
                 std::sort(x.begin(), x.end());
@@ -74,9 +80,9 @@ namespace __EXPR_NS__
             if (kind != o.kind) return false;
             switch (kind)
             {
-                case __EXPR_KIND__::Bool: return b == o.b;
-                case __EXPR_KIND__::Number: return n == o.n;
-                case __EXPR_KIND__::Str: return s == o.s;
+                case ExprKind::Bool: return b == o.b;
+                case ExprKind::Number: return n == o.n;
+                case ExprKind::Str: return s == o.s;
                 default: return false;
             }
         }
@@ -91,10 +97,10 @@ namespace __EXPR_NS__
         {
             switch (kind)
             {
-                case __EXPR_KIND__::Bool: return b;
-                case __EXPR_KIND__::Number: return n != 0;
-                case __EXPR_KIND__::Str: return !s.empty();
-                case __EXPR_KIND__::Flags: return !f.empty();
+                case ExprKind::Bool: return b;
+                case ExprKind::Number: return n != 0;
+                case ExprKind::Str: return !s.empty();
+                case ExprKind::Flags: return !f.empty();
                 default: return false;
             }
         }
@@ -105,10 +111,10 @@ namespace __EXPR_NS__
         {
             switch (kind)
             {
-                case __EXPR_KIND__::Bool: return b ? "true" : "false";
-                case __EXPR_KIND__::Number: return JsNumber(n);
-                case __EXPR_KIND__::Str: return JsonQuote(s);
-                case __EXPR_KIND__::Flags:
+                case ExprKind::Bool: return b ? "true" : "false";
+                case ExprKind::Number: return JsNumber(n);
+                case ExprKind::Str: return JsonQuote(s);
+                case ExprKind::Flags:
                 {
                     std::string out = "[";
                     for (size_t i = 0; i < f.size(); ++i) { if (i) out += ","; out += JsonQuote(f[i]); }
@@ -124,10 +130,10 @@ namespace __EXPR_NS__
         {
             switch (kind)
             {
-                case __EXPR_KIND__::Bool: return b ? "true" : "false";
-                case __EXPR_KIND__::Number: return JsNumber(n);
-                case __EXPR_KIND__::Str: return s;
-                case __EXPR_KIND__::Flags:
+                case ExprKind::Bool: return b ? "true" : "false";
+                case ExprKind::Number: return JsNumber(n);
+                case ExprKind::Str: return s;
+                case ExprKind::Flags:
                 {
                     std::string out;
                     for (size_t i = 0; i < f.size(); ++i) { if (i) out += ","; out += f[i]; }
@@ -198,4 +204,6 @@ namespace __EXPR_NS__
             return out + "\"";
         }
     };
-}
+}}} // namespace wildwinter::expr
+
+#endif

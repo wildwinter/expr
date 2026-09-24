@@ -13,10 +13,11 @@
 // is held to packages/scoperegistry/corpus.json, which every copy of the
 // registry runs.
 //
-// What the family must provide before this is included: its value type, its
-// error type, and the shared PropertyBag, OrderedMap, Expr and Ast. Everything
-// else the registry needs (the resolver interface, the spec types, the row
-// type, the options) is declared here, so neither family carries a copy.
+// It needs only the rest of the kernel: ExprValue, RegistryError (Errors.cs),
+// PropertyBag, OrderedMap, Expr and Ast. Everything else the registry needs (the
+// resolver interface, the spec types, the row type, the options) is declared
+// here, so no family carries a copy. Because the kernel is ONE type in a game,
+// every engine in the game can be handed the same registry object.
 //
 // Not ported, on purpose: the deprecated owned-state fragment
 // (saveFragment / loadFragment / OwnedStateFragment / SAVE_FRAGMENT_VERSION),
@@ -27,7 +28,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     /// <summary>A scope backed by a host resolver rather than a static bag: the
     /// basis for foreign scopes whose values live in the game or another
@@ -38,7 +39,7 @@ namespace __EXPR_NS__
         /// <summary>Whether the resolver accepts writes at all (a TypeScript
         /// resolver without `set` is read-only, for everyone).</summary>
         bool CanSet { get; }
-        void Set(string name, __EXPR_VALUE__ value);
+        void Set(string name, ExprValue value);
     }
 
     /// <summary>One scope in a scopeRegistrySpec: a token and (optional)
@@ -146,23 +147,23 @@ namespace __EXPR_NS__
             var raw = node as OrderedMap<string, object>;
             if (raw == null && !(node is IReadOnlyList<object>))
             {
-                throw new __EXPR_ERROR__("scopeRegistrySpec must be an object");
+                throw new RegistryError("scopeRegistrySpec must be an object");
             }
             if (raw == null || !(raw.GetOrDefault("version") is double version))
             {
-                throw new __EXPR_ERROR__("scopeRegistrySpec.version must be a number");
+                throw new RegistryError("scopeRegistrySpec.version must be a number");
             }
             bool supported = false;
             foreach (var v in SUPPORTED_SPEC_VERSIONS) supported = supported || version == v;
             if (!supported)
             {
-                throw new __EXPR_ERROR__(
-                    $"unsupported scopeRegistrySpec version {__EXPR_VALUE__.JsNumber(version)} "
+                throw new RegistryError(
+                    $"unsupported scopeRegistrySpec version {ExprValue.JsNumber(version)} "
                     + $"(supported: {string.Join(", ", SUPPORTED_SPEC_VERSIONS)})");
             }
             if (!(raw.GetOrDefault("scopes") is IReadOnlyList<object> scopes))
             {
-                throw new __EXPR_ERROR__("scopeRegistrySpec.scopes must be an array");
+                throw new RegistryError("scopeRegistrySpec.scopes must be an array");
             }
             var spec = new ScopeRegistrySpec { Version = (int)version, Scopes = new List<ScopeSpec>() };
             foreach (var s in scopes)
@@ -170,7 +171,7 @@ namespace __EXPR_NS__
                 var entry = s as OrderedMap<string, object>;
                 if (entry == null || !(entry.GetOrDefault("token") is string token))
                 {
-                    throw new __EXPR_ERROR__("each scopeRegistrySpec scope needs a string token");
+                    throw new RegistryError("each scopeRegistrySpec scope needs a string token");
                 }
                 var scope = new ScopeSpec { Token = token };
                 if (entry.GetOrDefault("writable") is bool writable) scope.Writable = writable;
@@ -219,14 +220,14 @@ namespace __EXPR_NS__
 
         /// <summary>A spec scalar (bool / number / string / string[]) as a
         /// runtime value; null for JSON null or an unsupported kind.</summary>
-        private static __EXPR_VALUE__ SpecScalar(object node)
+        private static ExprValue SpecScalar(object node)
         {
             switch (node)
             {
-                case bool b: return __EXPR_VALUE__.Bool(b);
-                case double n: return __EXPR_VALUE__.Num(n);
-                case string s: return __EXPR_VALUE__.Str(s);
-                case IReadOnlyList<object> _: return __EXPR_VALUE__.Flags(SpecStrings(node));
+                case bool b: return ExprValue.Bool(b);
+                case double n: return ExprValue.Num(n);
+                case string s: return ExprValue.Str(s);
+                case IReadOnlyList<object> _: return ExprValue.Flags(SpecStrings(node));
                 default: return null;
             }
         }
@@ -257,9 +258,9 @@ namespace __EXPR_NS__
         /// family's own bag adapter.</summary>
         private sealed class OwnedSource : IScopeSource
         {
-            private readonly OrderedMap<string, __EXPR_VALUE__> _values;
-            public OwnedSource(OrderedMap<string, __EXPR_VALUE__> values) { _values = values; }
-            public __EXPR_VALUE__ Get(string name) => _values.GetOrDefault(name);
+            private readonly OrderedMap<string, ExprValue> _values;
+            public OwnedSource(OrderedMap<string, ExprValue> values) { _values = values; }
+            public ExprValue Get(string name) => _values.GetOrDefault(name);
         }
 
         private static readonly Func<string, string> LowerCase = n => n.ToLowerInvariant();
@@ -267,8 +268,8 @@ namespace __EXPR_NS__
         private readonly OrderedMap<string, Entry> _scopes = new OrderedMap<string, Entry>();
         /// <summary>Values loaded for keys nobody has registered yet, waiting to be
         /// claimed.</summary>
-        private readonly OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>> _parked =
-            new OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>>();
+        private readonly OrderedMap<string, OrderedMap<string, ExprValue>> _parked =
+            new OrderedMap<string, OrderedMap<string, ExprValue>>();
 
         /// <summary>A counter that moves whenever a scope is registered or removed,
         /// and at no other time: it starts at 0 and each registration or removal
@@ -330,7 +331,7 @@ namespace __EXPR_NS__
         public ScopeRegistry Remove(string token, bool keep = false)
         {
             var e = _scopes.GetOrDefault(token);
-            if (e == null) throw new __EXPR_ERROR__($"unknown scope '@{token}'");
+            if (e == null) throw new RegistryError($"unknown scope '@{token}'");
             if (keep && e is OwnedScope owned) _parked.Set(token, owned.Bag.Save());
             _scopes.Remove(token);
             Revision++;
@@ -365,7 +366,7 @@ namespace __EXPR_NS__
         public PropertyBag OwnedBag(string token)
         {
             var e = _scopes.GetOrDefault(token) as OwnedScope;
-            if (e == null) throw new __EXPR_ERROR__($"'@{token}' is not an owned scope");
+            if (e == null) throw new RegistryError($"'@{token}' is not an owned scope");
             return e.Bag;
         }
 
@@ -420,7 +421,7 @@ namespace __EXPR_NS__
 
         /// <summary>Read a property; null if the scope or property is not
         /// present.</summary>
-        public __EXPR_VALUE__ Get(string scope, string name)
+        public ExprValue Get(string scope, string name)
         {
             var e = _scopes.GetOrDefault(scope);
             if (e == null) return null;
@@ -439,10 +440,10 @@ namespace __EXPR_NS__
         /// outcome or effect takes. A foreign scope whose resolver cannot be
         /// written is refused for everyone, host included: that is not a rule to
         /// bypass, it is a game that gave no way to write.</summary>
-        public void Set(string scope, string name, __EXPR_VALUE__ value, bool host = false)
+        public void Set(string scope, string name, ExprValue value, bool host = false)
         {
             var e = _scopes.GetOrDefault(scope);
-            if (e == null) throw new __EXPR_ERROR__($"unknown scope '@{scope}'");
+            if (e == null) throw new RegistryError($"unknown scope '@{scope}'");
             if (e is OwnedScope owned)
             {
                 try
@@ -451,14 +452,14 @@ namespace __EXPR_NS__
                 }
                 catch (Exception)
                 {
-                    throw new __EXPR_ERROR__($"'@{scope}.{name}' is read-only");
+                    throw new RegistryError($"'@{scope}.{name}' is read-only");
                 }
                 return;
             }
             var foreign = (ForeignScope)e;
             var n = foreign.Norm(name);
-            if (!foreign.Resolver.CanSet) throw new __EXPR_ERROR__($"'@{scope}.{name}' is read-only");
-            if (!host && !ForeignWritable(foreign, n)) throw new __EXPR_ERROR__($"'@{scope}.{name}' is read-only");
+            if (!foreign.Resolver.CanSet) throw new RegistryError($"'@{scope}.{name}' is read-only");
+            if (!host && !ForeignWritable(foreign, n)) throw new RegistryError($"'@{scope}.{name}' is read-only");
             foreign.Resolver.Set(n, value);
         }
 
@@ -547,7 +548,7 @@ namespace __EXPR_NS__
             foreach (var alias in aliases)
             {
                 var e = _scopes.GetOrDefault(alias.Value);
-                if (e == null) throw new __EXPR_ERROR__($"alias '@{alias.Key}' names '{alias.Value}', which is not registered");
+                if (e == null) throw new RegistryError($"alias '@{alias.Key}' names '{alias.Value}', which is not registered");
                 view.Set(alias.Key, e);
             }
             return view;
@@ -604,9 +605,9 @@ namespace __EXPR_NS__
         /// parked, so a save taken before every engine has re-registered loses
         /// nothing. The registry knows nothing about game saves: a game embeds this
         /// in its own.</summary>
-        public OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>> Save()
+        public OrderedMap<string, OrderedMap<string, ExprValue>> Save()
         {
-            var blob = new OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>>();
+            var blob = new OrderedMap<string, OrderedMap<string, ExprValue>>();
             foreach (var pair in _scopes)
             {
                 if (pair.Value is OwnedScope owned) blob.Set(pair.Key, owned.Bag.Save());
@@ -628,7 +629,7 @@ namespace __EXPR_NS__
         /// sections are added to it (a section for the same key replaces the parked
         /// one): for an engine moving an older save's values into a registry the
         /// game has already loaded.</summary>
-        public void Load(OrderedMap<string, OrderedMap<string, __EXPR_VALUE__>> blob, bool keepParked = false)
+        public void Load(OrderedMap<string, OrderedMap<string, ExprValue>> blob, bool keepParked = false)
         {
             if (!keepParked) _parked.Clear();
             foreach (var pair in blob)
@@ -641,9 +642,9 @@ namespace __EXPR_NS__
 
         /// <summary>A section's own copy. Values are immutable, so copying the map
         /// is the whole of the reference's structuredClone.</summary>
-        private static OrderedMap<string, __EXPR_VALUE__> Copy(OrderedMap<string, __EXPR_VALUE__> values)
+        private static OrderedMap<string, ExprValue> Copy(OrderedMap<string, ExprValue> values)
         {
-            var copy = new OrderedMap<string, __EXPR_VALUE__>();
+            var copy = new OrderedMap<string, ExprValue>();
             foreach (var pair in values) copy.Set(pair.Key, pair.Value);
             return copy;
         }
@@ -658,7 +659,7 @@ namespace __EXPR_NS__
             if (e == null) return;
             var by = e.Owner != null ? $" by {e.Owner}" : "";
             var wants = owner != null ? $" (wanted by {owner})" : "";
-            throw new __EXPR_ERROR__($"scope '@{token}' is already registered{by}{wants}");
+            throw new RegistryError($"scope '@{token}' is already registered{by}{wants}");
         }
     }
 }

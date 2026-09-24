@@ -4,7 +4,7 @@
 // Authored in expr/ports/unity and VENDORED into each consuming package by
 // expr/scripts/vendor-ports.mjs. Do not edit a vendored copy.
 //
-// Lands in the package's own namespace, inside its existing Runtime asmdef.
+// Part of the kernel assembly (see Errors.cs).
 //
 // A PURER shared thing than the evaluator: no value type, no dialect, no
 // scopes. Just an AST walk plus a truthiness callback the host supplies, which
@@ -14,7 +14,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     /// <summary>Evaluate an expression subtree to a boolean, with the host's own
     /// truthiness coercion (storylets' conditionPasses).</summary>

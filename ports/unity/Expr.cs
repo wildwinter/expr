@@ -10,17 +10,12 @@
 // the dialect's per-scope missing-property policy; calls dispatch to the
 // dialect's functions.
 //
-// Lands directly in the package's own namespace. Two assemblies MAY both
-// define the same fully-qualified type legally, and neither package references
-// the other, so nothing collides; what would break is shipping this as its own
-// assembly definition, because Unity requires asmdef names to be unique
-// project-wide. So it lives INSIDE each package's existing Runtime asmdef.
-// Identity belongs to the installing package, never to the shared source. See
-// expr/docs/port-sharing.md.
-//
-// What the family must provide: its value type (Bool/Num/Str/Flags factories,
-// False, IsBool/IsNumber/IsString/IsFlags, AsBool/AsNumber/AsString/AsFlags,
-// ValueEquals), an `EvalError` exception, and the AST (the shared Ast.cs).
+// Part of the kernel assembly, which carries no product identity: how one
+// kernel is shared by every product installed in a game is in Errors.cs and
+// expr/docs/port-sharing.md. It needs only the rest of the kernel: ExprValue
+// (Value.cs), the AST (Ast.cs), and ExprError (Errors.cs), which is what every
+// refusal here throws. A family catches ExprError where it evaluates and
+// rethrows its own error type, so its games keep the catch they had.
 //
 // TRUTHINESS IS NOT HERE, on purpose: turning a value into a condition's
 // yes/no is applied to a condition rather than computed by the evaluator, so
@@ -30,14 +25,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
     /// <summary>A scope readable by the evaluator: a static bag or a host
     /// resolver. Get returns null when the property is not present (TS
     /// undefined).</summary>
     public interface IScopeSource
     {
-        __EXPR_VALUE__ Get(string name);
+        ExprValue Get(string name);
     }
 
     public static class MissingPolicy
@@ -51,7 +46,7 @@ namespace __EXPR_NS__
         /// <summary>The scope token, e.g. "story" / "world" / "hand".</summary>
         public string Token;
         /// <summary>Policy when a property is missing from a PRESENT scope:
-        /// "false" resolves to false (the default), "throw" raises an EvalError.
+        /// "false" resolves to false (the default), "throw" raises an ExprError.
         /// A scope entirely absent from the EvalContext always resolves to false
         /// regardless.</summary>
         public string Missing;
@@ -75,7 +70,7 @@ namespace __EXPR_NS__
     public sealed class EvalHelpers
     {
         /// <summary>Evaluate a child node (for functions to evaluate their arguments).</summary>
-        public Func<ExprNode, __EXPR_VALUE__> Evaluate;
+        public Func<ExprNode, ExprValue> Evaluate;
         /// <summary>The active evaluation context (scopes + host).</summary>
         public EvalContext Ctx;
     }
@@ -90,7 +85,7 @@ namespace __EXPR_NS__
         public bool FlagDeltaArgs;
         /// <summary>Evaluate the call. Receives the RAW argument nodes (not
         /// pre-evaluated); implementations own their own arity/type checks.</summary>
-        public Func<ExprNode[], EvalHelpers, __EXPR_VALUE__> Eval;
+        public Func<ExprNode[], EvalHelpers, ExprValue> Eval;
     }
 
     public sealed class Dialect
@@ -104,26 +99,26 @@ namespace __EXPR_NS__
 
     public static class Expr
     {
-        public static __EXPR_VALUE__ Evaluate(ExprNode node, EvalContext ctx, Dialect dialect)
+        public static ExprValue Evaluate(ExprNode node, EvalContext ctx, Dialect dialect)
         {
             // Per-scope missing-property policy, precomputed once per top-level evaluate.
             var missingPolicy = new Dictionary<string, string>();
             foreach (var s in dialect.Scopes) missingPolicy[s.Token] = s.Missing ?? MissingPolicy.False;
 
-            __EXPR_VALUE__ Rec(ExprNode n)
+            ExprValue Rec(ExprNode n)
             {
                 switch (n)
                 {
-                    case BoolNode b: return __EXPR_VALUE__.Bool(b.Value);
-                    case NumberNode num: return __EXPR_VALUE__.Num(num.Value);
-                    case StringNode str: return __EXPR_VALUE__.Str(str.Value);
+                    case BoolNode b: return ExprValue.Bool(b.Value);
+                    case NumberNode num: return ExprValue.Num(num.Value);
+                    case StringNode str: return ExprValue.Str(str.Value);
 
                     case ScopedVarNode sv:
                     {
                         if (!ctx.Scopes.TryGetValue(sv.Scope, out var scope) || scope == null)
                         {
                             // Scope context absent -> graceful false.
-                            return __EXPR_VALUE__.False;
+                            return ExprValue.False;
                         }
                         var val = scope.Get(sv.Name);
                         if (val == null)
@@ -131,9 +126,9 @@ namespace __EXPR_NS__
                             // Property not declared on the present scope. Policy decides.
                             if (missingPolicy.TryGetValue(sv.Scope, out var policy) && policy == MissingPolicy.Throw)
                             {
-                                throw new EvalError($"@{sv.Scope}.{sv.Name} is not declared on the current {sv.Scope}.");
+                                throw new ExprError($"@{sv.Scope}.{sv.Name} is not declared on the current {sv.Scope}.");
                             }
-                            return __EXPR_VALUE__.False;
+                            return ExprValue.False;
                         }
                         return val;
                     }
@@ -147,38 +142,38 @@ namespace __EXPR_NS__
                         {
                             if (call.Args.Length != 1)
                             {
-                                throw new EvalError($"advance() takes exactly 1 argument, got {call.Args.Length}");
+                                throw new ExprError($"advance() takes exactly 1 argument, got {call.Args.Length}");
                             }
                             var ladder = LadderOf(call.Args[0], ctx);
                             if (ladder == null)
                             {
-                                throw new EvalError("advance() needs a quality reference (@scope.name of a quality property)");
+                                throw new ExprError("advance() needs a quality reference (@scope.name of a quality property)");
                             }
                             var current = StageIndex(Rec(call.Args[0]), ladder, "advance");
-                            return __EXPR_VALUE__.Str(ladder[Math.Min(current + 1, ladder.Count - 1)]);
+                            return ExprValue.Str(ladder[Math.Min(current + 1, ladder.Count - 1)]);
                         }
                         if (!dialect.Functions.TryGetValue(call.Name, out var def))
                         {
-                            throw new EvalError($"unknown function '{call.Name}'");
+                            throw new ExprError($"unknown function '{call.Name}'");
                         }
                         return def.Eval(call.Args, new EvalHelpers { Evaluate = Rec, Ctx = ctx });
                     }
 
                     case FlagDeltaNode _:
-                        throw new EvalError("flagdelta node is only valid as an argument to a flag-delta function");
+                        throw new ExprError("flagdelta node is only valid as an argument to a flag-delta function");
 
                     case UnaryNode u:
                     {
                         if (u.Op == "not")
                         {
                             var val = Rec(u.Operand);
-                            if (!val.IsBool) throw new EvalError($"'not' requires a boolean operand, got {TypeOf(val)}");
-                            return __EXPR_VALUE__.Bool(!val.AsBool);
+                            if (!val.IsBool) throw new ExprError($"'not' requires a boolean operand, got {TypeOf(val)}");
+                            return ExprValue.Bool(!val.AsBool);
                         }
                         // neg
                         var operand = Rec(u.Operand);
-                        if (!operand.IsNumber) throw new EvalError($"unary '-' requires a numeric operand, got {TypeOf(operand)}");
-                        return __EXPR_VALUE__.Num(-operand.AsNumber);
+                        if (!operand.IsNumber) throw new ExprError($"unary '-' requires a numeric operand, got {TypeOf(operand)}");
+                        return ExprValue.Num(-operand.AsNumber);
                     }
 
                     case BinaryNode bin:
@@ -187,19 +182,19 @@ namespace __EXPR_NS__
                         if (bin.Op == "and")
                         {
                             var l = Rec(bin.Left);
-                            if (!l.IsBool) throw new EvalError($"'and' requires boolean operands, left is {TypeOf(l)}");
-                            if (!l.AsBool) return __EXPR_VALUE__.False;
+                            if (!l.IsBool) throw new ExprError($"'and' requires boolean operands, left is {TypeOf(l)}");
+                            if (!l.AsBool) return ExprValue.False;
                             var r = Rec(bin.Right);
-                            if (!r.IsBool) throw new EvalError($"'and' requires boolean operands, right is {TypeOf(r)}");
+                            if (!r.IsBool) throw new ExprError($"'and' requires boolean operands, right is {TypeOf(r)}");
                             return r;
                         }
                         if (bin.Op == "or")
                         {
                             var l = Rec(bin.Left);
-                            if (!l.IsBool) throw new EvalError($"'or' requires boolean operands, left is {TypeOf(l)}");
-                            if (l.AsBool) return __EXPR_VALUE__.True;
+                            if (!l.IsBool) throw new ExprError($"'or' requires boolean operands, left is {TypeOf(l)}");
+                            if (l.AsBool) return ExprValue.True;
                             var r = Rec(bin.Right);
-                            if (!r.IsBool) throw new EvalError($"'or' requires boolean operands, right is {TypeOf(r)}");
+                            if (!r.IsBool) throw new ExprError($"'or' requires boolean operands, right is {TypeOf(r)}");
                             return r;
                         }
 
@@ -218,44 +213,44 @@ namespace __EXPR_NS__
                             bool ordering = bin.Op == ">" || bin.Op == ">=" || bin.Op == "<" || bin.Op == "<=";
                             if (ordering && lLadder != null && rLadder != null && !SameLadder(lLadder, rLadder))
                             {
-                                throw new EvalError($"'{bin.Op}' compares two different qualities, whose stage orders are unrelated");
+                                throw new ExprError($"'{bin.Op}' compares two different qualities, whose stage orders are unrelated");
                             }
                             switch (bin.Op)
                             {
-                                case ">": return __EXPR_VALUE__.Bool(StageIndex(left, ladderQ, ">") > StageIndex(right, ladderQ, ">"));
-                                case ">=": return __EXPR_VALUE__.Bool(StageIndex(left, ladderQ, ">=") >= StageIndex(right, ladderQ, ">="));
-                                case "<": return __EXPR_VALUE__.Bool(StageIndex(left, ladderQ, "<") < StageIndex(right, ladderQ, "<"));
-                                case "<=": return __EXPR_VALUE__.Bool(StageIndex(left, ladderQ, "<=") <= StageIndex(right, ladderQ, "<="));
+                                case ">": return ExprValue.Bool(StageIndex(left, ladderQ, ">") > StageIndex(right, ladderQ, ">"));
+                                case ">=": return ExprValue.Bool(StageIndex(left, ladderQ, ">=") >= StageIndex(right, ladderQ, ">="));
+                                case "<": return ExprValue.Bool(StageIndex(left, ladderQ, "<") < StageIndex(right, ladderQ, "<"));
+                                case "<=": return ExprValue.Bool(StageIndex(left, ladderQ, "<=") <= StageIndex(right, ladderQ, "<="));
                                 case "+": case "-": case "*": case "/":
-                                    throw new EvalError($"'{bin.Op}' cannot be applied to a quality - a stage is a position, not a number; use advance() to move it");
+                                    throw new ExprError($"'{bin.Op}' cannot be applied to a quality - a stage is a position, not a number; use advance() to move it");
                             }
                         }
 
                         switch (bin.Op)
                         {
-                            case "==": return __EXPR_VALUE__.Bool(left.ValueEquals(right));
-                            case "!=": return __EXPR_VALUE__.Bool(!left.ValueEquals(right));
-                            case ">": AssertNumbers(left, right, ">"); return __EXPR_VALUE__.Bool(left.AsNumber > right.AsNumber);
-                            case ">=": AssertNumbers(left, right, ">="); return __EXPR_VALUE__.Bool(left.AsNumber >= right.AsNumber);
-                            case "<": AssertNumbers(left, right, "<"); return __EXPR_VALUE__.Bool(left.AsNumber < right.AsNumber);
-                            case "<=": AssertNumbers(left, right, "<="); return __EXPR_VALUE__.Bool(left.AsNumber <= right.AsNumber);
+                            case "==": return ExprValue.Bool(left.ValueEquals(right));
+                            case "!=": return ExprValue.Bool(!left.ValueEquals(right));
+                            case ">": AssertNumbers(left, right, ">"); return ExprValue.Bool(left.AsNumber > right.AsNumber);
+                            case ">=": AssertNumbers(left, right, ">="); return ExprValue.Bool(left.AsNumber >= right.AsNumber);
+                            case "<": AssertNumbers(left, right, "<"); return ExprValue.Bool(left.AsNumber < right.AsNumber);
+                            case "<=": AssertNumbers(left, right, "<="); return ExprValue.Bool(left.AsNumber <= right.AsNumber);
                             case "+":
-                                if (left.IsNumber && right.IsNumber) return __EXPR_VALUE__.Num(left.AsNumber + right.AsNumber);
-                                if (left.IsString && right.IsString) return __EXPR_VALUE__.Str(left.AsString + right.AsString);
-                                throw new EvalError($"'+' requires two numbers or two strings, got {TypeOf(left)} and {TypeOf(right)}");
-                            case "-": AssertNumbers(left, right, "-"); return __EXPR_VALUE__.Num(left.AsNumber - right.AsNumber);
-                            case "*": AssertNumbers(left, right, "*"); return __EXPR_VALUE__.Num(left.AsNumber * right.AsNumber);
+                                if (left.IsNumber && right.IsNumber) return ExprValue.Num(left.AsNumber + right.AsNumber);
+                                if (left.IsString && right.IsString) return ExprValue.Str(left.AsString + right.AsString);
+                                throw new ExprError($"'+' requires two numbers or two strings, got {TypeOf(left)} and {TypeOf(right)}");
+                            case "-": AssertNumbers(left, right, "-"); return ExprValue.Num(left.AsNumber - right.AsNumber);
+                            case "*": AssertNumbers(left, right, "*"); return ExprValue.Num(left.AsNumber * right.AsNumber);
                             case "/":
                                 AssertNumbers(left, right, "/");
-                                if (right.AsNumber == 0) throw new EvalError("division by zero");
-                                return __EXPR_VALUE__.Num(left.AsNumber / right.AsNumber);
+                                if (right.AsNumber == 0) throw new ExprError("division by zero");
+                                return ExprValue.Num(left.AsNumber / right.AsNumber);
                             default:
-                                throw new EvalError($"unknown operator '{bin.Op}'");
+                                throw new ExprError($"unknown operator '{bin.Op}'");
                         }
                     }
 
                     default:
-                        throw new EvalError("unknown expression node");
+                        throw new ExprError("unknown expression node");
                 }
             }
 
@@ -263,7 +258,7 @@ namespace __EXPR_NS__
         }
 
         /// <summary>JS typeof for error messages (a flags array is "object").</summary>
-        internal static string TypeOf(__EXPR_VALUE__ v)
+        internal static string TypeOf(ExprValue v)
         {
             if (v.IsBool) return "boolean";
             if (v.IsNumber) return "number";
@@ -282,11 +277,11 @@ namespace __EXPR_NS__
 
         /// <summary>Index of a stage in a ladder; an unknown stage is an error
         /// naming the value (a drifted save is exactly what lands here).</summary>
-        private static int StageIndex(__EXPR_VALUE__ value, List<string> ladder, string op)
+        private static int StageIndex(ExprValue value, List<string> ladder, string op)
         {
-            if (!value.IsString) throw new EvalError($"'{op}' on a quality compares stages, got {TypeOf(value)}");
+            if (!value.IsString) throw new ExprError($"'{op}' on a quality compares stages, got {TypeOf(value)}");
             var i = ladder.IndexOf(value.AsString);
-            if (i < 0) throw new EvalError($"\"{value.AsString}\" is not a stage of this quality (stages: {string.Join(", ", ladder)})");
+            if (i < 0) throw new ExprError($"\"{value.AsString}\" is not a stage of this quality (stages: {string.Join(", ", ladder)})");
             return i;
         }
 
@@ -297,11 +292,11 @@ namespace __EXPR_NS__
             return true;
         }
 
-        private static void AssertNumbers(__EXPR_VALUE__ l, __EXPR_VALUE__ r, string op)
+        private static void AssertNumbers(ExprValue l, ExprValue r, string op)
         {
             if (!l.IsNumber || !r.IsNumber)
             {
-                throw new EvalError($"'{op}' requires numeric operands, got {TypeOf(l)} and {TypeOf(r)}");
+                throw new ExprError($"'{op}' requires numeric operands, got {TypeOf(l)} and {TypeOf(r)}");
             }
         }
     }

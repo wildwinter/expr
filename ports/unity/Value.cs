@@ -6,8 +6,9 @@
 //
 // The four kinds the expression language has. Both families had their own, 68%
 // alike and with character-identical ValueEquals, so most of the difference was
-// spelling. Lands in the package's own namespace, inside its Runtime asmdef.
-// The family supplies its own EvalError before this is used.
+// spelling; since 2026-09-24 there is one, ExprValue, shared by every family, so
+// one registry can hold every engine's values. Part of the kernel assembly: see
+// Errors.cs for how the kernel is packaged.
 // ---------------------------------------------------------------------------
 
 using System;
@@ -15,40 +16,40 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace __EXPR_NS__
+namespace Wildwinter.Expr
 {
-    public enum __EXPR_KIND__ { Bool, Number, Str, Flags }
+    public enum ExprKind { Bool, Number, Str, Flags }
 
-    public sealed class __EXPR_VALUE__
+    public sealed class ExprValue
     {
-        public __EXPR_KIND__ Kind { get; }
+        public ExprKind Kind { get; }
         private readonly bool _b;
         private readonly double _n;
         private readonly string _s;
         private readonly IReadOnlyList<string> _f;
 
-        private __EXPR_VALUE__(__EXPR_KIND__ kind, bool b = false, double n = 0, string s = null, IReadOnlyList<string> f = null)
+        private ExprValue(ExprKind kind, bool b = false, double n = 0, string s = null, IReadOnlyList<string> f = null)
         {
             Kind = kind; _b = b; _n = n; _s = s; _f = f;
         }
 
-        public static __EXPR_VALUE__ Bool(bool v) => v ? True : False;
-        public static __EXPR_VALUE__ Num(double v) => new __EXPR_VALUE__(__EXPR_KIND__.Number, n: v);
-        public static __EXPR_VALUE__ Str(string v) => new __EXPR_VALUE__(__EXPR_KIND__.Str, s: v ?? "");
-        /// <summary>Flags list. The list is copied, so a __EXPR_VALUE__ is immutable.</summary>
-        public static __EXPR_VALUE__ Flags(IEnumerable<string> v)
+        public static ExprValue Bool(bool v) => v ? True : False;
+        public static ExprValue Num(double v) => new ExprValue(ExprKind.Number, n: v);
+        public static ExprValue Str(string v) => new ExprValue(ExprKind.Str, s: v ?? "");
+        /// <summary>Flags list. The list is copied, so a ExprValue is immutable.</summary>
+        public static ExprValue Flags(IEnumerable<string> v)
         {
             var list = v != null ? new List<string>(v) : new List<string>();
-            return new __EXPR_VALUE__(__EXPR_KIND__.Flags, f: list);
+            return new ExprValue(ExprKind.Flags, f: list);
         }
 
-        public static readonly __EXPR_VALUE__ False = new __EXPR_VALUE__(__EXPR_KIND__.Bool, b: false);
-        public static readonly __EXPR_VALUE__ True = new __EXPR_VALUE__(__EXPR_KIND__.Bool, b: true);
+        public static readonly ExprValue False = new ExprValue(ExprKind.Bool, b: false);
+        public static readonly ExprValue True = new ExprValue(ExprKind.Bool, b: true);
 
-        public bool IsBool => Kind == __EXPR_KIND__.Bool;
-        public bool IsNumber => Kind == __EXPR_KIND__.Number;
-        public bool IsString => Kind == __EXPR_KIND__.Str;
-        public bool IsFlags => Kind == __EXPR_KIND__.Flags;
+        public bool IsBool => Kind == ExprKind.Bool;
+        public bool IsNumber => Kind == ExprKind.Number;
+        public bool IsString => Kind == ExprKind.Str;
+        public bool IsFlags => Kind == ExprKind.Flags;
 
         public bool AsBool => _b;
         public double AsNumber => _n;
@@ -57,12 +58,12 @@ namespace __EXPR_NS__
 
         /// <summary>`==` / `!=` semantics: primitives by value; flags element-wise,
         /// in order; mixed kinds unequal (the evaluator's valueEquals).</summary>
-        public bool ValueEquals(__EXPR_VALUE__ other)
+        public bool ValueEquals(ExprValue other)
         {
             if (other == null) return false;
-            if (Kind == __EXPR_KIND__.Flags || other.Kind == __EXPR_KIND__.Flags)
+            if (Kind == ExprKind.Flags || other.Kind == ExprKind.Flags)
             {
-                if (Kind != __EXPR_KIND__.Flags || other.Kind != __EXPR_KIND__.Flags) return false;
+                if (Kind != ExprKind.Flags || other.Kind != ExprKind.Flags) return false;
                 if (_f.Count != other._f.Count) return false;
                 // Compared as a SET: order is an artefact of the order somebody
                 // happened to add things in, and was significant until
@@ -76,9 +77,9 @@ namespace __EXPR_NS__
             if (Kind != other.Kind) return false;
             switch (Kind)
             {
-                case __EXPR_KIND__.Bool: return _b == other._b;
-                case __EXPR_KIND__.Number: return _n == other._n;
-                case __EXPR_KIND__.Str: return _s == other._s;
+                case ExprKind.Bool: return _b == other._b;
+                case ExprKind.Number: return _n == other._n;
+                case ExprKind.Str: return _s == other._s;
                 default: return false;
             }
         }
@@ -89,10 +90,10 @@ namespace __EXPR_NS__
         {
             switch (Kind)
             {
-                case __EXPR_KIND__.Bool: return _b ? "true" : "false";
-                case __EXPR_KIND__.Number: return JsNumber(_n);
-                case __EXPR_KIND__.Str: return JsonQuote(_s);
-                case __EXPR_KIND__.Flags:
+                case ExprKind.Bool: return _b ? "true" : "false";
+                case ExprKind.Number: return JsNumber(_n);
+                case ExprKind.Str: return JsonQuote(_s);
+                case ExprKind.Flags:
                 {
                     var sb = new StringBuilder("[");
                     for (int i = 0; i < _f.Count; i++)
@@ -152,10 +153,10 @@ namespace __EXPR_NS__
         {
             switch (Kind)
             {
-                case __EXPR_KIND__.Bool: return _b ? "true" : "false";
-                case __EXPR_KIND__.Number: return JsNumber(_n);
-                case __EXPR_KIND__.Str: return _s;
-                case __EXPR_KIND__.Flags: return string.Join(",", _f);
+                case ExprKind.Bool: return _b ? "true" : "false";
+                case ExprKind.Number: return JsNumber(_n);
+                case ExprKind.Str: return _s;
+                case ExprKind.Flags: return string.Join(",", _f);
                 default: return "";
             }
         }
@@ -170,10 +171,10 @@ namespace __EXPR_NS__
             {
                 switch (Kind)
                 {
-                    case __EXPR_KIND__.Bool: return _b;
-                    case __EXPR_KIND__.Number: return _n != 0;
-                    case __EXPR_KIND__.Str: return _s.Length > 0;
-                    case __EXPR_KIND__.Flags: return _f.Count > 0;
+                    case ExprKind.Bool: return _b;
+                    case ExprKind.Number: return _n != 0;
+                    case ExprKind.Str: return _s.Length > 0;
+                    case ExprKind.Flags: return _f.Count > 0;
                     default: return false;
                 }
             }
