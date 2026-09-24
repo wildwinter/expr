@@ -25,6 +25,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./scopes": {
+      "types": "./dist/scopes.d.ts",
+      "import": "./dist/scopes.js",
+      "require": "./dist/scopes.cjs"
     }
   },
   "files": [

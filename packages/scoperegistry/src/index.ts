@@ -46,6 +46,9 @@ export interface ScopeDeclaration {
   stages?: string[];
   default?: ScalarValue;    // owned scopes: seed value
   writable?: boolean;       // default true
+  /** The author's note on what the property is for, which another tool's picker shows as a tip
+   *  (shared game scopes, scopes.ts). The registry itself ignores it. */
+  purpose?: string;
 }
 
 /** One scope in a `scopeRegistrySpec`: a token + (optional) declarations. */

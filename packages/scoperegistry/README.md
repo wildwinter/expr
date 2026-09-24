@@ -139,6 +139,40 @@ examiner `rows()`, one sanctioned `clone()`, in-place `reseed`, and bare-value
 release. Versioning belongs to the save that embeds the registry's values, not to
 the registry; embed `save()` in your own versioned save instead.
 
+## Shared game scopes, for editing tools
+
+`@wildwinter/scoperegistry/scopes` is the editing side of one registry per game. A game keeps one
+`game-scopes/` folder. Each editing tool writes its own `<tool>.scopes.json` there (its game-wide
+scopes and their declarations), the game keeps `game.scopes.json` (the scopes it provides itself,
+`@world` among them), and every tool reads the others, so a storylet can check and suggest
+`@patter.visits` and a Patter line `@story.act`, with no import step.
+
+```ts
+import { findGameScopes, parseScopesFile, mergeScopes, scopesCatalogue, serialiseScopesFile } from "@wildwinter/scoperegistry/scopes";
+
+const { dir } = findGameScopes(projectDir, { exists, parent, join });   // your file access
+const files = readTheFolder(dir).map(([fileName, text]) => ({ fileName, file: parseScopesFile(text, fileName).file! }));
+const merged = mergeScopes(files);                          // clashes come back as issues
+const picker = scopesCatalogue(merged, { except: ["story"] });   // everything but your own
+writeFile(`${dir}/storylets.scopes.json`, serialiseScopesFile(mine));   // canonical text
+```
+
+- **The file** is a `scopeRegistrySpec` with an `owner`: game-wide scopes only, each declaration
+  with an optional `purpose` another tool's picker shows. `serialiseScopesFile` is canonical (fixed
+  key order, no timestamps), so a file changes only when its content does, and comparing it with
+  the text on disk is the staleness check.
+- **Discovery**: `findGameScopes` walks up from the project folder to the nearest `game-scopes/`,
+  stopping at the version-control root, or takes an override relative to the project. None found
+  means the tool works alone.
+- **Reading**: `mergeScopes` (one spec, and an issue for a token two files declare), `scopesSchema`
+  and `scopesCatalogue` (for a validator and an editor's picker, leaving out your own tokens),
+  `referenceNote` (a name another tool doesn't declare, or a write to a property it marks
+  read-only), and `standInRegistry` (the other tools' scopes seeded from their defaults, so a
+  preview can play content that names them).
+
+Pure functions only: the caller reads and writes the files, since this package also ships inside
+game runtimes. Nothing here runs in a game. Design: `patterkit/design/shared-scopes.md`.
+
 ## The conformance corpus
 
 `corpus.json`, beside this README in the repository, is the registry's contract:

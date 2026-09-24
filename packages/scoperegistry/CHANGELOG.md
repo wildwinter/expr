@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Shared game scopes, for editing tools** (`@wildwinter/scoperegistry/scopes`, a separate entry
+  point that game runtimes don't carry). A game keeps one `game-scopes/` folder, each editing tool
+  writes its own `<tool>.scopes.json`, and every tool reads the others to check, suggest, and
+  preview names it doesn't own: `parseScopesFile`, `serialiseScopesFile` (canonical text),
+  `findGameScopes` (walk up to the folder, over file access the caller supplies), `mergeScopes`,
+  `scopesSchema`, `scopesCatalogue`, `declarationsOf`, `referenceNote`, and `standInRegistry`.
+- `ScopeDeclaration.purpose`: the author's note on a property, which another tool's picker shows.
+  The registry ignores it.
+
 ## [0.7.0] - 2026-09-24
 
 One registry per game: everything a game's engines need to share a single
