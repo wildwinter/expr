@@ -94,10 +94,12 @@ export function toggleContainerNot(ast: ExprNode, path: AstPath): ExprNode {
   return setNodeAt(ast, path, { kind: "unary", op: "not", operand: node });
 }
 
-/** A new sub-group: its op is the OPPOSITE of the parent's (same-op would just flatten away). */
-export function buildSubGroupClause(parentOp: "and" | "or", firstClause: ExprNode): ExprNode {
+/** A new sub-group: its op is the OPPOSITE of the parent's (same-op would just flatten away).
+ *  The editor builds one from two picked conditions; without a second, the group's other side
+ *  is the op's placeholder, which a host receives as `or false` / `and true`. */
+export function buildSubGroupClause(parentOp: "and" | "or", firstClause: ExprNode, secondClause?: ExprNode): ExprNode {
   const childOp: "and" | "or" = parentOp === "and" ? "or" : "and";
-  return binary(childOp, firstClause, placeholderForOp(childOp));
+  return binary(childOp, firstClause, secondClause ?? placeholderForOp(childOp));
 }
 
 const chainNodes = (node: ExprNode, op: "and" | "or"): ExprNode[] =>

@@ -7,7 +7,7 @@
 
 import type { ExprNode, AstPath } from "@wildwinter/expr";
 import {
-  deleteAt, binary, scopedVar, strLit, isPlaceholderForOp, getNodeAt as getNode, setNodeAt, firstEmptyLeafPath,
+  deleteAt, isPlaceholderForOp, getNodeAt as getNode, setNodeAt, firstEmptyLeafPath,
 } from "./ast.js";
 import {
   astToTree, addChildToContainer, flipContainerOp, toggleContainerNot, buildSubGroupClause, moveChildInContainer,
@@ -141,8 +141,11 @@ function addBar(ctx: EditCtx, chainPath: AstPath, op: "and" | "or"): HTMLElement
       ctx.apply(addChildToContainer(ctx.getAst(), chainPath, node));
     });
   }));
-  bar.append(button("exed-add", `+ Add ${op === "and" ? "OR" : "AND"} group`, () => {
-    ctx.apply(addChildToContainer(ctx.getAst(), chainPath, buildSubGroupClause(op, seedClause(ctx))));
+  bar.append(button("exed-add", `+ Add ${op === "and" ? "OR" : "AND"} group`, (e) => {
+    pickGroup(ctx, e.currentTarget as HTMLElement, op, (group) => {
+      requestFocusForInsert(ctx, group, [...chainPath, "right"]);
+      ctx.apply(addChildToContainer(ctx.getAst(), chainPath, group));
+    });
   }, "add a nested group"));
   return bar;
 }
@@ -156,24 +159,37 @@ export function rootAddBar(ctx: EditCtx): HTMLElement {
       ctx.apply(addChildToContainer(ctx.getAst(), [], node));
     });
   }));
-  bar.append(button("exed-add", "+ Add group", () => {
-    ctx.apply(addChildToContainer(ctx.getAst(), [], buildSubGroupClause("and", seedClause(ctx))));
+  bar.append(button("exed-add", "+ Add group", (e) => {
+    pickGroup(ctx, e.currentTarget as HTMLElement, "and", (group) => {
+      requestFocusForInsert(ctx, group, ["right"]);
+      ctx.apply(addChildToContainer(ctx.getAst(), [], group));
+    });
   }));
   return bar;
 }
 
 // --- clause templates --------------------------------------------------------
 
-/** A sensible first clause: the first property compared to an empty value, else `true`. */
-export function seedClause(ctx: EditCtx): ExprNode {
-  const first = ctx.catalogue[0];
-  if (!first) return { kind: "bool", value: true };
-  if (first.type === "boolean") return scopedVar(first.scope, first.name);
-  return binary("==", scopedVar(first.scope, first.name), first.type === "number" ? { kind: "number", value: 0 } : strLit(""));
+/**
+ * "+ Add group": the author picks the new group's first two conditions, from the same menu and
+ * wizards "+ Add condition" offers, and only then is the group inserted, whole. A group of one
+ * is no group (it flattens away), so it never exists half-built. Until October 2026 the button
+ * seeded the group with the catalogue's first property compared with an empty value (to the
+ * author, a random test) and a placeholder for the other side, which the editor drew as "Click
+ * to add condition" and handed the host as `or false`, which the host then complained about.
+ * Cancelling either step adds nothing.
+ */
+function pickGroup(ctx: EditCtx, anchor: HTMLElement, parentOp: "and" | "or", insert: (group: ExprNode) => void): void {
+  // The group heads' own words ("Any of these" / "All of these"), so the menu says which group it is building.
+  const which = parentOp === "and" ? "Any of these" : "All of these";
+  clauseMenu(ctx, anchor, (first) => {
+    clauseMenu(ctx, anchor, (second) => insert(buildSubGroupClause(parentOp, first, second)), `${which}: second condition`);
+  }, `${which}: first condition`);
 }
 
-/** The "+ Add condition" template menu: generic property clauses + the dialect's functions. */
-export function clauseMenu(ctx: EditCtx, anchor: HTMLElement, onPick: (node: ExprNode) => void): void {
+/** The "+ Add condition" template menu: generic property clauses + the dialect's functions.
+ *  `heading` names what is being picked; "+ Add group" asks for each of its first two. */
+export function clauseMenu(ctx: EditCtx, anchor: HTMLElement, onPick: (node: ExprNode) => void, heading = "Add a condition"): void {
   ctx.openPopover(anchor, (close) => {
     const wrap = el("div", "exed-menu");
     // "Condition", matching the button that opened this menu ("+ Add
@@ -182,7 +198,7 @@ export function clauseMenu(ctx: EditCtx, anchor: HTMLElement, onPick: (node: Exp
     // interaction site - the button said condition, this head said clause,
     // the table column said When. "Clause" was the precise word (a condition
     // is an AND of clauses) and precision lost to consistency.
-    wrap.append(el("div", "exed-menu-head", ["Add a condition"]));
+    wrap.append(el("div", "exed-menu-head", [heading]));
     const add = (label: string, hint: string | undefined, make: () => void, disabled = false): void => {
       const b = button(`exed-opt${disabled ? " disabled" : ""}`, "", () => { if (disabled) return; make(); close(); });
       if (disabled) b.disabled = true;

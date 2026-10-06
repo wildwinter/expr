@@ -67,6 +67,12 @@ describe("tree model", () => {
     expect(buildSubGroupClause("or", v("a"))).toEqual(binary("and", v("a"), boolLit(true)));
   });
 
+  it("buildSubGroupClause with two picked conditions builds the group whole, with no placeholder", () => {
+    // "+ Add group" asks for both (October 2026): a host is never handed `x or false`.
+    expect(buildSubGroupClause("and", v("a"), v("b"))).toEqual(binary("or", v("a"), v("b")));
+    expect(buildSubGroupClause("or", v("a"), v("b"))).toEqual(binary("and", v("a"), v("b")));
+  });
+
   it("moveChildInContainer reorders within the chain", () => {
     const ast = binary("and", binary("and", v("a"), v("b")), v("c")); // [a, b, c]
     const moved = moveChildInContainer(ast, [], 0, 2); // -> [b, c, a]

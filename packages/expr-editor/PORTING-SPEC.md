@@ -62,7 +62,9 @@ check_flags, site_has_tag, count_played_tag, turns_since_tag, random — each a
 re-validates); validation = parse error (forces raw) | semantic issues (red, indexed
 by path → ring offending pill) | warnings (yellow). Editing-suppression: freeze inline
 errors while a micro-editor popover is open. Tree: container header AND/OR flip +
-NOT toggle; per-row NOT / ↑↓ / ✕; +Add condition / +Add AND·OR group; placeholder
+NOT toggle; per-row NOT / ↑↓ / ✕; +Add condition / +Add AND·OR group (which asks for the
+group's first two conditions through the condition menu, then inserts the group whole, so it
+never creates a seed condition or a placeholder); placeholder
 rows ("+ click to add"); empty -> nullRender ("always") + "add first condition".
 
 ## 9. Public API (`mount.ts`)
