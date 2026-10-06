@@ -86,7 +86,16 @@ static func evaluate(node: Array, ctx: Dictionary, dialect: Dictionary) -> Varia
 	# function calls share, made at the first call. Until October 2026 every evaluate
 	# built a missing-policy table, and every function call a helpers Dictionary and a
 	# lambda, on the hot path of every condition a game checks.
-	return _rec(node, ctx, dialect, {})
+	#
+	# The helpers' lambda captures `run` (and `ctx`), and `run` holds the helpers: a
+	# reference cycle, which Godot's reference counting never collects. So the evaluation
+	# empties `run` when it ends, or every evaluation that reached a function call leaked
+	# its run, the lambda, and everything `ctx` holds (found by the Storylet Engine's
+	# leak counts, October 2026).
+	var run := {}
+	var out = _rec(node, ctx, dialect, run)
+	run.clear()
+	return out
 
 
 ## A scope's missing-property policy, read from the dialect when a property is missing

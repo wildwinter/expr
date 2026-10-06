@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The GDScript evaluator no longer leaks every evaluation that calls a function** (native
+  ports only; no npm change, and the C++ kernel id stays `k492cf234`). 0.8.1's per-evaluation
+  helpers made a reference cycle (the helpers' lambda captured the evaluation's state, which
+  held the helpers), and Godot's reference counting never collects one: each such evaluation
+  leaked its context and everything the context held. The evaluation now breaks the cycle as
+  it returns. The GDScript registry corpus runner had a cycle of its own in its `listen` steps,
+  broken the same way. A new GDScript check in the runner fails if an evaluation keeps its
+  context alive. Found by the Storylet Engine's leak counts.
+
 ## [0.8.1] - 2026-10-06
 
 Four kernel problems from the October 2026 review of the Storylet Engine, fixed here once so

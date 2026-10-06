@@ -79,7 +79,7 @@ static func run(corpus_path: String, registry_script: Script, bag_script: Script
 			failures.append(str(f))
 	# GDScript's own checks: what JSON cannot say. Counted as cases, so a host's
 	# passed == cases rule covers them too.
-	for check in _gdscript_checks(bag_script):
+	for check in _gdscript_checks(bag_script, evaluator):
 		ran += 1
 		if (check["fails"] as Array).is_empty():
 			passed += 1
@@ -106,7 +106,14 @@ class _Ear extends Object:
 ## Checks only GDScript needs, beside the corpus. A Callable whose object has been freed
 ## must be skipped and dropped by the bag, not called: until October 2026 it raised an
 ## error on that write and on every later one.
-static func _gdscript_checks(bag_script: Script) -> Array:
+static func _gdscript_checks(bag_script: Script, evaluator: Script) -> Array:
+	return [
+		{"name": "a listener whose object has been freed is skipped and dropped, not called", "fails": _freed_listener(bag_script)},
+		{"name": "an evaluation that calls a function keeps nothing alive once it returns", "fails": _evaluation_frees(evaluator)},
+	]
+
+
+static func _freed_listener(bag_script: Script) -> Array:
 	var fails: Array = []
 	var bag = bag_script.new([{"name": "hp", "type": "number", "default": 10}], {})
 	var gone := _Ear.new()
@@ -121,7 +128,30 @@ static func _gdscript_checks(bag_script: Script) -> Array:
 	if bag._subscribers.size() != 1:
 		fails.append("the freed listener is still subscribed (%d listeners, expected 1)" % bag._subscribers.size())
 	kept.free()
-	return [{"name": "a listener whose object has been freed is skipped and dropped, not called", "fails": fails}]
+	return fails
+
+
+## The evaluator's helpers lambda captures the evaluation's state, which holds the helpers:
+## a cycle reference counting never collects. Until the evaluation broke it on return
+## (October 2026), every evaluation that called a function leaked its context, and every
+## object the context held.
+static func _evaluation_frees(evaluator: Script) -> Array:
+	var fails: Array = []
+	var held := RefCounted.new()
+	var watch: WeakRef = weakref(held)
+	var dialect := {
+		"scopes": [{"token": "game"}], "default_scope": "game",
+		"functions": {"twice": func(args: Array, helpers: Dictionary) -> Variant: return (helpers["evaluate"] as Callable).call(args[0]) * 2.0},
+	}
+	var ctx := {"scopes": {"game": {"hp": 2.0}}, "host": held}
+	var out = evaluator.evaluate(["call", "twice", ["sv", "game", "hp"]], ctx, dialect)
+	if not (out is float and out == 4.0):
+		fails.append("twice(@game.hp) gave %s, expected 4" % _show(out))
+	ctx = {}
+	held = null
+	if watch.get_ref() != null:
+		fails.append("the object the context held is still alive after the evaluation returned")
+	return fails
 
 
 ## One case: a fresh registry, then its steps in order. {"fails": Array, "finished": true}.
@@ -284,6 +314,11 @@ static func run_case(c: Dictionary, registry_script: Script, bag_script: Script,
 
 			_:
 				fails.append("%s: unknown step op '%s' (the runner is older than the corpus)" % [at, op])
+	# A `listen` step's listener captures `unsubscribes`, which holds each bag's unsubscribe
+	# lambda, which holds its bag, which holds the listener: a cycle reference counting
+	# never collects. Emptying the map when the case ends breaks it.
+	unsubscribes.clear()
+	heard.clear()
 	return {"fails": fails, "finished": true}
 
 
