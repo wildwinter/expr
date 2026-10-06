@@ -53,6 +53,9 @@ export function runRegistryCase(c: RegistryCase): string[] {
   const fails: string[] = [];
   const r = new ScopeRegistry();
   const stores = new Map<string, Record<string, Value>>();
+  /** Each listener's record of the names it heard, and its unsubscribe. */
+  const heard = new Map<string, string[]>();
+  const unsubscribes = new Map<string, () => void>();
 
   /** Run `fn`. With `want`, it must throw a message containing `want`; without,
    *  it must not throw. Returns true when it ran without throwing. */
@@ -169,6 +172,26 @@ export function runRegistryCase(c: RegistryCase): string[] {
         if (ok && step.expectError === undefined && !same(got, step.expect)) {
           fails.push(`${at}: ${step.src} is ${show(got)}, expected ${show(step.expect)}`);
         }
+        break;
+      }
+
+      case "listen": {
+        const record: string[] = [];
+        heard.set(step.id, record);
+        const then = step.then;
+        const fn = (change: { name: string }): void => {
+          record.push(change.name);
+          if (then && "unsubscribe" in then) unsubscribes.get(then.unsubscribe)?.();
+          if (then && "throw" in then) throw new Error(then.throw);
+        };
+        const bag = r.ownedBag(step.scope);
+        unsubscribes.set(step.id, step.kind === "audit" ? bag.onAudit(fn) : bag.subscribe(fn));
+        break;
+      }
+
+      case "heard": {
+        const got = heard.get(step.id);
+        if (!same(got, step.expect)) fails.push(`${at}: listener ${step.id} heard ${show(got)}, expected ${show(step.expect)}`);
         break;
       }
 

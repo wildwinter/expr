@@ -354,14 +354,11 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
             if (!e) throw RegistryError("unknown scope '@" + scope + "'");
             if (e->kind == Entry::Owned)
             {
-                try
-                {
-                    e->bag->set(name, value, /*silent=*/false, "", host);
-                }
-                catch (const std::exception&)
-                {
-                    throw RegistryError("'@" + scope + "." + name + "' is read-only");
-                }
+                // Asked first, never caught afterwards: a catch around the bag's write
+                // reported anything it threw, a game's audit hook or subscriber included,
+                // as a read-only refusal (October 2026 review).
+                if (!host && !e->bag->writable(name)) throw RegistryError("'@" + scope + "." + name + "' is read-only");
+                e->bag->set(name, value, /*silent=*/false, "", host);
                 return;
             }
             const std::string n = e->norm(name);

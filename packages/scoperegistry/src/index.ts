@@ -158,8 +158,12 @@ export interface PropertyRow {
 export class PropertyBag {
   /** The live values record (stable identity across reseed, so an
    *  EvalContext built over it stays valid). Read-path for evaluation;
-   *  writes go through `set` so the firing rule applies. */
-  readonly values: Record<string, ScalarValue> = {};
+   *  writes go through `set` so the firing rule applies.
+   *
+   *  It has no prototype, so a scope answers only its own properties: on a plain
+   *  object, `@world.constructor` read the built-in `Object` function rather than
+   *  "missing", and a write to `__proto__` vanished (October 2026 review). */
+  readonly values: Record<string, ScalarValue> = Object.create(null) as Record<string, ScalarValue>;
   private decls = new Map<string, ScopeDeclaration>();
   private readonly subscribers = new Set<(change: BagChange) => void>();
   private readonly auditors = new Set<(change: BagChange) => void>();
@@ -203,6 +207,14 @@ export class PropertyBag {
     return this.norm(name);
   }
 
+  /** Whether a STORY write to this property is allowed: false only for a
+   *  declaration marked `writable: false`. A host write is always allowed. The
+   *  registry asks before writing, so it never has to read a refusal out of an
+   *  error that a listener might have raised instead. */
+  writable(name: string): boolean {
+    return this.decls.get(this.norm(name))?.writable !== false;
+  }
+
   /** Write a property. Engine writes (the default) notify subscribers;
    *  pass `silent: true` for a host write, which reaches only the audit
    *  hook. Throws on a read-only property unless the caller says it is the
@@ -212,7 +224,7 @@ export class PropertyBag {
    *  it. Returns the change. */
   set(name: string, value: ScalarValue, opts?: { silent?: boolean; reason?: string; host?: boolean }): BagChange {
     const n = this.norm(name);
-    if (!opts?.host && this.decls.get(n)?.writable === false) throw new Error(`'${name}' is read-only`);
+    if (!opts?.host && !this.writable(n)) throw new Error(`'${name}' is read-only`);
     const change: BagChange = {
       name: n,
       prev: this.values[n],
@@ -221,8 +233,11 @@ export class PropertyBag {
       reason: opts?.reason,
     };
     this.values[n] = value;
-    for (const audit of this.auditors) audit(change);
-    if (!change.silent) for (const fn of this.subscribers) fn(change);
+    // The listeners as they stood when the write began, each told once, whatever any
+    // of them does to the lists meanwhile (unsubscribing itself or another): the
+    // contract every port keeps, pinned by the registry corpus.
+    for (const audit of [...this.auditors]) audit(change);
+    if (!change.silent) for (const fn of [...this.subscribers]) fn(change);
     return change;
   }
 
@@ -553,11 +568,10 @@ export class ScopeRegistry {
     const e = this.scopes.get(scope);
     if (!e) throw new Error(`unknown scope '@${scope}'`);
     if (e.kind === "owned") {
-      try {
-        e.bag.set(name, value, opts?.host ? { host: true } : undefined);
-      } catch {
-        throw new Error(`'@${scope}.${name}' is read-only`);
-      }
+      // Asked first, never caught afterwards: catching whatever the bag's write raised
+      // reported a listener's own error (a game's hook) as a read-only refusal.
+      if (!opts?.host && !e.bag.writable(name)) throw new Error(`'@${scope}.${name}' is read-only`);
+      e.bag.set(name, value, opts?.host ? { host: true } : undefined);
       return;
     }
     const n = e.norm(name);

@@ -57,7 +57,15 @@ static func run(corpus_path: String, registry_script: Script, bag_script: Script
 		return {"cases": 0, "passed": 0, "failures": ["registry corpus has no cases: " + corpus_path]}
 	var failures: Array[String] = []
 	var passed := 0
+	var ran := 0
 	for c in cases:
+		# A case that needs what GDScript lacks is SKIPPED, said so, and not counted: a
+		# listener here cannot throw, and the registry reports refusals by return value.
+		var lacking := _lacking(c)
+		if lacking != "":
+			print("registry corpus: skipped \"%s\": it needs %s, which GDScript does not have" % [str(c.get("name", "?")), lacking])
+			continue
+		ran += 1
 		var result = run_case(c, registry_script, bag_script, evaluator)
 		# A script error abandons run_case, which then hands back null: a case that
 		# stopped half way must read as a failure, not as a case with nothing wrong.
@@ -69,7 +77,51 @@ static func run(corpus_path: String, registry_script: Script, bag_script: Script
 			passed += 1
 		for f in fails:
 			failures.append(str(f))
-	return {"cases": cases.size(), "passed": passed, "failures": failures}
+	# GDScript's own checks: what JSON cannot say. Counted as cases, so a host's
+	# passed == cases rule covers them too.
+	for check in _gdscript_checks(bag_script):
+		ran += 1
+		if (check["fails"] as Array).is_empty():
+			passed += 1
+		for f in check["fails"]:
+			failures.append("%s: %s" % [check["name"], str(f)])
+	return {"cases": ran, "passed": passed, "failures": failures}
+
+
+## The first `needs` entry this runner cannot meet, or "" when it can run the case. One it
+## has never heard of is reported as a need too, so a newer corpus is never passed blind.
+static func _lacking(c: Dictionary) -> String:
+	for need in c.get("needs", []):
+		return str(need)
+	return ""
+
+
+## A listener object for _gdscript_checks: counts what it hears.
+class _Ear extends Object:
+	var heard := 0
+	func hear(_change: Dictionary) -> void:
+		heard += 1
+
+
+## Checks only GDScript needs, beside the corpus. A Callable whose object has been freed
+## must be skipped and dropped by the bag, not called: until October 2026 it raised an
+## error on that write and on every later one.
+static func _gdscript_checks(bag_script: Script) -> Array:
+	var fails: Array = []
+	var bag = bag_script.new([{"name": "hp", "type": "number", "default": 10}], {})
+	var gone := _Ear.new()
+	var kept := _Ear.new()
+	bag.subscribe(Callable(gone, "hear"))
+	bag.subscribe(Callable(kept, "hear"))
+	gone.free()
+	bag.set_value("hp", 9)
+	bag.set_value("hp", 8)
+	if kept.heard != 2:
+		fails.append("the listener after a freed one heard %d writes, expected 2" % kept.heard)
+	if bag._subscribers.size() != 1:
+		fails.append("the freed listener is still subscribed (%d listeners, expected 1)" % bag._subscribers.size())
+	kept.free()
+	return [{"name": "a listener whose object has been freed is skipped and dropped, not called", "fails": fails}]
 
 
 ## One case: a fresh registry, then its steps in order. {"fails": Array, "finished": true}.
@@ -77,6 +129,8 @@ static func run_case(c: Dictionary, registry_script: Script, bag_script: Script,
 	var fails: Array = []
 	var r = registry_script.new()
 	var stores := {}   # foreign token -> the plain Dictionary its resolver reads and writes
+	var heard := {}          # listener id -> the names it heard, in order
+	var unsubscribes := {}   # listener id -> its unsubscribe Callable
 	var steps: Array = c["steps"]
 	for i in steps.size():
 		var step: Dictionary = steps[i]
@@ -211,6 +265,22 @@ static func run_case(c: Dictionary, registry_script: Script, bag_script: Script,
 						var summary := {"version": spec["version"], "tokens": tokens}
 						if not same(summary, step["expect"]):
 							fails.append("%s: read %s, expected %s" % [at, _show(summary), _show(step["expect"])])
+
+			"listen":
+				var record: Array = []
+				heard[step["id"]] = record
+				var then: Dictionary = step.get("then", {})
+				var fn := func(change: Dictionary) -> void:
+					record.append(change["name"])
+					if then.has("unsubscribe") and unsubscribes.has(then["unsubscribe"]):
+						(unsubscribes[then["unsubscribe"]] as Callable).call()
+				var bag = r.owned_bag(step["scope"])
+				unsubscribes[step["id"]] = bag.on_audit(fn) if step.get("kind") == "audit" else bag.subscribe(fn)
+
+			"heard":
+				var got = heard.get(step["id"])
+				if not same(got, step["expect"]):
+					fails.append("%s: listener %s heard %s, expected %s" % [at, str(step["id"]), _show(got), _show(step["expect"])])
 
 			_:
 				fails.append("%s: unknown step op '%s' (the runner is older than the corpus)" % [at, op])

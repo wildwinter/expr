@@ -563,6 +563,90 @@ export const cases: RegistryCase[] = [
     ],
   },
 
+  // -- a bag's listeners (October 2026 kernel review) ------------------------------------
+  // Every listener registered when a write starts hears that write exactly once, whatever
+  // any of them does to the list meanwhile: it is the list as it stood that is notified.
+  // GDScript iterated the live array, so a listener that unsubscribed made the next one miss
+  // the write; the TypeScript bag iterated its live Set, so unsubscribing ANOTHER listener
+  // mid-write silenced it for that write. C# and C++ already took a snapshot.
+  {
+    name: "a listener that unsubscribes itself mid-write costs no other listener the write",
+    steps: [
+      { op: "owned", token: "world", declarations: [num("hp", 10)] },
+      { op: "listen", scope: "world", id: "first", kind: "subscribe", then: { unsubscribe: "first" } },
+      { op: "listen", scope: "world", id: "second", kind: "subscribe" },
+      { op: "listen", scope: "world", id: "watch", kind: "audit", then: { unsubscribe: "watch" } },
+      { op: "listen", scope: "world", id: "log", kind: "audit" },
+      { op: "set", scope: "world", name: "hp", value: 9 },
+      { op: "set", scope: "world", name: "hp", value: 8 },
+      { op: "heard", id: "first", expect: ["hp"] },
+      { op: "heard", id: "second", expect: ["hp", "hp"] },
+      { op: "heard", id: "watch", expect: ["hp"] },
+      { op: "heard", id: "log", expect: ["hp", "hp"] },
+    ],
+  },
+  {
+    name: "a listener unsubscribed by another mid-write still hears that write, and no later one",
+    steps: [
+      { op: "owned", token: "world", declarations: [num("hp", 10)] },
+      { op: "listen", scope: "world", id: "first", kind: "subscribe", then: { unsubscribe: "second" } },
+      { op: "listen", scope: "world", id: "second", kind: "subscribe" },
+      { op: "set", scope: "world", name: "hp", value: 9 },
+      { op: "heard", id: "second", expect: ["hp"] },
+      { op: "set", scope: "world", name: "hp", value: 8 },
+      { op: "heard", id: "first", expect: ["hp", "hp"] },
+      { op: "heard", id: "second", expect: ["hp"] },
+    ],
+  },
+  {
+    // The registry used to catch EVERYTHING the bag's write raised and report it as a
+    // read-only refusal, so a game's broken hook read as a rule it had not made. The value
+    // has landed by the time a listener runs, as it always has.
+    name: "a listener's own error reaches the caller as itself, not as a read-only refusal",
+    needs: ["exceptions"],
+    steps: [
+      { op: "owned", token: "world", declarations: [num("hp", 10)] },
+      { op: "listen", scope: "world", id: "hook", kind: "subscribe", then: { throw: "the game's hook broke" } },
+      { op: "set", scope: "world", name: "hp", value: 9, expectError: "the game's hook broke" },
+      { op: "get", scope: "world", name: "hp", expect: 9 },
+      { op: "owned", token: "game", declarations: [num("gold", 0)] },
+      { op: "listen", scope: "game", id: "audit", kind: "audit", then: { throw: "the audit broke" } },
+      { op: "set", scope: "game", name: "gold", value: 1, host: true, expectError: "the audit broke" },
+    ],
+  },
+
+  // -- only a scope's own properties (October 2026 kernel review) --------------------------
+  // The TypeScript bag stored values on a plain object, so a scope answered the names every
+  // object inherits: @world.constructor read a built-in function rather than "missing", and
+  // a write to `__proto__` vanished. The native bags were never affected.
+  {
+    name: "a name every object inherits is missing from a scope, not a built-in",
+    steps: [
+      { op: "owned", token: "world", declarations: [num("hp", 10)] },
+      { op: "get", scope: "world", name: "constructor", expectUnset: true },
+      { op: "get", scope: "world", name: "__proto__", expectUnset: true },
+      { op: "eval", src: "@world.constructor", expect: false },
+      { op: "mount", token: "game", normalise: "identity", declarations: [num("hp", 10)] },
+      { op: "get", scope: "game", name: "toString", expectUnset: true },
+      { op: "get", scope: "game", name: "hasOwnProperty", expectUnset: true },
+      { op: "eval", src: "@game.toString", expect: false },
+    ],
+  },
+  {
+    name: "a property named like a built-in is an ordinary property, stored, saved and loaded",
+    steps: [
+      { op: "owned", token: "world", declarations: [num("constructor", 3)] },
+      { op: "get", scope: "world", name: "constructor", expect: 3 },
+      { op: "eval", src: "@world.constructor + 1", expect: 4 },
+      { op: "set", scope: "world", name: "__proto__", value: 1 },
+      { op: "get", scope: "world", name: "__proto__", expect: 1 },
+      { op: "save", expect: JSON.parse('{"world":{"constructor":3,"__proto__":1}}') },
+      { op: "load", blob: JSON.parse('{"world":{"__proto__":2,"valueof":5}}') },
+      { op: "get", scope: "world", name: "__proto__", expect: 2 },
+      { op: "get", scope: "world", name: "valueOf", expect: 5 },
+    ],
+  },
+
   // -- the scopeRegistrySpec reader -----------------------------------------------------
   {
     name: "a spec is read from its well-known key",

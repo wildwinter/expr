@@ -153,6 +153,16 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
             return v ? std::optional<ExprValue>(*v) : std::nullopt;
         }
 
+        /** Whether a STORY write to this property is allowed: false only for a
+         *  declaration marked writable false. A host write is always allowed. The
+         *  registry asks before writing, so it never has to read a refusal out of an
+         *  exception that a listener might have thrown instead. */
+        bool writable(const std::string& name) const
+        {
+            const ScopeDeclaration* decl = decls_.get(norm_(name));
+            return !(decl && decl->writable.has_value() && !*decl->writable);
+        }
+
         /** Write a property. Engine writes (the default) notify subscribers;
          *  pass silent = true for a host write, which reaches only the audit
          *  hook, and host = true when the caller IS the host: `writable: false`

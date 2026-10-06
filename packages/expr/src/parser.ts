@@ -11,6 +11,7 @@
 
 import type { BinaryOp, ExprNode } from "./ast.js";
 import type { Dialect } from "./dialect.js";
+import { own } from "./own.js";
 
 export class ParseError extends Error {
   constructor(
@@ -136,7 +137,7 @@ function tokenise(src: string): Token[] {
     if (/[a-zA-Z_]/.test(ch)) {
       const m = src.slice(i).match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
       const word = m![0];
-      const kw = KEYWORDS[word];
+      const kw = own(KEYWORDS, word);
       tokens.push({ kind: kw ?? "IDENT", value: word, pos });
       i += word.length;
       continue;

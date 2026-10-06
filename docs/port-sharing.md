@@ -244,6 +244,12 @@ copies of its own and Patterplay had none.
   plugin, because it is test code. A runner reimplements
   `packages/scoperegistry/test/corpus/runner.ts`, which is the normative statement of what
   each step means.
+- **Capabilities a language lacks.** A case may list `needs` (version 2 of the corpus, October
+  2026). A runner whose language lacks one skips that case, prints that it did, and leaves it
+  out of its count, so a host's passed-equals-cases rule still holds. GDScript skips the case
+  where a listener throws, because it has no exceptions; its runner runs one check of its own
+  instead, which no JSON can state: a listener whose object has been freed is skipped and
+  dropped by the bag.
 - **Retired from the expr corpus.** The expr parity corpus carried the registry's `writable`
   rule as a `registry` family (12 cases) because no native registry was shared. Every case
   moved to the registry corpus, and the expr corpus is version 3 without it.

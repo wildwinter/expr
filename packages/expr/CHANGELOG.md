@@ -1,5 +1,17 @@
 # @wildwinter/expr
 
+## 0.5.1
+
+### Fixed
+
+- **Names an author writes are looked up as own entries only** (October 2026 kernel review).
+  Every lookup by name read a plain object, which also answers the names every JavaScript
+  object inherits. The tokeniser read `constructor` and `__proto__` as something other than
+  identifiers, so `@world.constructor` would not parse; a static scope bag answered such a
+  name with a built-in value instead of "missing"; and a dialect's function table offered
+  `Object` (as `constructor`) and `toString` as functions to call. The parser, evaluator and
+  validator now read own entries only, through one helper.
+
 ## 0.5.0
 
 Three additions and one behaviour change, all of them things both consuming

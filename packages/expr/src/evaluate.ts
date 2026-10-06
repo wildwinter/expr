@@ -11,6 +11,7 @@
 
 import type { ExprNode, ScalarValue } from "./ast.js";
 import type { Dialect, EvalContext, ScopeResolver } from "./dialect.js";
+import { own } from "./own.js";
 
 export class EvalError extends Error {
   constructor(message: string) {
@@ -32,7 +33,7 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
       case "string": return n.value;
 
       case "scopedvar": {
-        const scope = ctx.scopes[n.scope];
+        const scope = own(ctx.scopes, n.scope);
         if (scope === undefined) {
           // Scope context absent -> graceful false. (A scope the dialect knows
           // about but the context didn't populate, or an unknown scope.)
@@ -43,7 +44,7 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
         // distinguishes a resolver.
         const val = typeof (scope as ScopeResolver).get === "function"
           ? (scope as ScopeResolver).get(n.name)
-          : (scope as Record<string, ScalarValue>)[n.name];
+          : own(scope as Record<string, ScalarValue>, n.name);
         if (val === undefined) {
           // Property not declared on the present scope. Policy decides: "false"
           // for back-compat scopes, "throw" for scopes where a missing key is a
@@ -64,7 +65,7 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
         // inserted stage automatically), and every dialect should say it the
         // same way. A dialect that defines its own `advance` wins, for
         // back-compat with any dialect that already had one.
-        if (n.name === "advance" && !dialect.functions[n.name]) {
+        if (n.name === "advance" && !own(dialect.functions, n.name)) {
           const arg = n.args[0];
           if (n.args.length !== 1 || arg === undefined) {
             throw new EvalError(`advance() takes exactly 1 argument, got ${n.args.length}`);
@@ -76,7 +77,7 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
           const current = stageIndex(rec(arg), ladder, "advance");
           return ladder[Math.min(current + 1, ladder.length - 1)]!;
         }
-        const def = dialect.functions[n.name];
+        const def = own(dialect.functions, n.name);
         if (!def) throw new EvalError(`unknown function '${n.name}'`);
         return def.eval(n.args, { evaluate: rec, ctx });
       }

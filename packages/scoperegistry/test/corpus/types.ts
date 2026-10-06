@@ -72,11 +72,25 @@ export type Step =
    *  parses) against toEvalContext with `aliases`. */
   | { op: "eval"; src: string; ast?: AstNode; aliases?: Record<string, string>; expect?: Value; expectError?: string }
   /** readScopeRegistrySpec on a parsed JSON value. */
-  | { op: "spec"; source: unknown; expect?: { version: number; tokens: string[] }; expectAbsent?: true; expectError?: string };
+  | { op: "spec"; source: unknown; expect?: { version: number; tokens: string[] }; expectAbsent?: true; expectError?: string }
+  /** Attach a listener to an owned scope's bag (`ownedBag(scope)`): `subscribe` hears engine
+   *  writes, `audit` hears every write. It records each name it hears, in order, and then does
+   *  `then`: nothing; `{ unsubscribe: id }`, the unsubscribe of listener `id` (itself included);
+   *  or `{ throw: message }`, raising that message as the language raises an error. */
+  | { op: "listen"; scope: string; id: string; kind: "subscribe" | "audit"; then?: { unsubscribe: string } | { throw: string } }
+  /** Exactly the names listener `id` has heard, in order. */
+  | { op: "heard"; id: string; expect: string[] };
+
+/** A capability a case relies on that a port's language may not have. A port without one
+ *  SKIPS the case and says so in its output, rather than passing it: GDScript has no
+ *  exceptions, so a listener there cannot throw, and its registry reports refusals by return
+ *  value instead. */
+export type Need = "exceptions";
 
 export interface RegistryCase {
   name: string;
   steps: Step[];
+  needs?: Need[];
 }
 
 export interface RegistryCorpus {

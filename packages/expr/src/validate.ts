@@ -17,6 +17,7 @@
 import type { AstPath, BinaryOp, ExprNode, UnaryOp } from "./ast.js";
 import type { Dialect, ReturnType } from "./dialect.js";
 import { parse } from "./parser.js";
+import { own } from "./own.js";
 
 /** Property value types a schema can declare. */
 export type PropertyType = "boolean" | "number" | "string" | "enum" | "flags" | "quality";
@@ -165,7 +166,7 @@ function walkValidate(
     case "call": {
       // `advance` is the language's own (quality.md): next stage in the ladder.
       // Validated here so every dialect gets it without declaring anything.
-      if (node.name === "advance" && !dialect.functions[node.name]) {
+      if (node.name === "advance" && !own(dialect.functions, node.name)) {
         if (node.args.length !== 1) {
           issues.push({ path, kind: "wrong-arg-count", severity: "error", message: `advance() takes exactly 1 argument, got ${node.args.length}` });
         }
@@ -179,7 +180,7 @@ function walkValidate(
         }
         return;
       }
-      const def = dialect.functions[node.name];
+      const def = own(dialect.functions, node.name);
       if (!def) {
         issues.push({ path, kind: "unknown-function", severity: "error", message: `unknown function '${node.name}'` });
         return;
@@ -288,7 +289,7 @@ function typeOf(node: ExprNode, schema: ExpressionSchema, dialect: Dialect): Inf
     }
     case "call": {
       if (node.name === "advance") return "quality";
-      const def = dialect.functions[node.name];
+      const def = own(dialect.functions, node.name);
       return def ? inferredFromReturn(def.returnType) : "unknown";
     }
     case "unary":

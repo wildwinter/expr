@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.8.1] - 2026-10-06
+
+Four kernel problems from the October 2026 review of the Storylet Engine, fixed here once so
+they reach every engine through one kernel release. The native copies in `ports/` change
+with this package, and the registry corpus (version 2) pins the contract on every platform.
+
+### Fixed
+
+- **A listener's own error reaches the caller as itself.** `set` on an owned scope caught
+  whatever the bag's write raised and reported it as `'@scope.name' is read-only`, so a
+  game's audit hook or subscriber that threw read as a rule the game had never made. The
+  registry now asks the bag first (`PropertyBag.writable`, new) and catches nothing. The C#
+  and C++ registries had the same catch; GDScript reports refusals by return value and was
+  not affected.
+- **Every listener registered when a write starts hears it, once.** The bag iterated its live
+  listener sets, so unsubscribing ANOTHER listener during a write silenced it for that write.
+  It now notifies the listeners as they stood when the write began, as the C# and C++ bags
+  already did. The GDScript bag walked its live array (a listener that unsubscribed itself
+  made the next one miss the write) and called a freed listener (a script error that stopped
+  the write's remaining notifications); it now walks a copy and skips and drops a freed
+  listener.
+- **A scope answers only its own properties.** A bag's values had a prototype, so
+  `@world.constructor` read the built-in `Object` function rather than "missing", and a write
+  to `__proto__` vanished. The values record now has no prototype. The native bags were
+  never affected.
+
+### Changed
+
+- **Fewer allocations on the hot path, with identical results.** The C# and GDScript
+  evaluators no longer build a missing-value policy table and a closure per evaluation, or a
+  helpers object per function call; the C# bag no longer copies its listener lists on every
+  write (they are copy-on-write). In C#, one evaluation of a condition with a function call
+  went from 496 bytes to 280, and a bag write with two listeners from 120 to 56.
+
+### Added
+
+- `PropertyBag.writable(name)` (C# `IsWritable`, GDScript `is_writable`): whether a story
+  write to a property is allowed.
+- The registry corpus, version 2: `listen` and `heard` steps, and a case's `needs`. A port
+  whose language lacks a need skips the case and says so (GDScript, for the one case where a
+  listener throws).
+
 ## [0.8.0] - 2026-09-25
 
 ### Added
