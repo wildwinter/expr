@@ -332,6 +332,7 @@ const sources = [
   // look at scripts/ on the same day.
   { target: "tooling", from: "tooling/release-guard.mjs", to: (f) => `${f.repo}/scripts/release-guard.mjs`, comment: "//", subs: (f) => f.tooling },
   { target: "tooling", from: "tooling/check-published-manifests.mjs", to: (f) => `${f.repo}/scripts/check-published-manifests.mjs`, comment: "//", subs: (f) => f.tooling },
+  { target: "tooling", from: "tooling/third-party-notices.mjs", to: (f) => `${f.repo}/scripts/third-party-notices.mjs`, comment: "//", subs: (f) => f.tooling },
   { target: "tooling", from: "tooling/check-unreal-plugin.sh", to: (f) => `${f.repo}/scripts/check-unreal-plugin.sh`, comment: "#", subs: (f) => f.tooling, exec: true },
 ];
 
