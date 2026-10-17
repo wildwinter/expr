@@ -30,12 +30,47 @@ function build(): RegistryCorpus {
   };
 }
 
+/** A character outside the Basic Multilingual Plane, as JSON's escaped UTF-16 surrogate pair. */
+const escapeAstral = (text: string): string =>
+  text.replace(/[\u{10000}-\u{10FFFF}]/gu, (ch) =>
+    [...Array(ch.length).keys()].map((i) => `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`).join(""));
+
+/** The steps' inputs that corpus.json writes with escaped surrogate pairs. */
+const ESCAPED_INPUTS = new Set(["value", "blob", "store", "source"]);
+
+/** JSON.stringify's text, except that a step's inputs (a set's value, a load's blob, a foreign
+ *  scope's store, a spec's source) escape each character outside the Basic Multilingual Plane, as
+ *  some JSON writers do by default, while expectations keep it as it is. Every port's JSON reader
+ *  must then join each pair into the one character for a case to pass. */
+export function serializeCorpus(c: RegistryCorpus): string {
+  // Each input is held out of the first pass behind a marker string, then written escaped at the
+  // marker's indent, so the text is exactly JSON.stringify's apart from the escapes.
+  const held: unknown[] = [];
+  const text = JSON.stringify(c, function (key, value: unknown) {
+    if (!ESCAPED_INPUTS.has(key) || typeof (this as { op?: unknown }).op !== "string") return value;
+    held.push(value);
+    return `\u0000input-${held.length - 1}`;
+  }, 2);
+  return text.replace(/^( *)(.*)"\\u0000input-(\d+)"/gm, (_, indent: string, before: string, i: string) =>
+    indent + before + escapeAstral(JSON.stringify(held[Number(i)], null, 2)).replace(/\n/g, "\n" + indent)) + "\n";
+}
+
 const corpus = build();
-writeFileSync(fileURLToPath(new URL("../corpus.json", import.meta.url)), `${JSON.stringify(corpus, null, 2)}\n`);
+const written = serializeCorpus(corpus);
+writeFileSync(fileURLToPath(new URL("../corpus.json", import.meta.url)), written);
 
 const steps = (): Step[] => corpus.cases.flatMap((c) => c.steps);
 
 describe("registry corpus shape", () => {
+  it("the written text reads back as the corpus, with its inputs' astral characters escaped", () => {
+    expect(JSON.parse(written)).toEqual(corpus);
+    expect(written).toContain("\"Spring \\ud83c\\udf31\"");   // a set's value, escaped
+    expect(written).toContain("\"Spring 🌱\"");                  // its expectation, as it is
+    const pairs = /\\u(d[89ab][0-9a-f]{2})\\u(d[c-f][0-9a-f]{2})/g;
+    const unescaped = written.replace(pairs, (_, hi: string, lo: string) => String.fromCharCode(parseInt(hi, 16), parseInt(lo, 16)));
+    expect(unescaped).toBe(`${JSON.stringify(corpus, null, 2)}\n`);   // and otherwise exactly JSON.stringify's layout
+  });
+
   it("case names are unique", () => {
     const names = corpus.cases.map((c) => c.name);
     expect(new Set(names).size).toBe(names.length);

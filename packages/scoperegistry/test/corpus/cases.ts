@@ -59,6 +59,19 @@ export const cases: RegistryCase[] = [
     ],
   },
   {
+    // corpus.json escapes these inputs as surrogate pairs and writes the expectations as they are,
+    // so a port's JSON reader that splits a pair reads a value that matches nothing.
+    name: "a character outside the Basic Multilingual Plane is one character, written, read, saved and loaded",
+    steps: [
+      { op: "owned", token: "game", declarations: [{ name: "title", type: "string" }] },
+      { op: "set", scope: "game", name: "title", value: "Spring 🌱" },
+      { op: "get", scope: "game", name: "title", expect: "Spring 🌱" },
+      { op: "save", expect: { game: { title: "Spring 🌱" } } },
+      { op: "load", blob: { game: { title: "Moon 🌙" } } },
+      { op: "get", scope: "game", name: "title", expect: "Moon 🌙" },
+    ],
+  },
+  {
     name: "a write to an undeclared name lands as a stray, saved but not listed",
     steps: [
       { op: "owned", token: "game", declarations: [num("hp", 10)] },
