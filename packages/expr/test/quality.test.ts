@@ -15,7 +15,9 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from "vitest";
-import { parse, evaluate, EvalError, parseAndValidate } from "../src/index.js";
+import {
+  parse, evaluate, EvalError, parseAndValidate, qualityDeclarationProblems, stageIndex, compareStages, nextStage,
+} from "../src/index.js";
 import type { Dialect, EvalContext, ExpressionSchema } from "../src/index.js";
 
 const dialect: Dialect = {
@@ -186,5 +188,89 @@ describe("static validation", () => {
     const r = parseAndValidate("retreat(@deck.debt)", schema, dialect);
     expect(r.ok).toBe(false);
     expect(r.issues.map((i) => i.message).join()).toContain("retreat");
+  });
+});
+
+// The family's one rule for declaring a quality (patterkit
+// design/proposals/patter-qualities.md section 6, ruled 2026-10-17): at least
+// two stages, none empty, none twice; a default is optional, and when given it
+// must be a stage. Patter's validator and the Storylet compiler both call this,
+// each in its own words, so the two can no longer disagree on what passes.
+describe("qualityDeclarationProblems, the declaration rule", () => {
+  it("passes a ladder of two or more distinct stages, with or without a default", () => {
+    expect(qualityDeclarationProblems(LADDER)).toEqual([]);
+    expect(qualityDeclarationProblems(LADDER, "confronted")).toEqual([]);
+    expect(qualityDeclarationProblems(["low", "high"], undefined)).toEqual([]);
+  });
+
+  it("a missing or empty ladder is too few stages", () => {
+    expect(qualityDeclarationProblems(undefined)).toEqual([{ kind: "too-few-stages", count: 0 }]);
+    expect(qualityDeclarationProblems([])).toEqual([{ kind: "too-few-stages", count: 0 }]);
+  });
+
+  it("one stage is too few: a one-rung ladder has nothing to order", () => {
+    expect(qualityDeclarationProblems(["only"], "only")).toEqual([{ kind: "too-few-stages", count: 1 }]);
+  });
+
+  it("an empty or blank stage name is named by its position", () => {
+    expect(qualityDeclarationProblems(["a", " ", "b"])).toEqual([{ kind: "empty-stage", index: 1 }]);
+  });
+
+  it("a stage listed twice is reported once per repeat", () => {
+    expect(qualityDeclarationProblems(["a", "b", "a", "a"])).toEqual([
+      { kind: "duplicate-stage", stage: "a" },
+      { kind: "duplicate-stage", stage: "a" },
+    ]);
+  });
+
+  it("a default off the ladder is reported with the value given", () => {
+    expect(qualityDeclarationProblems(LADDER, "settled")).toEqual([{ kind: "default-not-a-stage", value: "settled" }]);
+    expect(qualityDeclarationProblems(LADDER, 2)).toEqual([{ kind: "default-not-a-stage", value: 2 }]);
+  });
+
+  it("with no stages at all the default is not judged as well: one problem is enough", () => {
+    expect(qualityDeclarationProblems([], "x")).toEqual([{ kind: "too-few-stages", count: 0 }]);
+  });
+
+  it("problems come in ladder order, then the default", () => {
+    expect(qualityDeclarationProblems(["a"], "z")).toEqual([
+      { kind: "too-few-stages", count: 1 },
+      { kind: "default-not-a-stage", value: "z" },
+    ]);
+  });
+});
+
+// The host's half of a ladder (patter-qualities.md section 3): the engine
+// orders stages inside an expression, and a game holding a field value or a
+// declaration needs the same order outside one. A host passes a bare ladder
+// or the declaration that carries it.
+describe("stage helpers for hosts", () => {
+  const DECL = { name: "debt", type: "quality", stages: LADDER };
+
+  it("stageIndex is the position, or -1 for anything that is not a stage", () => {
+    expect(stageIndex(LADDER, "troubled")).toBe(0);
+    expect(stageIndex(DECL, "resolved")).toBe(2);
+    expect(stageIndex(LADDER, "settled")).toBe(-1);
+    expect(stageIndex(LADDER, 1)).toBe(-1);
+    const noLadder: { name: string; type: string; stages?: string[] } = { name: "mood", type: "enum" };
+    expect(stageIndex(noLadder, "troubled")).toBe(-1);
+  });
+
+  it("compareStages orders by the ladder, not the alphabet", () => {
+    expect(compareStages(LADDER, "troubled", "confronted")).toBe(-1);
+    expect(compareStages(DECL, "resolved", "confronted")).toBe(1);
+    expect(compareStages(LADDER, "confronted", "confronted")).toBe(0);
+  });
+
+  it("compareStages refuses a value that is not a stage, naming it", () => {
+    expect(() => compareStages(LADDER, "settled", "troubled")).toThrow(EvalError);
+    expect(() => compareStages(LADDER, "troubled", "settled")).toThrow('"settled" is not a stage of this quality (stages: troubled, confronted, resolved)');
+    expect(() => compareStages(LADDER, 2, "troubled")).toThrow("a stage is a name, got number");
+  });
+
+  it("nextStage steps one rung and saturates at the top, as advance() does", () => {
+    expect(nextStage(LADDER, "troubled")).toBe("confronted");
+    expect(nextStage(DECL, "resolved")).toBe("resolved");
+    expect(() => nextStage(LADDER, "settled")).toThrow(EvalError);
   });
 });

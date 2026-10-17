@@ -1,5 +1,22 @@
 # @wildwinter/expr
 
+## Unreleased
+
+### Added
+
+- **`qualityDeclarationProblems(stages, default?)`**, the family's one rule for declaring a
+  quality: at least two stages, none empty, none listed twice; a default is optional, and
+  when given it must be a stage. It returns structured problems (`too-few-stages`,
+  `empty-stage`, `duplicate-stage`, `default-not-a-stage`) for each caller to word.
+  Patter wanted two stages and the Storylet compiler one; both now call this.
+- **`stageIndex`, `compareStages` and `nextStage`**, a quality's order outside an expression,
+  for a host comparing a field's stage with a property's or stepping one. Each takes a ladder
+  or a declaration with `stages`; `compareStages` and `nextStage` throw the evaluator's own
+  error for a value that is not a stage, and `nextStage` stays on the top rung as `advance()`
+  does. The native kernel has the same three (C# `Stages`, C++ `StageIndex` / `CompareStages`
+  / `NextStage`, GDScript `stage_index` / `compare_stages` / `next_stage`), and the expr
+  corpus (version 4) gains a `qualities` family and a `stages` family that pin both.
+
 ## 0.5.1
 
 ### Fixed

@@ -10,10 +10,10 @@
 // every divergence rather than the first.
 // ---------------------------------------------------------------------------
 
-import { deserialiseAst, evaluate, makePrng, toUint32 } from "@wildwinter/expr";
+import { compareStages, deserialiseAst, evaluate, makePrng, nextStage, stageIndex, toUint32 } from "@wildwinter/expr";
 import type { EvalContext, ScalarValue } from "@wildwinter/expr";
 import { conformanceDialect } from "./dialect.js";
-import type { ExpressionCase, PrngCase, SeedLiteral } from "./types.js";
+import type { ExpressionCase, PrngCase, QualityCase, SeedLiteral, StageCase } from "./types.js";
 
 /** A seed as the corpus carries it -> the double the algorithm is given. */
 export function seedValue(seed: SeedLiteral): number {
@@ -77,7 +77,37 @@ export function valueEquals(a: ScalarValue | undefined, b: ScalarValue | undefin
  * wrong about the whole typing contract.
  */
 export function runExpressionCase(c: ExpressionCase): string[] {
-  const ctx: EvalContext = { scopes: c.scopes };
+  return runIn(c, { scopes: c.scopes });
+}
+
+/**
+ * A quality case: the same contract, with the context's `qualities` channel
+ * answering from the case's ladders, keyed `"scope.name"`.
+ */
+export function runQualityCase(c: QualityCase): string[] {
+  return runIn(c, { scopes: c.scopes, qualities: (scope, name) => c.qualities[`${scope}.${name}`] });
+}
+
+/**
+ * A stage-helper case: call the named helper with the ladder first, then the
+ * args. `expected` or `expectError`, held both ways as an expression case is.
+ */
+export function runStageCase(c: StageCase): string[] {
+  let value: number | string | undefined;
+  let error: string | undefined;
+  try {
+    value = c.call === "index" ? stageIndex(c.ladder, c.args[0])
+      : c.call === "compare" ? compareStages(c.ladder, c.args[0], c.args[1])
+      : nextStage(c.ladder, c.args[0]);
+  } catch (e) {
+    error = String(e);
+  }
+  if (c.expectError) return error === undefined ? [`${c.name}: expected an error, got ${show(value)}`] : [];
+  if (error !== undefined) return [`${c.name}: unexpected error: ${error}`];
+  return value === c.expected ? [] : [`${c.name}: expected ${show(c.expected)}, got ${show(value)}`];
+}
+
+function runIn(c: ExpressionCase, ctx: EvalContext): string[] {
   let value: ScalarValue | undefined;
   let error: string | undefined;
   try {

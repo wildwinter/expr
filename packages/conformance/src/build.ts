@@ -11,7 +11,7 @@ import { conformanceDialect } from "./dialect.js";
 import type { Corpus, Fixtures } from "./types.js";
 
 /** Bumped when the corpus gains cases or changes shape. */
-export const CORPUS_VERSION = 3;   // 2: the registry family; 3: it moved to @wildwinter/scoperegistry's own corpus
+export const CORPUS_VERSION = 4;   // 2: the registry family; 3: it moved to @wildwinter/scoperegistry's own corpus; 4: qualities and stages
 
 export function buildCorpus(fixtures: Fixtures): Corpus {
   return {
@@ -24,5 +24,14 @@ export function buildCorpus(fixtures: Fixtures): Corpus {
       scopes: f.scopes,
       ...(f.expectError ? { expectError: true as const } : { expected: f.expected }),
     })),
+    qualities: fixtures.qualities.map((f) => ({
+      name: f.name,
+      src: f.src,
+      ast: compile(f.src, conformanceDialect).ast,
+      scopes: f.scopes,
+      qualities: f.qualities,
+      ...(f.expectError ? { expectError: true as const } : { expected: f.expected }),
+    })),
+    stages: fixtures.stages.map((f) => ({ ...f })),
   };
 }

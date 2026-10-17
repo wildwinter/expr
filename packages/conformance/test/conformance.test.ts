@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildCorpus } from "../src/build.js";
 import { fixtures } from "../src/cases.js";
-import { runExpressionCase, runPrngCase, seedValue } from "../src/runner.js";
+import { runExpressionCase, runPrngCase, runQualityCase, runStageCase, seedValue } from "../src/runner.js";
 // toUint32 comes from the PACKAGE, so this test holds the shipped one to the
 // contract rather than a copy kept beside it.
 import { toUint32 } from "@wildwinter/expr";
@@ -29,7 +29,7 @@ const corpusPath = fileURLToPath(new URL("../corpus.json", import.meta.url));
 
 describe("corpus shape", () => {
   it("case names are unique within each family", () => {
-    for (const family of ["prng", "expressions"] as const) {
+    for (const family of ["prng", "expressions", "qualities", "stages"] as const) {
       const names = corpus[family].map((c) => c.name);
       expect(new Set(names).size, family).toBe(names.length);
     }
@@ -79,6 +79,14 @@ describe("the reference runtime meets the contract", () => {
     expect(fails).toEqual([]);
   });
 
+  it("passes every quality case", () => {
+    expect(corpus.qualities.flatMap(runQualityCase)).toEqual([]);
+  });
+
+  it("passes every stage-helper case", () => {
+    expect(corpus.stages.flatMap(runStageCase)).toEqual([]);
+  });
+
   it("passes every expression case", () => {
 
     const fails = corpus.expressions.flatMap(runExpressionCase);
@@ -92,6 +100,21 @@ describe("the reference runtime meets the contract", () => {
 
 describe("the runners can actually fail", () => {
   const first = corpus.prng[0]!;
+
+  it("the quality runner rejects a gate ordered by the alphabet", () => {
+    const c = corpus.qualities.find((x) => x.name === "a quality orders by its ladder, not the alphabet")!;
+    expect(runQualityCase({ ...c, expected: true }).length).toBeGreaterThan(0);
+    // Without the ladders the gate cannot order at all, so the channel is what passes it.
+    expect(runQualityCase({ ...c, qualities: {} }).length).toBeGreaterThan(0);
+  });
+
+  it("the stage runner rejects a wrong answer and a missing error", () => {
+    const c = corpus.stages.find((x) => x.call === "compare" && x.expected === -1)!;
+    expect(runStageCase({ ...c, expected: 1 }).length).toBeGreaterThan(0);
+    const e = corpus.stages.find((x) => x.expectError)!;
+    const { expectError, ...rest } = e;
+    expect(runStageCase({ ...rest, expected: 0 }).length).toBeGreaterThan(0);
+  });
 
   it("rejects a wrong seed state", () => {
     const broken: PrngCase = { ...first, expectSeedState: first.expectSeedState + 1 };

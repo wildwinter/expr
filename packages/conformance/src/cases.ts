@@ -309,4 +309,63 @@ export const fixtures: Fixtures = {
     ];
   })(),
 
+  // -- qualities: ordered ladders inside an expression ----------------------
+  //
+  // The kernel had no quality cases at all (patterkit design/proposals/
+  // patter-qualities.md section 8), though both families ship the type. Stage
+  // names are chosen to sort WRONGLY as strings (alphabetically confronted <
+  // resolved < troubled), so a port ordering by the alphabet cannot pass. Every
+  // expectation is read off the rules in design/quality.md: order by position,
+  // an unknown stage is an error on an ordering op and plain inequality on
+  // `==`, two different qualities never order, arithmetic is refused, and
+  // `advance` steps one rung and stays on the top one.
+  qualities: (() => {
+    const LADDER = ["troubled", "confronted", "resolved"];
+    const q = (name: string, src: string, debt: string, out: { expected?: boolean | string; expectError?: true }) => ({
+      name, src,
+      scopes: { v: { debt, mood: "calm", twin: debt } },
+      qualities: { "v.debt": LADDER, "v.mood": ["calm", "tense"], "v.twin": LADDER },
+      ...out,
+    });
+    return [
+      q("a quality orders by its ladder, not the alphabet", "@v.debt >= \"confronted\"", "troubled", { expected: false }),
+      q("a later stage is past an earlier one", "@v.debt > \"troubled\"", "resolved", { expected: true }),
+      q("an earlier stage is below a later one", "@v.debt < \"resolved\"", "troubled", { expected: true }),
+      q("the quality may stand on either side", "\"confronted\" <= @v.debt", "resolved", { expected: true }),
+      q("ordering against a name that is not a stage is an error", "@v.debt >= \"settled\"", "troubled", { expectError: true }),
+      q("two different qualities never order", "@v.debt > @v.mood", "troubled", { expectError: true }),
+      q("two qualities on the same ladder order", "@v.debt >= @v.twin", "confronted", { expected: true }),
+      q("arithmetic on a quality is an error", "@v.debt + 1", "troubled", { expectError: true }),
+      q("equality stays plain string equality", "@v.debt == \"troubled\"", "troubled", { expected: true }),
+      q("equality with a name that is not a stage is false, not an error", "@v.debt == \"settled\"", "troubled", { expected: false }),
+      q("advance steps one rung", "advance(@v.debt)", "troubled", { expected: "confronted" }),
+      q("advance stays on the top rung", "advance(@v.debt)", "resolved", { expected: "resolved" }),
+      q("advance needs a quality reference", "advance(\"troubled\")", "troubled", { expectError: true }),
+      q("advance from a value off the ladder (a drifted save) is an error", "advance(@v.debt)", "settled", { expectError: true }),
+    ];
+  })(),
+
+  // -- stages: the host's helpers over a ladder -----------------------------
+  //
+  // A game comparing a field's stage with a property's, or stepping one, asks
+  // the kernel rather than re-implementing the order (patter-qualities.md
+  // section 3). Same ladder, same wrongly-sorting names.
+  stages: (() => {
+    const ladder = ["troubled", "confronted", "resolved"];
+    return [
+      { name: "index is the stage's position", ladder, call: "index" as const, args: ["resolved"], expected: 2 },
+      { name: "index of the first stage is 0", ladder, call: "index" as const, args: ["troubled"], expected: 0 },
+      { name: "index of a name that is not a stage is -1", ladder, call: "index" as const, args: ["settled"], expected: -1 },
+      { name: "index of a value that is not a name is -1", ladder, call: "index" as const, args: [1], expected: -1 },
+      { name: "compare orders by the ladder, not the alphabet", ladder, call: "compare" as const, args: ["troubled", "confronted"], expected: -1 },
+      { name: "compare says a later stage is above", ladder, call: "compare" as const, args: ["resolved", "confronted"], expected: 1 },
+      { name: "compare says a stage is level with itself", ladder, call: "compare" as const, args: ["confronted", "confronted"], expected: 0 },
+      { name: "compare refuses a name that is not a stage", ladder, call: "compare" as const, args: ["troubled", "settled"], expectError: true as const },
+      { name: "compare refuses a value that is not a name", ladder, call: "compare" as const, args: [2, "troubled"], expectError: true as const },
+      { name: "next steps one rung", ladder, call: "next" as const, args: ["troubled"], expected: "confronted" },
+      { name: "next stays on the top rung", ladder, call: "next" as const, args: ["resolved"], expected: "resolved" },
+      { name: "next refuses a name that is not a stage", ladder, call: "next" as const, args: ["settled"], expectError: true as const },
+    ];
+  })(),
+
 };
