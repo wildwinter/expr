@@ -3,7 +3,8 @@
 Small shared pieces of the **authoring tooling** behind
 [Storylet Studio](https://github.com/storylet-studio) and
 [Patter](https://patterkit.com): opaque ids, a stable hash, JSON5 source parsing,
-find/replace matching, and the archive guards.
+find/replace matching, the archive guards, and (in `./extensions`) the spec and merge
+for Patter extensions and Storylet extensions.
 
 **Nothing here runs in a game.** This is the editor/CLI/pipeline side. The
 runtime language lives in [`@wildwinter/expr`](../expr), and unlike that package
@@ -15,7 +16,21 @@ Each was found duplicated, almost but not exactly, across both families. That
 one careless edit away from being correct in one, and nobody reads the diff of a
 file they believe is a copy.
 
-ESM + CJS + types. `json5` is the only dependency.
+ESM + CJS + types. `json5` is the only dependency of the main entry.
+
+## Extensions (`@wildwinter/toolkit/extensions`)
+
+The one part with shared semantics: the manifest a Patter extension or a Storylet extension ships, the types its
+values take, the checks both editors and both command lines run, and the type-driven three-way merge both formats
+use for extension data, with the `unresolved` mark an unresolved merge leaves in a shard. The spec is
+[extensions.md](extensions.md) and its contract the hand-written cases in `conformance/extensions/`.
+
+It is built on the kernel's own value and ladder rules, so it needs `@wildwinter/expr` and
+`@wildwinter/scoperegistry`: optional peer dependencies, which every host of it already has.
+
+```ts
+import { manifestProblems, mergeExtensionData } from "@wildwinter/toolkit/extensions";
+```
 
 ```ts
 import { newId, slug, fnv32, parseSource, findMatcher } from "@wildwinter/toolkit";

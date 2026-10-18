@@ -1,5 +1,19 @@
 # @wildwinter/toolkit
 
+## 0.2.0
+
+### Added
+
+- **`@wildwinter/toolkit/extensions`**: the shared spec and merge for Patter extensions and Storylet
+  extensions ([extensions.md](extensions.md)). The manifest and its checks (`manifestProblems`), the value types
+  and their checks (`valueProblems`, `entryProblems`) on the kernel's `valueFits`, `qualityDeclarationProblems`
+  and `stagesEitherSide`, defaults (`defaultOf`, through `defaultFor`), what a bundle carries (`compiledTarget`,
+  `compileEntry`), stage renames (`renameStages`), claims on host fields (`resolvedClaims`, `claimClashes`), the
+  three-way merge engine (`mergeTree`) and its manifest-built strategies (`mergeExtensionData`), the
+  `unresolved` mark (`markUnresolved`, `unresolvedProblems`) and orphaned entries (`orphanedEntries`).
+  Hand-written conformance cases in `conformance/extensions/`. `@wildwinter/expr` and
+  `@wildwinter/scoperegistry` are optional peer dependencies, needed by this entry only.
+
 ## 0.1.0
 
 First release. Small shared pieces of the authoring tooling, each of which

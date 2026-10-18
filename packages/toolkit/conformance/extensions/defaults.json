@@ -1,0 +1,69 @@
+{
+  "about": "Defaults, compilation and stage renames. `defaults`: defaultOf for a declaration. `compile`: compiledTarget (declarations as a bundle carries them: editor-only fields gone, every default resolved, label, help, valueHelp and group gone) and compileEntry (a node's values as a bundle carries them: editor-only and undeclared fields gone, renamed stages renamed, otherwise raw). `renames`: renameStages over an entry, with the renames it made.",
+  "defaults": [
+    { "name": "a given default wins", "decl": { "name": "a", "type": "number", "default": 4 }, "default": 4 },
+    { "name": "text", "decl": { "name": "a", "type": "text" }, "default": "" },
+    { "name": "multiline", "decl": { "name": "a", "type": "multiline" }, "default": "" },
+    { "name": "number", "decl": { "name": "a", "type": "number" }, "default": 0 },
+    { "name": "boolean", "decl": { "name": "a", "type": "boolean" }, "default": false },
+    { "name": "enum: the first value", "decl": { "name": "a", "type": "enum", "values": ["x", "y"] }, "default": "x" },
+    { "name": "an enum may default to none chosen", "decl": { "name": "a", "type": "enum", "values": ["x", "y"], "default": "" }, "default": "" },
+    { "name": "flags: none", "decl": { "name": "a", "type": "flags", "values": ["x"] }, "default": [] },
+    { "name": "quality: the first stage", "decl": { "name": "a", "type": "quality", "stages": ["p", "q"] }, "default": "p" },
+    { "name": "reference: none", "decl": { "name": "a", "type": "reference", "to": "card" }, "default": "" },
+    { "name": "record: each field's default", "decl": { "name": "a", "type": "record", "fields": [
+      { "name": "s", "type": "text" }, { "name": "n", "type": "number", "default": 2 }, { "name": "q", "type": "quality", "stages": ["p", "q"] }
+    ] }, "default": { "n": 2, "q": "p", "s": "" } },
+    { "name": "record: a given default wins whole", "decl": { "name": "a", "type": "record", "fields": [{ "name": "s", "type": "text" }], "default": { "s": "x" } }, "default": { "s": "x" } },
+    { "name": "map: empty", "decl": { "name": "a", "type": "map", "key": { "type": "text" }, "of": { "type": "number" } }, "default": {} },
+    { "name": "list: empty", "decl": { "name": "a", "type": "list", "of": { "type": "number" } }, "default": [] }
+  ],
+  "compile": [
+    {
+      "name": "a target as the bundle carries it",
+      "target": { "fields": [
+        { "name": "note", "type": "text", "label": "Note", "help": "Help.", "group": "G", "required": true },
+        { "name": "draft", "type": "multiline", "editorOnly": true },
+        { "name": "tone", "type": "enum", "values": ["calm", "tense"], "valueHelp": { "calm": "x" } },
+        { "name": "act", "type": "quality", "stages": ["setup", "turn"], "renamedStages": { "opening": "setup" } },
+        { "name": "cue", "type": "record", "fields": [{ "name": "gain", "type": "number", "min": 0, "help": "Loudness." }] }
+      ], "claims": [{ "setting": "moodField", "type": "text" }] },
+      "compiled": [
+        { "name": "note", "type": "text", "default": "", "required": true },
+        { "name": "tone", "type": "enum", "values": ["calm", "tense"], "default": "calm" },
+        { "name": "act", "type": "quality", "stages": ["setup", "turn"], "default": "setup" },
+        { "name": "cue", "type": "record", "fields": [{ "name": "gain", "type": "number", "min": 0, "default": 0 }], "default": { "gain": 0 } }
+      ],
+      "entry": { "note": "n", "draft": "only in the editor", "act": "opening", "stray": 1, "cue": { "gain": 2 } },
+      "compiledEntry": { "act": "setup", "cue": { "gain": 2 }, "note": "n" }
+    },
+    {
+      "name": "an entry with nothing compiled compiles to nothing",
+      "target": { "fields": [{ "name": "draft", "type": "text", "editorOnly": true }] },
+      "compiled": [],
+      "entry": { "draft": "x" },
+      "compiledEntry": null
+    }
+  ],
+  "renames": [
+    {
+      "name": "stages renamed wherever a quality is, at any depth",
+      "target": { "fields": [
+        { "name": "act", "type": "quality", "stages": ["setup", "turn"], "renamedStages": { "opening": "setup", "middle": "turn" } },
+        { "name": "beats", "type": "list", "id": "id", "of": { "type": "record", "fields": [
+          { "name": "id", "type": "text" },
+          { "name": "phase", "type": "quality", "stages": ["in", "out"], "renamedStages": { "enter": "in" } }
+        ] } },
+        { "name": "byTag", "type": "map", "key": { "type": "text" }, "of": { "type": "quality", "stages": ["lo", "hi"], "renamedStages": { "low": "lo" } } },
+        { "name": "tone", "type": "text" }
+      ] },
+      "entry": { "act": "middle", "beats": [{ "id": "b1", "phase": "enter" }, { "id": "b2", "phase": "out" }], "byTag": { "a": "low", "b": "hi" }, "tone": "opening" },
+      "renamed": { "act": "turn", "beats": [{ "id": "b1", "phase": "in" }, { "id": "b2", "phase": "out" }], "byTag": { "a": "lo", "b": "hi" }, "tone": "opening" },
+      "renames": [
+        { "path": "act", "from": "middle", "to": "turn" },
+        { "path": "beats[0].phase", "from": "enter", "to": "in" },
+        { "path": "byTag.a", "from": "low", "to": "lo" }
+      ]
+    }
+  ]
+}

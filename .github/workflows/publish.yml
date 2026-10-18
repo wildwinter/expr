@@ -55,7 +55,8 @@ jobs:
       - run: npm run typecheck --workspaces --if-present
       - run: npm run build --workspaces --if-present
       - run: npm test --workspaces --if-present
-      # toolkit depends on no other package here, so it can publish first.
+      # toolkit depends on no other package here (its extensions entry takes expr and
+      # scoperegistry as optional peers, already on the registry), so it can publish first.
       - name: Publish @wildwinter/toolkit
         run: |
           VER=$(node -p "require('./packages/toolkit/package.json').version")

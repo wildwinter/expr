@@ -1,7 +1,7 @@
 {
   "name": "@wildwinter/toolkit",
   "version": "0.1.0",
-  "description": "Small shared pieces of the authoring tooling: opaque ids, a stable hash, JSON5 source parsing, find/replace matching, and the archive guards. Nothing here runs in a game.",
+  "description": "Small shared pieces of the authoring tooling: opaque ids, a stable hash, JSON5 source parsing, find/replace matching, the archive guards, and (in ./extensions) the spec and merge for Patter extensions and Storylet extensions. Nothing here runs in a game.",
   "type": "module",
   "license": "MIT",
   "author": "Ian Thomas",
@@ -15,7 +15,9 @@
     "hash",
     "json5",
     "zip",
-    "tooling"
+    "tooling",
+    "extensions",
+    "merge"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -30,11 +32,19 @@
       "types": "./dist/archive.d.ts",
       "import": "./dist/archive.js",
       "require": "./dist/archive.cjs"
+    },
+    "./extensions": {
+      "types": "./dist/extensions.d.ts",
+      "import": "./dist/extensions.js",
+      "require": "./dist/extensions.cjs"
     }
   },
   "files": [
     "dist",
+    "conformance",
+    "extensions.md",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "sideEffects": false,
@@ -50,5 +60,21 @@
   },
   "dependencies": {
     "json5": "^2.2.3"
+  },
+  "peerDependencies": {
+    "@wildwinter/expr": ">=0.6.0 <1.0.0",
+    "@wildwinter/scoperegistry": ">=0.9.0 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@wildwinter/expr": {
+      "optional": true
+    },
+    "@wildwinter/scoperegistry": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@wildwinter/expr": "*",
+    "@wildwinter/scoperegistry": "*"
   }
 }
