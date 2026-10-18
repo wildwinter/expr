@@ -1,6 +1,28 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.0] - 2026-10-18
+
+### Added
+
+- **Drifted saves: `load(blob, { refit: true })`.** A saved value that no longer fits its
+  declaration (a stage, an enum value or a flag deleted since the save, or a value of another
+  type) goes back to the declaration's default instead of landing as saved, and is reported:
+  `takeMisfits()` returns each one (scope, name, what the save held) and empties the list;
+  `takeMisfits(only)` takes just the scopes `only` accepts and leaves the rest, so each engine on
+  one registry takes its own. A
+  section parked for a key nobody has registered keeps the option and is refitted when the key
+  is claimed. `PropertyBag.load(values, { refit: true })` does the same for one bag and returns
+  its misfits. A plain load is unchanged. Both product families take it, so a deleted stage no
+  longer survives a load to throw at the first gate that orders it. Every native registry has
+  it (C# `Load(blob, keepParked, refit)` and `TakeMisfits`, C++ `load(blob, keepParked, refit)`
+  and `takeMisfits`, GDScript `load(blob, {"refit": true})` and `take_misfits`), and the
+  registry corpus (version 3) pins it with `fits`, `default`, refitting `load` and `misfits`
+  steps.
+
+### Changed
+
+- **`defaultFor` knows the field types**: `text` and `multiline` seed `""`, as `string` does.
+  They used to fall through to `false`. Every native kernel's default follows.
 
 ### Fixed
 

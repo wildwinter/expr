@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { BinaryOp, ExprNode } from "./ast.js";
+import { KEYWORD_NAMES } from "./parser.js";
 
 const BINARY_PREC: Record<BinaryOp, number> = {
   or: 1, and: 2, "==": 4, "!=": 4, ">": 4, ">=": 4, "<": 4, "<=": 4,
@@ -44,7 +45,8 @@ export function unparse(node: ExprNode, opts: UnparseOptions = {}): string {
       case "number": return String(n.value);
       case "string": {
         // Emit unquoted when the value is a safe identifier (e.g. enum/flag values)
-        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n.value)) return n.value;
+        // (never a keyword: a bare `true` or `and` would read back as the keyword).
+        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n.value) && !KEYWORD_NAMES.includes(n.value)) return n.value;
         return `"${n.value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
       }
       case "scopedvar":

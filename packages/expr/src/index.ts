@@ -23,11 +23,16 @@ export {
   propertyNameify, isValidPropertyName, isCaseOnlyPropertyName, RESERVED_PROPERTY_NAMES,
 } from "./names.js";
 export { KEYWORD_NAMES } from "./parser.js";
-export { qualityDeclarationProblems, stageIndex, compareStages, nextStage } from "./stages.js";
-export type { QualityDeclarationProblem, StageLadder } from "./stages.js";
+export {
+  qualityDeclarationProblems, stageIndex, compareStages, nextStage, stagesEitherSide,
+  renameStageInExpression, stageGateCount,
+} from "./stages.js";
+export type { QualityDeclarationProblem, StageLadder, StageTargetRef } from "./stages.js";
+export { valueFits } from "./values.js";
+export type { ValueDecl, ValueFitsOptions } from "./values.js";
 export type { Term, KeyOf } from "./latches.js";
 export type { Prng } from "./prng.js";
-export { validateExpr, validateExpressionAst, parseAndValidate } from "./validate.js";
+export { validateExpr, validateExpressionAst, parseAndValidate, validateAssignment } from "./validate.js";
 export type {
   ExpressionSchema, PropertyType, PropertyMeta,
   ExpressionValidationIssue, ExpressionValidationResult,

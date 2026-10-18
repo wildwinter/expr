@@ -122,6 +122,42 @@ export function validateExpr(
   return validateExpressionAst(node, schema, dialect).issues;
 }
 
+/**
+ * Check a value an effect assigns to `target` (Patter's `set`, a Storylets
+ * change), beyond what `validateExpr` checks of the value on its own: a stage
+ * literal must be a stage of the target quality, and a quality's value (a
+ * reference, or `advance` of one) must be of the same ladder. Without this a
+ * name off the ladder was taken at compile and failed at play, at the first
+ * gate that ordered the quality.
+ *
+ * `path` is the value's own path, where a caller has one. A target that is not
+ * a declared quality asks nothing more here.
+ */
+export function validateAssignment(
+  target: { scope: string; name: string },
+  value: ExprNode,
+  schema: ExpressionSchema,
+  dialect: Dialect,
+  path: AstPath = [],
+): readonly ExpressionValidationIssue[] {
+  const meta = schema.properties.get(target.scope)?.get(target.name);
+  if (meta?.type !== "quality" || !meta.stages) return [];
+  const ladder = meta.stages;
+  if (value.kind === "string") {
+    return ladder.includes(value.value) ? [] : [{
+      path, kind: "unknown-stage", severity: "error", reference: value.value,
+      message: `'${value.value}' is not a stage of this quality - expected one of: ${ladder.join(", ")}`,
+    }];
+  }
+  const source = value.kind === "call" && value.name === "advance" && !own(dialect.functions, value.name) ? value.args[0] : value;
+  const other = source ? stagesOf(source, schema) : undefined;
+  if (other && other.join("\u0000") !== ladder.join("\u0000")) {
+    return [{ path, kind: "operand-type-mismatch", severity: "error",
+      message: "assigns a stage of a different quality, whose stages are unrelated" }];
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------------------
 // Internal: result composer + recursive walk
 // ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ import { corpusDialect, runRegistryCase } from "./corpus/runner.js";
 import type { RegistryCase, RegistryCorpus, Step } from "./corpus/types.js";
 
 /** Bumped when the corpus gains cases or changes shape. */
-export const REGISTRY_CORPUS_VERSION = 2;   // 2: listeners (listen, heard) and a case's `needs`
+export const REGISTRY_CORPUS_VERSION = 3;   // 2: listeners (listen, heard) and a case's `needs`; 3: fits, default, refit and misfits
 
 function build(): RegistryCorpus {
   return {
@@ -91,7 +91,7 @@ describe("registry corpus shape", () => {
   it("covers every step kind a port's runner must implement", () => {
     const kinds = new Set(steps().map((s) => s.op));
     for (const k of ["owned", "mount", "foreign", "set", "get", "has", "remove", "save", "load",
-      "discardParked", "store", "rows", "eval", "spec", "revision", "listen", "heard"] as const) expect(kinds.has(k), k).toBe(true);
+      "discardParked", "store", "rows", "eval", "spec", "revision", "listen", "heard", "misfits", "fits", "default"] as const) expect(kinds.has(k), k).toBe(true);
   });
 
   it("uses no product's token: the registry's contract is product-neutral", () => {
@@ -171,6 +171,16 @@ describe("the registry runner can actually fail", () => {
     const throws: Step = { op: "listen", scope: "game", id: "t", kind: "audit", then: { throw: "boom" } };
     expect(probe({ name: "p", steps: [base.owned, throws, write] })).not.toEqual([]);
     expect(probe({ name: "p", steps: [base.owned, throws, { ...write, expectError: "is read-only" } as Step] })).not.toEqual([]);
+  });
+
+  it("rejects a wrong fit, a wrong default and a wrong record of misfits", () => {
+    const q = { name: "s", type: "quality" as const, stages: ["a", "b"] };
+    expect(probe({ name: "p", steps: [{ op: "fits", decl: q, value: "c", expect: true }] })).not.toEqual([]);
+    expect(probe({ name: "p", steps: [{ op: "default", decl: q, expect: "b" }] })).not.toEqual([]);
+    const owned: Step = { op: "owned", token: "game", declarations: [q] };
+    const load: Step = { op: "load", refit: true, blob: { game: { s: "c" } } };
+    expect(probe({ name: "p", steps: [owned, load, { op: "misfits", expect: [] }] })).not.toEqual([]);
+    expect(probe({ name: "p", steps: [owned, load, { op: "misfits", expect: [{ scope: "game", name: "s", value: "a" }] }] })).not.toEqual([]);
   });
 
   it("rejects a wrong revision", () => {

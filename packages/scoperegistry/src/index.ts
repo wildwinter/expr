@@ -15,6 +15,7 @@
 // this; this depends one-way on expr.
 // ---------------------------------------------------------------------------
 
+import { valueFits } from "@wildwinter/expr";
 import type {
   EvalContext, ExpressionSchema, PropertyType, ScalarValue, ScopeResolver,
 } from "@wildwinter/expr";
@@ -155,6 +156,13 @@ export interface PropertyRow {
   writable: boolean;
 }
 
+/** A saved value a refitting load put back to its declaration's default:
+ *  the property's name, and what the save held. */
+export interface BagMisfit {
+  name: string;
+  value: ScalarValue;
+}
+
 export class PropertyBag {
   /** The live values record (stable identity across reseed, so an
    *  EvalContext built over it stays valid). Read-path for evaluation;
@@ -288,9 +296,31 @@ export class PropertyBag {
 
   /** Lay saved values over the current ones (call after a fresh seed:
    *  orphans land as strays, new declarations keep their defaults; the
-   *  product decides whether to prune). Does not fire events. */
-  load(values: Record<string, ScalarValue>): void {
-    for (const [k, v] of Object.entries(values)) this.values[this.norm(k)] = v;
+   *  product decides whether to prune). Does not fire events.
+   *
+   *  With `refit`, a saved value that no longer fits its declaration (a stage,
+   *  an enum value or a flag the build has since deleted, or a value of another
+   *  type) goes back to the declaration's default instead, and is returned with
+   *  what the save held, in declaration order. Without it, nothing is returned
+   *  and every value lands as saved. */
+  load(values: Record<string, ScalarValue>, opts?: { refit?: boolean }): BagMisfit[] {
+    const saved = new Map<string, ScalarValue>();
+    for (const [k, v] of Object.entries(values)) {
+      const n = this.norm(k);
+      // A copy, as every port's load takes one: the caller's blob (a flags list) is not this bag's.
+      this.values[n] = structuredClone(v);
+      saved.set(n, v);
+    }
+    const misfits: BagMisfit[] = [];
+    if (!opts?.refit) return misfits;
+    for (const [name, d] of this.decls) {
+      if (!saved.has(name)) continue;
+      const value = saved.get(name)!;
+      if (valueFits(d, value)) continue;
+      this.values[name] = structuredClone(defaultFor(d));
+      misfits.push({ name, value });
+    }
+    return misfits;
   }
 }
 
@@ -395,6 +425,19 @@ export interface LoadOptions {
    *  load replaces whatever an earlier load parked. For an engine moving an
    *  older save's values into a registry the game has already loaded. */
   keepParked?: boolean;
+  /** Put each saved value that no longer fits its declaration back to the
+   *  default, and report it (`takeMisfits`): a save from before a stage, an
+   *  enum value or a flag was deleted. A section parked for a key nobody has
+   *  registered keeps the option, and is refitted when that key is claimed. */
+  refit?: boolean;
+}
+
+/** A saved value a refitting load put back to its default: where it was, and
+ *  what the save held. */
+export interface LoadMisfit {
+  scope: string;
+  name: string;
+  value: ScalarValue;
 }
 
 /**
@@ -416,6 +459,10 @@ export class ScopeRegistry {
   private readonly scopes = new Map<string, Entry>();
   /** Values loaded for keys nobody has registered yet, waiting to be claimed. */
   private readonly parked = new Map<string, Record<string, ScalarValue>>();
+  /** The parked keys whose load asked for a refit, applied when they are claimed. */
+  private readonly parkedRefit = new Set<string>();
+  /** What refitting loads have put back since the last `takeMisfits`. */
+  private misfits: LoadMisfit[] = [];
   private rev = 0;
 
   /**
@@ -464,8 +511,9 @@ export class ScopeRegistry {
     this.rev++;
     const waiting = this.parked.get(token);
     if (waiting) {
-      bag.load(waiting);
+      this.note(token, bag.load(waiting, { refit: this.parkedRefit.has(token) }));
       this.parked.delete(token);
+      this.parkedRefit.delete(token);
     }
     return this;
   }
@@ -478,7 +526,10 @@ export class ScopeRegistry {
   remove(token: string, opts?: RemoveOptions): this {
     const e = this.scopes.get(token);
     if (!e) throw new Error(`unknown scope '@${token}'`);
-    if (opts?.keep && e.kind === "owned") this.parked.set(token, e.bag.save());
+    if (opts?.keep && e.kind === "owned") {
+      this.parked.set(token, e.bag.save());
+      this.parkedRefit.delete(token);
+    }
     this.scopes.delete(token);
     this.rev++;
     return this;
@@ -494,9 +545,36 @@ export class ScopeRegistry {
    * engine's alone.
    */
   discardParked(prefix?: string): this {
-    if (prefix === undefined) this.parked.clear();
-    else for (const key of [...this.parked.keys()]) if (key.startsWith(prefix)) this.parked.delete(key);
+    if (prefix === undefined) { this.parked.clear(); this.parkedRefit.clear(); }
+    else {
+      for (const key of [...this.parked.keys()]) {
+        if (key.startsWith(prefix)) { this.parked.delete(key); this.parkedRefit.delete(key); }
+      }
+    }
     return this;
+  }
+
+  /**
+   * The saved values refitting loads (`load(blob, { refit: true })`) have put
+   * back to their defaults since the last call, each with its scope, its name
+   * and what the save held, in the order they were met; the list is emptied.
+   * An engine reports these as a load's drifted values. With `only`, it takes
+   * the misfits of the scopes `only` accepts (its own keys), in order, and
+   * leaves the rest for their owners: one registry serves several engines.
+   */
+  takeMisfits(only?: (scope: string) => boolean): LoadMisfit[] {
+    if (!only) {
+      const taken = this.misfits;
+      this.misfits = [];
+      return taken;
+    }
+    const taken = this.misfits.filter((m) => only(m.scope));
+    this.misfits = this.misfits.filter((m) => !only(m.scope));
+    return taken;
+  }
+
+  private note(scope: string, found: BagMisfit[]): void {
+    for (const m of found) this.misfits.push({ scope, name: m.name, value: m.value });
   }
 
   /** An owned scope's bag (subscribe, audit, rows live there). */
@@ -706,11 +784,15 @@ export class ScopeRegistry {
    * Changed in 0.7.0: sections for unregistered keys used to be dropped.
    */
   load(blob: Record<string, Record<string, ScalarValue>>, opts?: LoadOptions): void {
-    if (!opts?.keepParked) this.parked.clear();
+    if (!opts?.keepParked) { this.parked.clear(); this.parkedRefit.clear(); }
+    const refit = opts?.refit === true;
     for (const [token, vals] of Object.entries(blob)) {
       const e = this.scopes.get(token);
-      if (e?.kind === "owned") e.bag.load(vals);
-      else if (!e) this.parked.set(token, structuredClone(vals));
+      if (e?.kind === "owned") this.note(token, e.bag.load(vals, { refit }));
+      else if (!e) {
+        this.parked.set(token, structuredClone(vals));
+        if (refit) this.parkedRefit.add(token); else this.parkedRefit.delete(token);
+      }
     }
   }
 
@@ -773,12 +855,17 @@ function normOf(e: Entry): (name: string) => string {
  *  `stages` fits, whatever the caller calls its declaration.
  *
  *  A quality seeds at the FIRST rung of its ladder: the ladder's start is the story's start. */
-export function defaultFor(d: Pick<ScopeDeclaration, "type" | "default" | "values" | "stages">): ScalarValue {
+export function defaultFor(d: {
+  readonly type: string; readonly default?: ScalarValue; readonly values?: readonly string[]; readonly stages?: readonly string[];
+}): ScalarValue {
   if (d.default !== undefined) return d.default;
   switch (d.type) {
     case "boolean": return false;
     case "number": return 0;
-    case "string": return "";
+    // A property's `string`, and a field's `text` and `multiline` (the family's field types).
+    case "string":
+    case "text":
+    case "multiline": return "";
     case "enum": return d.values?.[0] ?? "";
     case "flags": return [];
     // A quality starts at the first rung of its ladder.

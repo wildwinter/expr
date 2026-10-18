@@ -170,6 +170,15 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
         };
     }
 
+    /** A saved value a refitting load put back to its default: where it was,
+     *  and what the save held. */
+    struct LoadMisfit
+    {
+        std::string scope;
+        std::string name;
+        ExprValue value;
+    };
+
     class ScopeRegistry
     {
     public:
@@ -231,8 +240,9 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
             rev_++;
             if (const auto* waiting = parked_.get(token))
             {
-                bag->load(*waiting);
+                note(token, bag->load(*waiting, parkedRefit_.get(token) != nullptr));
                 parked_.remove(token);
+                parkedRefit_.remove(token);
             }
             return *this;
         }
@@ -246,7 +256,11 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
         {
             const Entry* e = scopes_.get(token);
             if (!e) throw RegistryError("unknown scope '@" + token + "'");
-            if (keep && e->kind == Entry::Owned) parked_.set(token, e->bag->save());
+            if (keep && e->kind == Entry::Owned)
+            {
+                parked_.set(token, e->bag->save());
+                parkedRefit_.remove(token);
+            }
             scopes_.remove(token);
             rev_++;
             return *this;
@@ -263,13 +277,38 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
             if (!prefix.has_value())
             {
                 parked_.clear();
+                parkedRefit_.clear();
                 return *this;
             }
             for (const std::string& key : parked_.keys())
             {
-                if (key.compare(0, prefix->size(), *prefix) == 0) parked_.remove(key);
+                if (key.compare(0, prefix->size(), *prefix) == 0)
+                {
+                    parked_.remove(key);
+                    parkedRefit_.remove(key);
+                }
             }
             return *this;
+        }
+
+        /** The saved values refitting loads (load with refit) have put back to
+         *  their defaults since the last call, each with its scope, its name and
+         *  what the save held, in the order they were met; the list is emptied.
+         *  An engine reports these as a load's drifted values. With `only`, it
+         *  takes the misfits of the scopes `only` accepts (its own keys) and
+         *  leaves the rest for their owners. */
+        std::vector<LoadMisfit> takeMisfits(const std::function<bool(const std::string&)>& only = nullptr)
+        {
+            std::vector<LoadMisfit> taken;
+            if (!only)
+            {
+                taken.swap(misfits_);
+                return taken;
+            }
+            std::vector<LoadMisfit> kept;
+            for (const LoadMisfit& m : misfits_) (only(m.scope) ? taken : kept).push_back(m);
+            misfits_.swap(kept);
+            return taken;
         }
 
         /** An owned scope's bag (subscribe, audit, rows live there). */
@@ -476,15 +515,30 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
          *  restore; pass keepParked to keep it instead, adding this blob's
          *  unclaimed sections (a section for the same key replaces the parked
          *  one), for an engine moving an older save's values into a registry
-         *  the game has already loaded. */
-        void load(const SaveBlob& blob, bool keepParked = false)
+         *  the game has already loaded.
+         *
+         *  With refit, each saved value that no longer fits its declaration goes
+         *  back to the default and is reported (takeMisfits): a save from before
+         *  a stage, an enum value or a flag was deleted. A section parked for a
+         *  key nobody has registered keeps the option, and is refitted when that
+         *  key is claimed. */
+        void load(const SaveBlob& blob, bool keepParked = false, bool refit = false)
         {
-            if (!keepParked) parked_.clear();
+            if (!keepParked)
+            {
+                parked_.clear();
+                parkedRefit_.clear();
+            }
             for (const auto& pair : blob)
             {
                 const Entry* e = scopes_.get(pair.first);
-                if (e && e->kind == Entry::Owned) e->bag->load(pair.second);
-                else if (!e) parked_.set(pair.first, pair.second);
+                if (e && e->kind == Entry::Owned) note(pair.first, e->bag->load(pair.second, refit));
+                else if (!e)
+                {
+                    parked_.set(pair.first, pair.second);
+                    if (refit) parkedRefit_.set(pair.first, true);
+                    else parkedRefit_.remove(pair.first);
+                }
             }
         }
 
@@ -666,8 +720,17 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
         }
 
         OrderedMap<std::string, Entry> scopes_;
+        void note(const std::string& scope, const std::vector<BagMisfit>& found)
+        {
+            for (const BagMisfit& m : found) misfits_.push_back(LoadMisfit{scope, m.name, m.value});
+        }
+
         /** Values loaded for keys nobody has registered yet, waiting to be claimed. */
         SaveBlob parked_;
+        /** The parked keys whose load asked for a refit, applied when they are claimed. */
+        OrderedMap<std::string, bool> parkedRefit_;
+        /** What refitting loads have put back since the last takeMisfits. */
+        std::vector<LoadMisfit> misfits_;
         int rev_ = 0;
     };
 }}} // namespace wildwinter::expr

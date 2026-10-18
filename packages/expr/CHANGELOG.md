@@ -1,5 +1,40 @@
 # @wildwinter/expr
 
+## 0.6.0
+
+Qualities' shared logic, moved here from both product families so it exists once (the
+qualities brief of 2026-10-18; patterkit design/proposals/patter-qualities.md).
+
+### Added
+
+- **`valueFits(decl, value, { noneChosen? })`**: does a value fit its declaration? The type
+  first (`text`, `multiline` and `string` are strings), then the declaration's vocabulary: an
+  enum's values, a flags value's allowed flags, a quality's stages. A declaration listing no
+  vocabulary constrains nothing past its type, and a type this build does not know constrains
+  nothing. An enum may hold `""` (none chosen) only with `noneChosen`. For compilers checking
+  a field's value or a given default, and for loads checking an older save. The native
+  kernel has the same check (C# `ValueFit.Fits`, C++ `ValueFits`, GDScript `value_fits`),
+  pinned by the registry corpus.
+- **`validateAssignment(target, value, schema, dialect)`**: an effect's value assigned to a
+  quality must be one of its stages (`unknown-stage`) and, when it is a quality's own value or
+  `advance` of one, of the same ladder (`operand-type-mismatch`). A name off the ladder used to
+  compile, then fail at the first gate that ordered the quality.
+- **`renameStageInExpression` and `stageGateCount`**, for editors: a stage literal renamed
+  wherever an expression compares it with the quality (or assigns it, whole), keeping the
+  author's text where that says exactly the rewritten expression, quoted or bare; and the
+  number of gates that order the quality, which a reorder changes. Both families had a copy,
+  already drifting (one handled several quoted literals, the other bare words); this one does
+  both.
+- **`stagesEitherSide(ladder, stage)`**: the stage with its neighbours, in ladder order, for a
+  coverage driver proposing both sides of a gate and an editor offering the nearest stages;
+  the whole ladder for a name that is not a stage, which has no position.
+
+### Fixed
+
+- **`unparse` never writes a keyword bare.** A string literal `true`, `false`, `and`, `or` or
+  `not` was written without quotes, and read back as the keyword. (`@wildwinter/expr-editor`'s
+  value wizard had the same slip, fixed with it.)
+
 ## 0.5.2
 
 ### Added

@@ -646,7 +646,49 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__ { na
                     {
                         const ScopeRegistry::SaveBlob blob = ToBlob(Need(step, "blob"));
                         const bool keepParked = Flag(step, "keepParked");
-                        attempt(at, std::nullopt, [&]() { r.load(blob, keepParked); });
+                        const bool refit = Flag(step, "refit");
+                        attempt(at, std::nullopt, [&]() { r.load(blob, keepParked, refit); });
+                    }
+                    else if (op == "misfits")
+                    {
+                        Json got = Json::MakeArray();
+                        std::vector<std::string> only;
+                        const Json* onlyJ = step.find("only");
+                        if (onlyJ) for (const auto& o : onlyJ->arr) only.push_back(o.str);
+                        std::function<bool(const std::string&)> pick;
+                        if (onlyJ) pick = [only](const std::string& scope)
+                        {
+                            for (const std::string& k : only) if (scope == k || scope.rfind(k + "/", 0) == 0) return true;
+                            return false;
+                        };
+                        for (const LoadMisfit& m : r.takeMisfits(pick))
+                        {
+                            Json row = Json::MakeObject();
+                            row.obj.emplace_back("scope", Json::MakeString(m.scope));
+                            row.obj.emplace_back("name", Json::MakeString(m.name));
+                            row.obj.emplace_back("value", ToJson(m.value));
+                            got.arr.push_back(std::move(row));
+                        }
+                        const Json& expect = Need(step, "expect");
+                        if (!Same(got, expect)) fails.push_back(at + ": misfits " + Show(got) + ", expected " + Show(expect));
+                    }
+                    else if (op == "fits")
+                    {
+                        const ScopeDeclaration decl = ScopeRegistry::ReadSpecDeclaration<Json>(Need(step, "decl"));
+                        const bool got = ValueFits(decl, ToValue(Need(step, "value")), Flag(step, "noneChosen"));
+                        const bool expect = Need(step, "expect").b;
+                        if (got != expect)
+                        {
+                            fails.push_back(at + ": " + Show(Need(step, "value")) + " fits " + decl.type + " is "
+                                + (got ? "true" : "false") + ", expected " + (expect ? "true" : "false"));
+                        }
+                    }
+                    else if (op == "default")
+                    {
+                        const ScopeDeclaration decl = ScopeRegistry::ReadSpecDeclaration<Json>(Need(step, "decl"));
+                        const Json got = ToJson(decl.defaultOrTypeDefault());
+                        const Json& expect = Need(step, "expect");
+                        if (!Same(got, expect)) fails.push_back(at + ": " + decl.type + " defaults to " + Show(got) + ", expected " + Show(expect));
                     }
                     else if (op == "discardParked")
                     {
@@ -805,7 +847,7 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__ { na
     };
 
     /** The corpus version this runner understands. */
-    constexpr int REGISTRY_CORPUS_VERSION = 2;   // 2: listeners (listen, heard) and a case's `needs`
+    constexpr int REGISTRY_CORPUS_VERSION = 3;   // 2: listeners (listen, heard) and a case's `needs`; 3: fits, default, refit and misfits
 
     /** Run the registry corpus at `path`. A corpus that is missing, unreadable,
      *  empty or of a version this runner does not know is a FAILURE, never a

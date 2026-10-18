@@ -40,6 +40,8 @@ interface Token {
   kind: TokKind;
   value: string;
   pos: number;
+  /** Where the token's text ends (exclusive): set for string literals and identifiers. */
+  end?: number;
 }
 
 const KEYWORDS: Record<string, TokKind> = {
@@ -58,6 +60,19 @@ const KEYWORDS: Record<string, TokKind> = {
  * means there is nothing to keep in step.
  */
 export const KEYWORD_NAMES: readonly string[] = Object.freeze(Object.keys(KEYWORDS));
+
+/**
+ * The string literals and bare words in `src`, each with its text span: what an editor rewriting a literal
+ * in the author's own text may replace, and nothing inside another literal. Empty for a source that does
+ * not tokenise. Not part of the package's surface: the stage rename uses it.
+ */
+export function literalSpans(src: string): { value: string; at: number; end: number; quote?: string }[] {
+  let tokens: Token[];
+  try { tokens = tokenise(src); } catch { return []; }
+  return tokens
+    .filter((t) => (t.kind === "STR" || t.kind === "IDENT") && t.end !== undefined)
+    .map((t) => ({ value: t.value, at: t.pos, end: t.end!, ...(t.kind === "STR" ? { quote: src[t.pos]! } : {}) }));
+}
 
 function tokenise(src: string): Token[] {
   const tokens: Token[] = [];
@@ -95,7 +110,7 @@ function tokenise(src: string): Token[] {
       }
       if (i >= src.length) throw new ParseError("unterminated string literal", pos, src);
       i++; // closing quote
-      tokens.push({ kind: "STR", value: s, pos });
+      tokens.push({ kind: "STR", value: s, pos, end: i });
       continue;
     }
 
@@ -138,7 +153,7 @@ function tokenise(src: string): Token[] {
       const m = src.slice(i).match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
       const word = m![0];
       const kw = own(KEYWORDS, word);
-      tokens.push({ kind: kw ?? "IDENT", value: word, pos });
+      tokens.push({ kind: kw ?? "IDENT", value: word, pos, end: pos + word.length });
       i += word.length;
       continue;
     }

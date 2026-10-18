@@ -227,12 +227,13 @@ const families = [
     godotTest: "storylets/ports/godot/test",
     unrealTest: "storylets/ports/unreal/TestHost",
     unityTest: "storylets/ports/unity/TestHost",
-    // Defers to Patterplay: 0.14.0 is the first Patterplay carrying the kernel.
+    // Defers to Patterplay: 0.28.0 is the first Patterplay carrying a kernel the Storylet Engine can run
+    // on, since the engine calls the kernel's value check (ValueFit, 2026-10-18; 0.14.0 before it).
     unityKernel: {
       assembly: "StoryletEngine.Expr",
       package: "com.storylet-studio.storyletengine",
       product: "The Storylet Engine",
-      deferTo: [{ family: "patter", version: "0.14.0" }],
+      deferTo: [{ family: "patter", version: "0.28.0" }],
     },
     // GDScript names: the family's class_name shims, for the shared sources' messages.
     gd: { __EXPR_BAG_LABEL__: "StoryletPropertyBag", __EXPR_REGISTRY_LABEL__: "StoryletScopeRegistry" },

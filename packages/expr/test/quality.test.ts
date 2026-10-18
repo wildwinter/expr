@@ -16,7 +16,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  parse, evaluate, EvalError, parseAndValidate, qualityDeclarationProblems, stageIndex, compareStages, nextStage,
+  parse, evaluate, EvalError, parseAndValidate, validateAssignment, qualityDeclarationProblems, stageIndex, compareStages, nextStage,
 } from "../src/index.js";
 import type { Dialect, EvalContext, ExpressionSchema } from "../src/index.js";
 
@@ -188,6 +188,46 @@ describe("static validation", () => {
     const r = parseAndValidate("retreat(@deck.debt)", schema, dialect);
     expect(r.ok).toBe(false);
     expect(r.issues.map((i) => i.message).join()).toContain("retreat");
+  });
+});
+
+// An effect's value assigned to a quality (patter-qualities brief, A4): a name
+// off the ladder is a compile error, not a throw at the first gate that orders it.
+describe("validateAssignment", () => {
+  const schema: ExpressionSchema = {
+    properties: new Map([
+      ["deck", new Map([
+        ["debt", { type: "quality" as const, stages: LADDER }],
+        ["mood", { type: "quality" as const, stages: ["low", "level", "high"] }],
+        ["heat", { type: "number" as const }],
+      ])],
+    ]),
+  };
+  const debt = { scope: "deck", name: "debt" };
+  const check = (src: string, target = debt) => validateAssignment(target, parse(src, dialect), schema, dialect);
+
+  it("accepts a stage, the quality itself and advance of it", () => {
+    expect(check('"confronted"')).toEqual([]);
+    expect(check("resolved")).toEqual([]);
+    expect(check("@deck.debt")).toEqual([]);
+    expect(check("advance(@deck.debt)")).toEqual([]);
+  });
+
+  it("refuses a literal that names no stage, naming the ladder", () => {
+    const issues = check('"settled"');
+    expect(issues.map((i) => i.kind)).toEqual(["unknown-stage"]);
+    expect(issues[0]!.reference).toBe("settled");
+    expect(issues[0]!.message).toContain("troubled, confronted, resolved");
+  });
+
+  it("refuses a stage of a different quality, read or advanced", () => {
+    expect(check("@deck.mood").map((i) => i.kind)).toEqual(["operand-type-mismatch"]);
+    expect(check("advance(@deck.mood)").map((i) => i.kind)).toEqual(["operand-type-mismatch"]);
+  });
+
+  it("asks nothing of a target that is not a declared quality", () => {
+    expect(check('"settled"', { scope: "deck", name: "heat" })).toEqual([]);
+    expect(check('"settled"', { scope: "deck", name: "nobody" })).toEqual([]);
   });
 });
 

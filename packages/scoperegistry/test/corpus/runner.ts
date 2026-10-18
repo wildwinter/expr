@@ -10,9 +10,9 @@
 // divergence in a case rather than stopping at the first.
 // ---------------------------------------------------------------------------
 
-import { deserialiseAst, evaluate } from "@wildwinter/expr";
+import { deserialiseAst, evaluate, valueFits } from "@wildwinter/expr";
 import type { Dialect } from "@wildwinter/expr";
-import { PropertyBag, ScopeRegistry, readScopeRegistrySpec } from "../../src/index.js";
+import { PropertyBag, ScopeRegistry, defaultFor, readScopeRegistrySpec } from "../../src/index.js";
 import type { ScopeDeclaration } from "../../src/index.js";
 import type { Decl, RegistryCase, RowExpect, Value } from "./types.js";
 
@@ -47,7 +47,7 @@ export function same(a: unknown, b: unknown): boolean {
 
 const show = (v: unknown): string => (v === undefined ? "<unset>" : JSON.stringify(v));
 
-const decls = (ds: Decl[] | undefined): ScopeDeclaration[] => (ds ?? []).map((d) => ({ ...d }));
+const decls = (ds: Decl[] | undefined): ScopeDeclaration[] => (ds ?? []).map((d) => ({ ...d }) as ScopeDeclaration);
 
 export function runRegistryCase(c: RegistryCase): string[] {
   const fails: string[] = [];
@@ -135,8 +135,30 @@ export function runRegistryCase(c: RegistryCase): string[] {
       }
 
       case "load":
-        attempt(at, undefined, () => r.load(structuredClone(step.blob), step.keepParked ? { keepParked: true } : undefined));
+        attempt(at, undefined, () => r.load(structuredClone(step.blob), {
+          ...(step.keepParked ? { keepParked: true } : {}),
+          ...(step.refit ? { refit: true } : {}),
+        }));
         break;
+
+      case "misfits": {
+        const only = step.only;
+        const got = only ? r.takeMisfits((scope) => only.some((o) => scope === o || scope.startsWith(`${o}/`))) : r.takeMisfits();
+        if (!same(got, step.expect)) fails.push(`${at}: misfits ${show(got)}, expected ${show(step.expect)}`);
+        break;
+      }
+
+      case "fits": {
+        const got = valueFits(step.decl, step.value, step.noneChosen ? { noneChosen: true } : undefined);
+        if (got !== step.expect) fails.push(`${at}: ${show(step.value)} fits ${step.decl.type} is ${got}, expected ${step.expect}`);
+        break;
+      }
+
+      case "default": {
+        const got = defaultFor(step.decl as ScopeDeclaration);
+        if (!same(got, step.expect)) fails.push(`${at}: ${step.decl.type} defaults to ${show(got)}, expected ${show(step.expect)}`);
+        break;
+      }
 
       case "discardParked":
         r.discardParked(step.prefix);

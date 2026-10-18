@@ -9,6 +9,7 @@
 // Commits a name-form source string (`5`, `"autumn"`, `true`, `@gold`).
 // ---------------------------------------------------------------------------
 
+import { KEYWORD_NAMES } from "@wildwinter/expr";
 import { el, button, textField } from "./dom.js";
 import { flagChangeSrc } from "./ast.js";
 import { propertyPicker } from "./flat.js";
@@ -40,7 +41,9 @@ export interface ValueWizardOptions {
   onCancel?: () => void;
 }
 
-const isIdent = (v: string): boolean => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v);
+/** A bare word the parser reads back as the same string: never a keyword (`true`, `and`), which would read
+ *  back as the keyword, as `unparse` already knows. */
+const isIdent = (v: string): boolean => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) && !KEYWORD_NAMES.includes(v);
 /** An enum / bare string commits unquoted only when it's a safe identifier, else JSON-quoted. */
 const enumSrc = (v: string): string => (isIdent(v) ? v : JSON.stringify(v));
 

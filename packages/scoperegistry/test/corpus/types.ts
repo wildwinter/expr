@@ -23,7 +23,9 @@ export type Blob = Record<string, Record<string, Value>>;
 /** A declaration as the corpus carries it: the kernel's ScopeDeclaration. */
 export interface Decl {
   name: string;
-  type: PropertyType;
+  /** A property's type, or a field's (`text`, `multiline`) where a `fits` or
+   *  `default` step asks about a field declaration. */
+  type: PropertyType | "text" | "multiline";
   default?: Value;
   values?: string[];
   stages?: string[];
@@ -59,7 +61,20 @@ export type Step =
   | { op: "remove"; token: string; keep?: true; expectError?: string }
   /** Exact: keys, values, flags in order. */
   | { op: "save"; expect: Blob }
-  | { op: "load"; blob: Blob; keepParked?: boolean }
+  /** With `refit`, a saved value no longer fitting its declaration goes back to the
+   *  default and is reported (`misfits`); a parked section keeps the option for its claim. */
+  | { op: "load"; blob: Blob; keepParked?: boolean; refit?: true }
+  /** takeMisfits: the values refitting loads have put back to their defaults since the
+   *  last take, each with what the save held, in the order they were met (a section's
+   *  declarations in order); taking empties the list. */
+  | { op: "misfits"; expect: { scope: string; name: string; value: Value }[];
+      /** Take only these scopes' (a key, or any key under it: `patter` takes `patter/flow/x`); the rest stay
+       *  for whoever owns them. */
+      only?: string[] }
+  /** valueFits, outside any registry: does `value` fit `decl`? */
+  | { op: "fits"; decl: Decl; value: Value; noneChosen?: true; expect: boolean }
+  /** defaultFor, outside any registry: the value a declaration seeds. */
+  | { op: "default"; decl: Decl; expect: Value }
   | { op: "discardParked"; prefix?: string }
   /** The registry's revision counter: 0 when made, +1 per registration or removal. */
   | { op: "revision"; expect: number }
