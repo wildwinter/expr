@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  compileEntry, compiledTarget, defaultOf, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
+  compileEntry, compiledTarget, defaultOf, effectiveClaim, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
   renameStages, unresolvedProblems, valueProblems,
 } from "../src/extensions.js";
 import type { FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
@@ -41,6 +41,12 @@ describe("values", () => {
         : entryProblems(c.target as TargetDecl, c.entry, ctx);
       compare(problems, c.problems);
     });
+  }
+});
+
+describe("claims over a host's declaration", () => {
+  for (const c of load("values").claims) {
+    it(c.name, () => expect(effectiveClaim(c.claim, c.host)).toEqual(c.effective));
   }
 });
 

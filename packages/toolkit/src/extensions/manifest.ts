@@ -129,7 +129,7 @@ function targetProblems(host: HostName, kind: string, target: unknown, path: str
     if (!(SCALAR_TYPES as readonly string[]).includes(claim.type)) {
       out.push(err("claim-type", atKey(at, "type"), "a claim presents a host field, which is a scalar"));
     } else {
-      typeProblems(host, claim, at, false, out);
+      typeProblems(host, claim, at, false, out, true);
     }
     if (typeof claim.setting !== "string" || !settings.has(claim.setting)) {
       out.push(err("claim-setting", atKey(at, "setting"), `a claim names its field through a setting, and "${String(claim.setting)}" is not one of the manifest's settings`));
@@ -168,8 +168,13 @@ function fieldListProblems(host: HostName, fields: unknown, path: string, topLev
   });
 }
 
-/** A declaration's type and constraints. `named` is false for a map's or a list's bare `of`. */
-function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boolean, out: Problem[]): void {
+/**
+ * A declaration's type and constraints. `named` is false for a map's or a list's bare `of`. `claim` is true for
+ * a claim on a host field, which may leave out an enum's or flags' values and a quality's stages: the host's
+ * declaration then gives them (`effectiveClaim`), and its value help may describe values the host does not
+ * declare, which are simply unused.
+ */
+function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boolean, out: Problem[], claim = false): void {
   const typeAt = atKey(path, "type");
   if (decl.type === "string") {
     out.push(err("string-type", typeAt, "the text type is spelled \"text\""));
@@ -185,6 +190,7 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
     case "enum":
     case "flags": {
       const values = decl.values;
+      if (claim && values === undefined) break;
       if (!Array.isArray(values) || values.length === 0) {
         out.push(err("values-empty", at("values"), `an ${decl.type === "enum" ? "enum" : "flags field"} lists its values`));
         sound = false;
@@ -199,6 +205,7 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
       break;
     }
     case "quality": {
+      if (claim && decl.stages === undefined) break;
       // The kernel's one rule; the default is checked below, with every type's.
       for (const p of qualityDeclarationProblems(decl.stages)) {
         out.push(err(`quality-${p.kind === "default-not-a-stage" ? "default" : p.kind}`, at("stages"),
@@ -263,7 +270,11 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
     }
   }
   if (decl.renamedStages !== undefined) renamedStagesProblems(decl, at("renamedStages"), out);
-  if (decl.valueHelp !== undefined) {
+  if (decl.valueHelp !== undefined && claim) {
+    if (!isObject(decl.valueHelp) || !(["enum", "flags", "quality"] as const).includes(decl.type as "enum")) {
+      out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, or a quality's stages"));
+    }
+  } else if (decl.valueHelp !== undefined) {
     const vocabulary = decl.type === "quality" ? decl.stages : decl.type === "enum" || decl.type === "flags" ? decl.values : undefined;
     if (vocabulary === undefined || !isObject(decl.valueHelp)) {
       out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, or a quality's stages"));
@@ -360,4 +371,20 @@ export function claimClashes(claims: readonly ResolvedClaim[]): Problem[] {
 export function targetOf(manifest: Manifest | undefined, host: HostName, kind: string): TargetDecl | undefined {
   const kinds = manifest?.targets[host];
   return kinds !== undefined && own(kinds, kind) ? kinds[kind] : undefined;
+}
+
+/**
+ * A claim as a host draws and checks its field: the claim's label, help, value help and constraints, over the
+ * host's own declaration for what the claim leaves out (an enum's or flags' values, a quality's stages, the
+ * default). The host's vocabulary stands when the claim names none, as the host's ladder always does.
+ */
+export function effectiveClaim<C extends ClaimDecl>(
+  claim: C, hostDecl: { readonly type?: string; readonly values?: readonly string[]; readonly stages?: readonly string[]; readonly default?: unknown },
+): C {
+  return {
+    ...claim,
+    ...(claim.values === undefined && hostDecl.values !== undefined ? { values: hostDecl.values } : {}),
+    ...(claim.stages === undefined && hostDecl.stages !== undefined ? { stages: hostDecl.stages } : {}),
+    ...(claim.default === undefined && hostDecl.default !== undefined ? { default: hostDecl.default } : {}),
+  };
 }

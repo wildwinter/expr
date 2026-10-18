@@ -1,5 +1,14 @@
 # @wildwinter/toolkit
 
+## 0.2.1
+
+### Changed
+
+- **A claim may leave out an enum's or flags' `values`, and a quality's `stages`** (`./extensions`): the host
+  field's declaration is then the vocabulary, and the claim adds its label, help and value help, which may
+  describe values the host does not declare. `effectiveClaim(claim, hostDecl)` merges the two. An extension's
+  own fields still list their values.
+
 ## 0.2.0
 
 ### Added

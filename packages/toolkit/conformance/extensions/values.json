@@ -1,96 +1,741 @@
 {
   "about": "Value validation. A case gives a field declaration and a value (valueProblems), or a target and a node's entry (entryProblems), with the nodes that exist for references as kind:id. Paths are relative to the value or entry. A problem's severity is error unless the case says warning; `options` is checked where given.",
   "cases": [
-    { "name": "scalars that fit pass", "decl": { "name": "a", "type": "text" }, "value": "hello", "problems": [] },
-    { "name": "multiline is text", "decl": { "name": "a", "type": "multiline" }, "value": "one\ntwo", "problems": [] },
-    { "name": "text is not a number", "decl": { "name": "a", "type": "text" }, "value": 3,
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "a number within its range", "decl": { "name": "a", "type": "number", "min": 0, "max": 5 }, "value": 5, "problems": [] },
-    { "name": "a number below its minimum", "decl": { "name": "a", "type": "number", "min": 0 }, "value": -1,
-      "problems": [{ "path": "", "code": "below-min" }] },
-    { "name": "a number above its maximum", "decl": { "name": "a", "type": "number", "max": 5 }, "value": 6,
-      "problems": [{ "path": "", "code": "above-max" }] },
-    { "name": "a boolean is not a string", "decl": { "name": "a", "type": "boolean" }, "value": "true",
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "an enum value", "decl": { "name": "a", "type": "enum", "values": ["x", "y"] }, "value": "y", "problems": [] },
-    { "name": "an enum may be none chosen", "decl": { "name": "a", "type": "enum", "values": ["x", "y"] }, "value": "", "problems": [] },
-    { "name": "an enum value that is not listed", "decl": { "name": "a", "type": "enum", "values": ["x", "y"] }, "value": "z",
-      "problems": [{ "path": "", "code": "not-a-value", "options": ["x", "y"] }] },
-    { "name": "flags, a subset", "decl": { "name": "a", "type": "flags", "values": ["x", "y"] }, "value": ["y"], "problems": [] },
-    { "name": "flags naming something unlisted", "decl": { "name": "a", "type": "flags", "values": ["x", "y"] }, "value": ["x", "q"],
-      "problems": [{ "path": "", "code": "not-a-value", "options": ["x", "y"] }] },
-    { "name": "flags are a list", "decl": { "name": "a", "type": "flags", "values": ["x"] }, "value": "x",
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "a quality on a stage", "decl": { "name": "a", "type": "quality", "stages": ["p", "q", "r", "s"] }, "value": "q", "problems": [] },
-    { "name": "a quality may not be none chosen", "decl": { "name": "a", "type": "quality", "stages": ["p", "q"] }, "value": "",
-      "problems": [{ "path": "", "code": "not-a-stage", "options": ["p", "q"] }] },
-    { "name": "a stage that is gone offers the whole ladder", "decl": { "name": "a", "type": "quality", "stages": ["p", "q", "r", "s"] }, "value": "gone",
-      "problems": [{ "path": "", "code": "not-a-stage", "options": ["p", "q", "r", "s"] }] },
-    { "name": "a renamed stage is a warning until the project takes the new name", "decl": { "name": "a", "type": "quality", "stages": ["p", "q"], "renamedStages": { "old": "q" } }, "value": "old",
-      "problems": [{ "path": "", "code": "renamed-stage", "severity": "warning", "options": ["q"] }] },
-    { "name": "a reference to a node that exists", "decl": { "name": "a", "type": "reference", "to": "card" }, "value": "c_1",
-      "refs": ["card:c_1"], "problems": [] },
-    { "name": "a reference to a node that does not", "decl": { "name": "a", "type": "reference", "to": "card" }, "value": "c_2",
-      "refs": ["card:c_1", "deck:c_2"], "problems": [{ "path": "", "code": "no-such-node" }] },
-    { "name": "an empty reference names nothing and is allowed", "decl": { "name": "a", "type": "reference", "to": "card" }, "value": "",
-      "refs": [], "problems": [] },
-    { "name": "a reference is a string", "decl": { "name": "a", "type": "reference", "to": "card" }, "value": 7,
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "references are not checked when the host gives no nodes", "decl": { "name": "a", "type": "reference", "to": "card" }, "value": "c_9",
-      "problems": [] },
-    { "name": "a record, field by field",
-      "decl": { "name": "cue", "type": "record", "fields": [
-        { "name": "sound", "type": "text", "required": true }, { "name": "gain", "type": "number", "max": 1 }, { "name": "at", "type": "reference", "to": "tag" }
-      ] },
-      "value": { "gain": 2, "at": "v_x", "colour": "red" }, "refs": ["tag:v_y"],
+    {
+      "name": "scalars that fit pass",
+      "decl": {
+        "name": "a",
+        "type": "text"
+      },
+      "value": "hello",
+      "problems": []
+    },
+    {
+      "name": "multiline is text",
+      "decl": {
+        "name": "a",
+        "type": "multiline"
+      },
+      "value": "one\ntwo",
+      "problems": []
+    },
+    {
+      "name": "text is not a number",
+      "decl": {
+        "name": "a",
+        "type": "text"
+      },
+      "value": 3,
       "problems": [
-        { "path": "sound", "code": "required" },
-        { "path": "gain", "code": "above-max" },
-        { "path": "at", "code": "no-such-node" },
-        { "path": "colour", "code": "unknown-field", "severity": "warning" }
-      ] },
-    { "name": "a record is an object", "decl": { "name": "cue", "type": "record", "fields": [{ "name": "s", "type": "text" }] }, "value": ["s"],
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "a map keyed by reference: keys and values checked",
-      "decl": { "name": "perf", "type": "map", "key": { "type": "reference", "to": "tag" }, "of": { "type": "enum", "values": ["smile", "frown"] } },
-      "value": { "v_a": "smile", "v_gone": "frown", "v_b": "shrug" }, "refs": ["tag:v_a", "tag:v_b"],
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "a number within its range",
+      "decl": {
+        "name": "a",
+        "type": "number",
+        "min": 0,
+        "max": 5
+      },
+      "value": 5,
+      "problems": []
+    },
+    {
+      "name": "a number below its minimum",
+      "decl": {
+        "name": "a",
+        "type": "number",
+        "min": 0
+      },
+      "value": -1,
       "problems": [
-        { "path": "v_gone", "code": "no-such-node" },
-        { "path": "v_b", "code": "not-a-value", "options": ["smile", "frown"] }
-      ] },
-    { "name": "a map keyed by text takes any key, quoted in a path when it must be",
-      "decl": { "name": "m", "type": "map", "key": { "type": "text" }, "of": { "type": "number" } },
-      "value": { "first one": "1", "b": 2 },
-      "problems": [{ "path": "[\"first one\"]", "code": "wrong-type" }] },
-    { "name": "a list with ids: each id present and unique, each item checked",
-      "decl": { "name": "beats", "type": "list", "id": "id", "of": { "type": "record", "fields": [{ "name": "id", "type": "text" }, { "name": "at", "type": "number", "min": 0 }] } },
-      "value": [{ "id": "b1", "at": 1 }, { "id": "b1", "at": 2 }, { "at": -1 }],
+        {
+          "path": "",
+          "code": "below-min"
+        }
+      ]
+    },
+    {
+      "name": "a number above its maximum",
+      "decl": {
+        "name": "a",
+        "type": "number",
+        "max": 5
+      },
+      "value": 6,
       "problems": [
-        { "path": "[1].id", "code": "duplicate-id" },
-        { "path": "[2].id", "code": "missing-id" },
-        { "path": "[2].at", "code": "below-min" }
-      ] },
-    { "name": "a list without ids: each item checked",
-      "decl": { "name": "words", "type": "list", "of": { "type": "text" } },
-      "value": ["a", 2, "c"],
-      "problems": [{ "path": "[1]", "code": "wrong-type" }] },
-    { "name": "a list is an array", "decl": { "name": "words", "type": "list", "of": { "type": "text" } }, "value": "a",
-      "problems": [{ "path": "", "code": "wrong-type" }] },
-    { "name": "an entry: required fields, unknown fields, each value",
-      "target": { "fields": [
-        { "name": "loud", "type": "boolean", "required": true },
-        { "name": "tone", "type": "enum", "values": ["calm", "tense"] },
-        { "name": "note", "type": "text" }
-      ] },
-      "entry": { "tone": "wild", "tune": "calm" },
+        {
+          "path": "",
+          "code": "above-max"
+        }
+      ]
+    },
+    {
+      "name": "a boolean is not a string",
+      "decl": {
+        "name": "a",
+        "type": "boolean"
+      },
+      "value": "true",
       "problems": [
-        { "path": "loud", "code": "required" },
-        { "path": "tone", "code": "not-a-value", "options": ["calm", "tense"] },
-        { "path": "tune", "code": "unknown-field", "severity": "warning" }
-      ] },
-    { "name": "an empty entry is fine when nothing is required",
-      "target": { "fields": [{ "name": "note", "type": "text" }] }, "entry": {}, "problems": [] },
-    { "name": "an entry is an object", "target": { "fields": [{ "name": "note", "type": "text" }] }, "entry": "note",
-      "problems": [{ "path": "", "code": "wrong-type" }] }
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "an enum value",
+      "decl": {
+        "name": "a",
+        "type": "enum",
+        "values": [
+          "x",
+          "y"
+        ]
+      },
+      "value": "y",
+      "problems": []
+    },
+    {
+      "name": "an enum may be none chosen",
+      "decl": {
+        "name": "a",
+        "type": "enum",
+        "values": [
+          "x",
+          "y"
+        ]
+      },
+      "value": "",
+      "problems": []
+    },
+    {
+      "name": "an enum value that is not listed",
+      "decl": {
+        "name": "a",
+        "type": "enum",
+        "values": [
+          "x",
+          "y"
+        ]
+      },
+      "value": "z",
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-value",
+          "options": [
+            "x",
+            "y"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flags, a subset",
+      "decl": {
+        "name": "a",
+        "type": "flags",
+        "values": [
+          "x",
+          "y"
+        ]
+      },
+      "value": [
+        "y"
+      ],
+      "problems": []
+    },
+    {
+      "name": "flags naming something unlisted",
+      "decl": {
+        "name": "a",
+        "type": "flags",
+        "values": [
+          "x",
+          "y"
+        ]
+      },
+      "value": [
+        "x",
+        "q"
+      ],
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-value",
+          "options": [
+            "x",
+            "y"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flags are a list",
+      "decl": {
+        "name": "a",
+        "type": "flags",
+        "values": [
+          "x"
+        ]
+      },
+      "value": "x",
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "a quality on a stage",
+      "decl": {
+        "name": "a",
+        "type": "quality",
+        "stages": [
+          "p",
+          "q",
+          "r",
+          "s"
+        ]
+      },
+      "value": "q",
+      "problems": []
+    },
+    {
+      "name": "a quality may not be none chosen",
+      "decl": {
+        "name": "a",
+        "type": "quality",
+        "stages": [
+          "p",
+          "q"
+        ]
+      },
+      "value": "",
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-stage",
+          "options": [
+            "p",
+            "q"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a stage that is gone offers the whole ladder",
+      "decl": {
+        "name": "a",
+        "type": "quality",
+        "stages": [
+          "p",
+          "q",
+          "r",
+          "s"
+        ]
+      },
+      "value": "gone",
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-stage",
+          "options": [
+            "p",
+            "q",
+            "r",
+            "s"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a renamed stage is a warning until the project takes the new name",
+      "decl": {
+        "name": "a",
+        "type": "quality",
+        "stages": [
+          "p",
+          "q"
+        ],
+        "renamedStages": {
+          "old": "q"
+        }
+      },
+      "value": "old",
+      "problems": [
+        {
+          "path": "",
+          "code": "renamed-stage",
+          "severity": "warning",
+          "options": [
+            "q"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a reference to a node that exists",
+      "decl": {
+        "name": "a",
+        "type": "reference",
+        "to": "card"
+      },
+      "value": "c_1",
+      "refs": [
+        "card:c_1"
+      ],
+      "problems": []
+    },
+    {
+      "name": "a reference to a node that does not",
+      "decl": {
+        "name": "a",
+        "type": "reference",
+        "to": "card"
+      },
+      "value": "c_2",
+      "refs": [
+        "card:c_1",
+        "deck:c_2"
+      ],
+      "problems": [
+        {
+          "path": "",
+          "code": "no-such-node"
+        }
+      ]
+    },
+    {
+      "name": "an empty reference names nothing and is allowed",
+      "decl": {
+        "name": "a",
+        "type": "reference",
+        "to": "card"
+      },
+      "value": "",
+      "refs": [],
+      "problems": []
+    },
+    {
+      "name": "a reference is a string",
+      "decl": {
+        "name": "a",
+        "type": "reference",
+        "to": "card"
+      },
+      "value": 7,
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "references are not checked when the host gives no nodes",
+      "decl": {
+        "name": "a",
+        "type": "reference",
+        "to": "card"
+      },
+      "value": "c_9",
+      "problems": []
+    },
+    {
+      "name": "a record, field by field",
+      "decl": {
+        "name": "cue",
+        "type": "record",
+        "fields": [
+          {
+            "name": "sound",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "gain",
+            "type": "number",
+            "max": 1
+          },
+          {
+            "name": "at",
+            "type": "reference",
+            "to": "tag"
+          }
+        ]
+      },
+      "value": {
+        "gain": 2,
+        "at": "v_x",
+        "colour": "red"
+      },
+      "refs": [
+        "tag:v_y"
+      ],
+      "problems": [
+        {
+          "path": "sound",
+          "code": "required"
+        },
+        {
+          "path": "gain",
+          "code": "above-max"
+        },
+        {
+          "path": "at",
+          "code": "no-such-node"
+        },
+        {
+          "path": "colour",
+          "code": "unknown-field",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "a record is an object",
+      "decl": {
+        "name": "cue",
+        "type": "record",
+        "fields": [
+          {
+            "name": "s",
+            "type": "text"
+          }
+        ]
+      },
+      "value": [
+        "s"
+      ],
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "a map keyed by reference: keys and values checked",
+      "decl": {
+        "name": "perf",
+        "type": "map",
+        "key": {
+          "type": "reference",
+          "to": "tag"
+        },
+        "of": {
+          "type": "enum",
+          "values": [
+            "smile",
+            "frown"
+          ]
+        }
+      },
+      "value": {
+        "v_a": "smile",
+        "v_gone": "frown",
+        "v_b": "shrug"
+      },
+      "refs": [
+        "tag:v_a",
+        "tag:v_b"
+      ],
+      "problems": [
+        {
+          "path": "v_gone",
+          "code": "no-such-node"
+        },
+        {
+          "path": "v_b",
+          "code": "not-a-value",
+          "options": [
+            "smile",
+            "frown"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a map keyed by text takes any key, quoted in a path when it must be",
+      "decl": {
+        "name": "m",
+        "type": "map",
+        "key": {
+          "type": "text"
+        },
+        "of": {
+          "type": "number"
+        }
+      },
+      "value": {
+        "first one": "1",
+        "b": 2
+      },
+      "problems": [
+        {
+          "path": "[\"first one\"]",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "a list with ids: each id present and unique, each item checked",
+      "decl": {
+        "name": "beats",
+        "type": "list",
+        "id": "id",
+        "of": {
+          "type": "record",
+          "fields": [
+            {
+              "name": "id",
+              "type": "text"
+            },
+            {
+              "name": "at",
+              "type": "number",
+              "min": 0
+            }
+          ]
+        }
+      },
+      "value": [
+        {
+          "id": "b1",
+          "at": 1
+        },
+        {
+          "id": "b1",
+          "at": 2
+        },
+        {
+          "at": -1
+        }
+      ],
+      "problems": [
+        {
+          "path": "[1].id",
+          "code": "duplicate-id"
+        },
+        {
+          "path": "[2].id",
+          "code": "missing-id"
+        },
+        {
+          "path": "[2].at",
+          "code": "below-min"
+        }
+      ]
+    },
+    {
+      "name": "a list without ids: each item checked",
+      "decl": {
+        "name": "words",
+        "type": "list",
+        "of": {
+          "type": "text"
+        }
+      },
+      "value": [
+        "a",
+        2,
+        "c"
+      ],
+      "problems": [
+        {
+          "path": "[1]",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "a list is an array",
+      "decl": {
+        "name": "words",
+        "type": "list",
+        "of": {
+          "type": "text"
+        }
+      },
+      "value": "a",
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    },
+    {
+      "name": "an entry: required fields, unknown fields, each value",
+      "target": {
+        "fields": [
+          {
+            "name": "loud",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "name": "tone",
+            "type": "enum",
+            "values": [
+              "calm",
+              "tense"
+            ]
+          },
+          {
+            "name": "note",
+            "type": "text"
+          }
+        ]
+      },
+      "entry": {
+        "tone": "wild",
+        "tune": "calm"
+      },
+      "problems": [
+        {
+          "path": "loud",
+          "code": "required"
+        },
+        {
+          "path": "tone",
+          "code": "not-a-value",
+          "options": [
+            "calm",
+            "tense"
+          ]
+        },
+        {
+          "path": "tune",
+          "code": "unknown-field",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "an empty entry is fine when nothing is required",
+      "target": {
+        "fields": [
+          {
+            "name": "note",
+            "type": "text"
+          }
+        ]
+      },
+      "entry": {},
+      "problems": []
+    },
+    {
+      "name": "an entry is an object",
+      "target": {
+        "fields": [
+          {
+            "name": "note",
+            "type": "text"
+          }
+        ]
+      },
+      "entry": "note",
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "name": "a claim without values takes the host's, and keeps its own label, help and value help",
+      "claim": {
+        "setting": "moodField",
+        "type": "enum",
+        "label": "Mood",
+        "help": "How it feels.",
+        "valueHelp": {
+          "calm": "Unhurried.",
+          "wild": "Unused."
+        }
+      },
+      "host": {
+        "type": "enum",
+        "values": [
+          "calm",
+          "tense"
+        ],
+        "default": "calm"
+      },
+      "effective": {
+        "setting": "moodField",
+        "type": "enum",
+        "label": "Mood",
+        "help": "How it feels.",
+        "valueHelp": {
+          "calm": "Unhurried.",
+          "wild": "Unused."
+        },
+        "values": [
+          "calm",
+          "tense"
+        ],
+        "default": "calm"
+      }
+    },
+    {
+      "name": "a claim's own values stand",
+      "claim": {
+        "setting": "moodField",
+        "type": "enum",
+        "values": [
+          "calm"
+        ]
+      },
+      "host": {
+        "type": "enum",
+        "values": [
+          "calm",
+          "tense"
+        ]
+      },
+      "effective": {
+        "setting": "moodField",
+        "type": "enum",
+        "values": [
+          "calm"
+        ]
+      }
+    },
+    {
+      "name": "a quality claim takes the host's ladder, as a claimed field keeps the host's",
+      "claim": {
+        "setting": "actField",
+        "type": "quality",
+        "label": "Act"
+      },
+      "host": {
+        "type": "quality",
+        "stages": [
+          "setup",
+          "turn"
+        ]
+      },
+      "effective": {
+        "setting": "actField",
+        "type": "quality",
+        "label": "Act",
+        "stages": [
+          "setup",
+          "turn"
+        ]
+      }
+    }
   ]
 }

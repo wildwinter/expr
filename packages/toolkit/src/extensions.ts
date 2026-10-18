@@ -16,7 +16,7 @@ export type {
   SettingDecl, TargetDecl, TypeDecl, UnresolvedEntry, ValueType,
 } from "./extensions/types.js";
 export {
-  claimClashes, manifestProblems, parseManifest, resolvedClaims, settingValues, targetOf,
+  claimClashes, effectiveClaim, manifestProblems, parseManifest, resolvedClaims, settingValues, targetOf,
 } from "./extensions/manifest.js";
 export type { ResolvedClaim } from "./extensions/manifest.js";
 export {

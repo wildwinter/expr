@@ -79,7 +79,10 @@ data. It names the field through a setting, so a project whose field has another
 { setting: "moodField", type: "enum", values: ["calm", "tense"], label: "Mood", help: "..." }
 ```
 
-A claim is a scalar. The project names the extension's settings when it opts in (each host's project shard says
+A claim is a scalar. It may leave out an enum's or flags' `values` and a quality's `stages`: the host's
+declaration is then the vocabulary, as the host's ladder always is, and the claim adds its label, help and
+`valueHelp`, which may describe values the host does not declare (they are simply unused). `effectiveClaim(claim,
+hostDecl)` gives the declaration a host draws and checks the field with. The project names the extension's settings when it opts in (each host's project shard says
 how); a setting the project leaves out takes the setting's `default`. A claimed field keeps the host's own merge
 rule, ladder and renames. Two extensions claiming one field is an error naming both (`claimClashes`); a host
 whose field has a type other than the claim's is an error naming where (the host checks: in Storylets, per box).
