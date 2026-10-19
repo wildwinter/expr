@@ -1124,6 +1124,320 @@
           "code": "value-help"
         }
       ]
+    },
+    {
+      "name": "a pick over words, a node kind and a project list passes",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "all"
+                      ]
+                    },
+                    {
+                      "to": "cast"
+                    },
+                    {
+                      "list": "pointsOfInterest"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "pointsOfInterest",
+                  "type": "list",
+                  "of": {
+                    "type": "text"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick inside a record passes, its list checked",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "look",
+                  "type": "record",
+                  "fields": [
+                    {
+                      "name": "at",
+                      "type": "pick",
+                      "from": [
+                        {
+                          "list": "pointsOfInterest"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "pointsOfInterest",
+                  "type": "list",
+                  "of": {
+                    "type": "text"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick with no sources",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from",
+          "code": "pick-from"
+        }
+      ]
+    },
+    {
+      "name": "a pick source is one of words, to and list",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "all"
+                      ],
+                      "to": "cast"
+                    },
+                    {}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0]",
+          "code": "pick-source"
+        },
+        {
+          "path": "targets.patter.line.fields[0].from[1]",
+          "code": "pick-source"
+        }
+      ]
+    },
+    {
+      "name": "a pick's nodes are of a kind the host references",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "to": "card"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].to",
+          "code": "reference-to"
+        }
+      ]
+    },
+    {
+      "name": "a pick's words are named, once each",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "all",
+                        "",
+                        "all"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].words[1]",
+          "code": "value-empty"
+        },
+        {
+          "path": "targets.patter.line.fields[0].from[0].words[2]",
+          "code": "value-duplicate"
+        }
+      ]
+    },
+    {
+      "name": "a pick's list is a list of text on the project node",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "list": "pointsOfInterest"
+                    },
+                    {
+                      "list": "moods"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "moods",
+                  "type": "list",
+                  "of": {
+                    "type": "number"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].list",
+          "code": "pick-list"
+        },
+        {
+          "path": "targets.patter.line.fields[0].from[1].list",
+          "code": "pick-list"
+        }
+      ]
+    },
+    {
+      "name": "a pick's default must be a choice when its words are all it has",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "favour",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "speaker"
+                      ]
+                    }
+                  ],
+                  "default": "crowd"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].default",
+          "code": "default-misfit"
+        }
+      ]
     }
   ]
 }

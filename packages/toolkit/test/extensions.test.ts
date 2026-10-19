@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   compileEntry, compiledTarget, defaultOf, effectiveClaim, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
-  renameStages, unresolvedProblems, valueProblems,
+  pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems,
 } from "../src/extensions.js";
 import type { FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
 
@@ -35,11 +35,36 @@ describe("values", () => {
   for (const c of load("values").cases) {
     it(c.name, () => {
       const refs = c.refs === undefined ? undefined : new Set<string>(c.refs);
-      const ctx = refs === undefined ? {} : { exists: (kind: string, id: string) => refs.has(`${kind}:${id}`) };
+      const lists: Record<string, string[]> | undefined = c.lists;
+      const ctx = {
+        ...(refs === undefined ? {} : { exists: (kind: string, id: string) => refs.has(`${kind}:${id}`) }),
+        ...(lists === undefined ? {} : { list: (name: string) => lists[name] }),
+      };
       const problems = c.decl !== undefined
         ? valueProblems(c.decl as FieldDecl, c.value, ctx)
         : entryProblems(c.target as TargetDecl, c.entry, ctx);
       compare(problems, c.problems);
+    });
+  }
+});
+
+describe("picks", () => {
+  const file = load("values");
+  for (const c of file.picks) {
+    it(c.name, () => {
+      const src = { nodes: (kind: string) => c.nodes?.[kind] ?? [], list: (name: string) => c.lists?.[name] };
+      const from = (c.decl as FieldDecl).from ?? [];
+      expect(pickChoices(c.decl, src).map((x) => ({ value: x.value, ...(x.label !== x.value ? { label: x.label } : {}), source: from.indexOf(x.source) })))
+        .toEqual(c.choices.map((x: any) => ({ value: x.value, ...(x.label !== undefined ? { label: x.label } : {}), source: x.source })));
+      const clashes = pickClashes(c.decl, src);
+      expect(clashes.map((p) => p.options?.[0])).toEqual(c.clashes);
+      for (const p of clashes) expect(p).toMatchObject({ severity: "warning", code: "pick-clash" });
+    });
+  }
+  for (const c of file.pickLists) {
+    it(`lists: ${c.name}`, () => {
+      const list = pickLists(c.target, c.entry);
+      for (const [name, want] of Object.entries(c.lists)) expect(list(name) ?? null).toEqual(want);
     });
   }
 });

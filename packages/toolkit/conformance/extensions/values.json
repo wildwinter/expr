@@ -1,5 +1,5 @@
 {
-  "about": "Value validation. A case gives a field declaration and a value (valueProblems), or a target and a node's entry (entryProblems), with the nodes that exist for references as kind:id. Paths are relative to the value or entry. A problem's severity is error unless the case says warning; `options` is checked where given.",
+  "about": "Value validation. A case gives a field declaration and a value (valueProblems), or a target and a node's entry (entryProblems), with the nodes that exist for references as kind:id and, for a pick's list sources, the extension's project lists by name (`lists`; absent, list sources are not checked). Paths are relative to the value or entry. A problem's severity is error unless the case says warning; `options` is checked where given. `picks` gives a pick's declaration and what the host offers (`nodes` by kind, as id and label, and `lists`): every choice `pickChoices` makes, in order, and the names `pickClashes` reports.",
   "cases": [
     {
       "name": "scalars that fit pass",
@@ -650,6 +650,291 @@
           "code": "wrong-type"
         }
       ]
+    },
+    {
+      "name": "a pick: empty is automatic",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "",
+      "refs": [],
+      "lists": {
+        "pointsOfInterest": []
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: a fixed word",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "all",
+      "refs": [],
+      "lists": {
+        "pointsOfInterest": []
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: a node of its kind",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "ANNA",
+      "refs": [
+        "cast:ANNA"
+      ],
+      "lists": {
+        "pointsOfInterest": [
+          "Gate"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: an entry of a project list",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gate",
+      "refs": [
+        "cast:ANNA"
+      ],
+      "lists": {
+        "pointsOfInterest": [
+          "Gate"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: a name in no source",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gaet",
+      "refs": [
+        "cast:ANNA"
+      ],
+      "lists": {
+        "pointsOfInterest": [
+          "Gate"
+        ]
+      },
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-choice"
+        }
+      ]
+    },
+    {
+      "name": "a pick: a name in two sources is ambiguous",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gate",
+      "refs": [
+        "cast:Gate"
+      ],
+      "lists": {
+        "pointsOfInterest": [
+          "Gate"
+        ]
+      },
+      "problems": [
+        {
+          "path": "",
+          "code": "pick-ambiguous",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "a pick: a list the project leaves out holds nothing",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gate",
+      "refs": [
+        "cast:ANNA"
+      ],
+      "lists": {},
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-choice"
+        }
+      ]
+    },
+    {
+      "name": "a pick: unchecked when the host has no nodes or lists to hand",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gaet",
+      "problems": []
+    },
+    {
+      "name": "a pick of words alone is checked without the host",
+      "decl": {
+        "name": "favour",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "speaker",
+              "listener"
+            ]
+          }
+        ]
+      },
+      "value": "crowd",
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-choice"
+        }
+      ]
+    },
+    {
+      "name": "a pick holds text",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": 3,
+      "problems": [
+        {
+          "path": "",
+          "code": "wrong-type"
+        }
+      ]
     }
   ],
   "claims": [
@@ -735,6 +1020,247 @@
           "setup",
           "turn"
         ]
+      }
+    }
+  ],
+  "picks": [
+    {
+      "name": "choices in source order, each source's in its own",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "nodes": {
+        "cast": [
+          {
+            "id": "ANNA",
+            "label": "ANNA"
+          },
+          {
+            "id": "BO",
+            "label": "BO"
+          }
+        ]
+      },
+      "lists": {
+        "pointsOfInterest": [
+          "Gate",
+          "Well"
+        ]
+      },
+      "choices": [
+        {
+          "value": "all",
+          "source": 0
+        },
+        {
+          "value": "ANNA",
+          "source": 1
+        },
+        {
+          "value": "BO",
+          "source": 1
+        },
+        {
+          "value": "Gate",
+          "source": 2
+        },
+        {
+          "value": "Well",
+          "source": 2
+        }
+      ],
+      "clashes": []
+    },
+    {
+      "name": "a node's label is shown, its id held",
+      "decl": {
+        "name": "c",
+        "type": "pick",
+        "from": [
+          {
+            "to": "card"
+          }
+        ]
+      },
+      "nodes": {
+        "card": [
+          {
+            "id": "c_1",
+            "label": "The Storm"
+          }
+        ]
+      },
+      "choices": [
+        {
+          "value": "c_1",
+          "label": "The Storm",
+          "source": 0
+        }
+      ],
+      "clashes": []
+    },
+    {
+      "name": "a name in two sources is a clash, once",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "nodes": {
+        "cast": [
+          {
+            "id": "Gate",
+            "label": "Gate"
+          }
+        ]
+      },
+      "lists": {
+        "pointsOfInterest": [
+          "Gate",
+          "Gate"
+        ]
+      },
+      "choices": [
+        {
+          "value": "all",
+          "source": 0
+        },
+        {
+          "value": "Gate",
+          "source": 1
+        },
+        {
+          "value": "Gate",
+          "source": 2
+        },
+        {
+          "value": "Gate",
+          "source": 2
+        }
+      ],
+      "clashes": [
+        "Gate"
+      ]
+    },
+    {
+      "name": "empty entries are left out",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "all"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "nodes": {
+        "cast": []
+      },
+      "lists": {
+        "pointsOfInterest": [
+          "",
+          "Gate"
+        ]
+      },
+      "choices": [
+        {
+          "value": "all",
+          "source": 0
+        },
+        {
+          "value": "Gate",
+          "source": 2
+        }
+      ],
+      "clashes": []
+    }
+  ],
+  "pickLists": [
+    {
+      "name": "the project's own list, else the field's default; another type is no list",
+      "target": {
+        "fields": [
+          {
+            "name": "pointsOfInterest",
+            "type": "list",
+            "of": {
+              "type": "text"
+            }
+          },
+          {
+            "name": "moods",
+            "type": "list",
+            "of": {
+              "type": "text"
+            },
+            "default": [
+              "calm"
+            ]
+          },
+          {
+            "name": "studio",
+            "type": "text"
+          },
+          {
+            "name": "counts",
+            "type": "list",
+            "of": {
+              "type": "number"
+            }
+          }
+        ]
+      },
+      "entry": {
+        "pointsOfInterest": [
+          "Gate",
+          "Well"
+        ]
+      },
+      "lists": {
+        "pointsOfInterest": [
+          "Gate",
+          "Well"
+        ],
+        "moods": [
+          "calm"
+        ],
+        "studio": null,
+        "counts": null,
+        "nowhere": null
       }
     }
   ]

@@ -12,7 +12,7 @@ export {
   HOSTS, MANIFEST_FILE_SUFFIX, MANIFEST_SCHEMA, SCALAR_TYPES, VALUE_TYPES,
 } from "./extensions/types.js";
 export type {
-  ClaimDecl, ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, Problem, ScalarType,
+  ClaimDecl, ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
   SettingDecl, TargetDecl, TypeDecl, UnresolvedEntry, ValueType,
 } from "./extensions/types.js";
 export {
@@ -20,9 +20,10 @@ export {
 } from "./extensions/manifest.js";
 export type { ResolvedClaim } from "./extensions/manifest.js";
 export {
-  compileEntry, compiledTarget, defaultOf, entryProblems, renameStages, valueProblems,
+  compileEntry, compiledTarget, defaultOf, entryProblems, isTextList, pickChoices, pickClashes, pickLists, renameStages,
+  valueProblems,
 } from "./extensions/values.js";
-export type { StageRename, ValueContext } from "./extensions/values.js";
+export type { PickChoice, PickSources, StageRename, ValueContext } from "./extensions/values.js";
 export {
   ATOMIC, COMMENTS, SET, UNRESOLVED_KEY, extensionDataStrategy, keyedBy, mapOf, markUnresolved, mergeComments, mergeExtensionData,
   mergeTree, objectOf, orphanedEntries, stableStringify, strategyForTarget, strategyForType, unresolvedOf,

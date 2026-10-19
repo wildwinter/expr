@@ -43,7 +43,7 @@ export const SCALAR_TYPES = ["text", "multiline", "number", "boolean", "enum", "
 export type ScalarType = typeof SCALAR_TYPES[number];
 
 /** Every type a value can take. */
-export const VALUE_TYPES = [...SCALAR_TYPES, "reference", "record", "map", "list"] as const;
+export const VALUE_TYPES = [...SCALAR_TYPES, "reference", "pick", "record", "map", "list"] as const;
 export type ValueType = typeof VALUE_TYPES[number];
 
 /** A JSON value, as extension data holds it. */
@@ -64,6 +64,8 @@ export interface TypeDecl {
   readonly renamedStages?: Readonly<Record<string, string>>;
   /** A reference's node kind. */
   readonly to?: string;
+  /** A pick's sources, in the order its choices are shown. */
+  readonly from?: readonly PickSource[];
   /** A record's fields. */
   readonly fields?: readonly FieldDecl[];
   /** A map's key. */
@@ -80,6 +82,15 @@ export interface TypeDecl {
   /** Optional in source: the type's own default when absent (`defaultOf`). */
   readonly default?: unknown;
 }
+
+/**
+ * Where a pick's choices come from: fixed words, the nodes of a reference kind (by id, as a reference holds
+ * them), or a list of text on the extension's own project node, by that field's name.
+ */
+export type PickSource =
+  | { readonly words: readonly string[] }
+  | { readonly to: string }
+  | { readonly list: string };
 
 /** A named field: a target's, or a record's. */
 export interface FieldDecl extends TypeDecl {

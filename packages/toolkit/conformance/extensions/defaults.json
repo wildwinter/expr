@@ -11,6 +11,7 @@
     { "name": "flags: none", "decl": { "name": "a", "type": "flags", "values": ["x"] }, "default": [] },
     { "name": "quality: the first stage", "decl": { "name": "a", "type": "quality", "stages": ["p", "q"] }, "default": "p" },
     { "name": "reference: none", "decl": { "name": "a", "type": "reference", "to": "card" }, "default": "" },
+    { "name": "pick: automatic", "decl": { "name": "a", "type": "pick", "from": [{ "words": ["all"] }, { "to": "cast" }] }, "default": "" },
     { "name": "record: each field's default", "decl": { "name": "a", "type": "record", "fields": [
       { "name": "s", "type": "text" }, { "name": "n", "type": "number", "default": 2 }, { "name": "q", "type": "quality", "stages": ["p", "q"] }
     ] }, "default": { "n": 2, "q": "p", "s": "" } },

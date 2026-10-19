@@ -1,5 +1,17 @@
 # @wildwinter/toolkit
 
+## Unreleased
+
+### Added
+
+- **A `pick` value type** (`./extensions`): one choice from the sources a manifest names in `from`, in order:
+  fixed `words`, the nodes of a reference kind (`to`), and a list of text on the extension's own project node
+  (`list`). The value is text; empty is automatic. The manifest check holds each source to its shape and each
+  `list` to a list of text on the project target. `valueProblems` reports a value no source holds
+  (`not-a-choice`) and one two sources hold (`pick-ambiguous`, a warning), given the host's lists in the new
+  `ValueContext.list`. `pickChoices` lists the choices for an editor, `pickClashes` reports each name two sources
+  hold once for the project, and `pickLists` reads the lists off the project entry.
+
 ## 0.2.4
 
 ### Added

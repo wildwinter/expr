@@ -12,13 +12,16 @@
 import { stagesEitherSide, valueFits } from "@wildwinter/expr";
 import { defaultFor } from "@wildwinter/scoperegistry";
 import { atIndex, atKey, isObject, own } from "./path.js";
-import type { FieldDecl, Problem, TargetDecl, TypeDecl } from "./types.js";
+import type { FieldDecl, PickSource, Problem, TargetDecl, TypeDecl } from "./types.js";
 
-/** What the host knows about its nodes, for references. */
+/** What the host knows about its nodes, for references, and about the extension's project lists, for picks. */
 export interface ValueContext {
   /** Does a node of `kind` with `id` exist? Absent, references are not checked
    *  (a host checking a manifest's default, say, has no nodes to hand). */
   readonly exists?: (kind: string, id: string) => boolean;
+  /** The entries of a list of text on the extension's own project node, by field name (`pickLists`), for a
+   *  pick's `list` source. Absent, list sources are not checked. */
+  readonly list?: (name: string) => readonly string[] | undefined;
 }
 
 const typeWord = (v: unknown): string =>
@@ -85,6 +88,19 @@ export function valueProblems(decl: TypeDecl, value: unknown, ctx: ValueContext 
         out.push(err("no-such-node", path, `${where(path)} names ${decl.to} "${value}", which does not exist`));
       }
       break;
+    case "pick": {
+      if (typeof value !== "string") { wrong("one of its choices, as text"); break; }
+      if (value === "") break;   // automatic
+      const sources = decl.from ?? [];
+      const holding = sources.filter((s) => sourceHolds(s, value, ctx) === true);
+      if (holding.length > 1) {
+        out.push({ severity: "warning", code: "pick-ambiguous", path,
+          message: `${where(path)} is "${value}", which is ${holding.map(sourceWord).join(" and ")}` });
+      } else if (holding.length === 0 && sources.every((s) => sourceHolds(s, value, ctx) !== undefined)) {
+        out.push(err("not-a-choice", path, `${where(path)} is "${value}", which is not one of its choices`));
+      }
+      break;
+    }
     case "record":
       if (!isObject(value)) { wrong("an object"); break; }
       out.push(...fieldsProblems(decl.fields ?? [], value, ctx, path));
@@ -160,6 +176,97 @@ export function entryProblems(target: TargetDecl, entry: unknown, ctx: ValueCont
   return fieldsProblems(target.fields ?? [], entry, ctx, path);
 }
 
+// --- picks ----------------------------------------------------------------------
+
+/** Does one source hold `value`? Undefined when the context can't say (no nodes or lists to hand). */
+function sourceHolds(source: PickSource, value: string, ctx: ValueContext): boolean | undefined {
+  if ("words" in source) return Array.isArray(source.words) && source.words.includes(value);
+  if ("to" in source) return ctx.exists === undefined ? undefined : ctx.exists(source.to, value);
+  if ("list" in source) return ctx.list === undefined ? undefined : (ctx.list(source.list) ?? []).includes(value);
+  return false;
+}
+
+/** A source in words, for a message: "a fixed word", "a cast member", "an entry of the list "moods"". */
+function sourceWord(source: PickSource): string {
+  if ("words" in source) return "a fixed word";
+  if ("to" in source) return source.to === "cast" ? "a cast member" : `a ${source.to}`;
+  return `an entry of the list "${source.list}"`;
+}
+
+/** What a host offers a pick: the nodes of a reference kind, and the extension's project lists. */
+export interface PickSources {
+  /** The nodes of `kind`, by id, with the name the author knows each by (the id when absent). */
+  readonly nodes?: (kind: string) => readonly { readonly id: string; readonly label?: string }[];
+  /** As `ValueContext.list`. */
+  readonly list?: (name: string) => readonly string[] | undefined;
+}
+
+/** One choice of a pick: the text a value holds, the name it is shown by, and where it comes from. */
+export interface PickChoice {
+  readonly value: string;
+  readonly label: string;
+  readonly source: PickSource;
+}
+
+/**
+ * Every choice a pick offers, source by source in its declared order, each source's own in its order. A name
+ * in two sources appears under each (`pickClashes` reports it); an empty entry is left out, as empty means
+ * automatic.
+ */
+export function pickChoices(decl: TypeDecl, src: PickSources): PickChoice[] {
+  const out: PickChoice[] = [];
+  for (const source of decl.from ?? []) {
+    if ("words" in source) {
+      for (const w of source.words ?? []) if (typeof w === "string" && w !== "") out.push({ value: w, label: w, source });
+    } else if ("to" in source) {
+      for (const n of src.nodes?.(source.to) ?? []) if (n.id !== "") out.push({ value: n.id, label: n.label ?? n.id, source });
+    } else if ("list" in source) {
+      for (const e of src.list?.(source.list) ?? []) if (e !== "") out.push({ value: e, label: e, source });
+    }
+  }
+  return out;
+}
+
+/**
+ * A pick's names that more than one of its sources holds (a character and a point of interest both called
+ * Gate): a warning each, once, for the project; each value naming one has its own from `valueProblems`.
+ */
+export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Problem[] {
+  const by = new Map<string, PickSource[]>();
+  for (const c of pickChoices(decl, src)) {
+    const held = by.get(c.value) ?? [];
+    if (!held.includes(c.source)) held.push(c.source);
+    by.set(c.value, held);
+  }
+  const out: Problem[] = [];
+  for (const [name, sources] of by) {
+    if (sources.length < 2) continue;
+    out.push({ severity: "warning", code: "pick-clash", path, options: [name],
+      message: `"${name}" is ${sources.map(sourceWord).join(" and ")}, so a value naming it is ambiguous` });
+  }
+  return out;
+}
+
+/**
+ * The lists of text a pick's `list` sources name, read off the extension's project entry: each a list field of
+ * the extension's `project` target holding text, the entry's own value else the field's default. Undefined for a
+ * name that is no such field.
+ */
+export function pickLists(projectTarget: TargetDecl | undefined, projectEntry: Readonly<Record<string, unknown>> | undefined): (name: string) => readonly string[] | undefined {
+  return (name) => {
+    const field = (projectTarget?.fields ?? []).find((f) => f.name === name);
+    if (field === undefined || !isTextList(field)) return undefined;
+    const held = projectEntry !== undefined && own(projectEntry, name) ? projectEntry[name] : undefined;
+    const value = Array.isArray(held) ? held : defaultOf(field);
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  };
+}
+
+/** A list without ids holding text: what a pick's `list` source names. */
+export function isTextList(decl: TypeDecl): boolean {
+  return decl.type === "list" && decl.id === undefined && decl.of?.type === "text";
+}
+
 // --- defaults -------------------------------------------------------------------
 
 /**
@@ -172,6 +279,7 @@ export function defaultOf(decl: TypeDecl): unknown {
   if (decl.default !== undefined) return decl.default;
   switch (decl.type) {
     case "reference": return "";
+    case "pick": return "";
     case "record": return Object.fromEntries((decl.fields ?? []).map((f) => [f.name, defaultOf(f)]));
     case "map": return {};
     case "list": return [];

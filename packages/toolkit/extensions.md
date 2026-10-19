@@ -98,6 +98,7 @@ whose field has a type other than the claim's is an error naming where (the host
 | `flags` | A set of `values` | `[]` | As a set, value by value |
 | `quality` | One stage of `stages` (at least two, none empty, none twice) | The first stage | Three-way |
 | `reference` | The id of a node of the kind named by `to` | `""` | Three-way; validated to exist |
+| `pick` | One choice from the sources in `from` (below), as text, or `""` (automatic) | `""` | Three-way; validated against its sources |
 | `record` | Named `fields`, each a field declaration | Each field's default | Field by field |
 | `map` | Entries keyed by `key` (`{ type: "text" }` or `{ type: "reference", to }`), each of type `of` | `{}` | Key by key, then by the value's own type |
 | `list` with `id` | Records, each carrying the text field named by `id`, unique in the list | `[]` | Union by id, each item by its own type; order kept |
@@ -112,6 +113,32 @@ sparse: "the node sets nothing" is told apart from "the node sets the default".
 A value that does not fit is reported by `valueProblems`, through the kernel's `valueFits`. A quality value that
 names no stage carries the stages either side of it as `options` (the kernel's `stagesEitherSide`, the whole
 ladder for a stage that is gone).
+
+### Picks
+
+A pick is a single choice whose choices come from sources the manifest names, in the order they're shown:
+
+```json5
+{ name: "to", type: "pick", from: [{ words: ["all"] }, { to: "cast" }, { list: "pointsOfInterest" }] }
+```
+
+- `words`: fixed words, named once each.
+- `to`: the nodes of a reference kind (the table above), held by id as a reference holds them.
+- `list`: a list of text (`{ type: "list", of: { type: "text" } }`, no `id`) on the extension's own `project`
+  target, by that field's name; the project node's value, else the field's default (`pickLists`).
+
+Empty is automatic: no word for it is stored, and an editor shows it as "auto". A pick isn't an `enum` whose values
+change: an enum's values are fixed and checked against the manifest, a pick's are the project's.
+
+`valueProblems` reports a value no source holds (`not-a-choice`, an error), given the host's nodes (`exists`) and
+lists (`list`) in its context; a source it can't see is not checked, so a value is reported missing only when every
+source can say. A value two sources hold is ambiguous (`pick-ambiguous`, a warning), and `pickClashes` reports each
+such name once for the project (`pick-clash`). `pickChoices` lists the choices, source by source, for an editor to
+draw.
+
+A host that renames a node of a `to` source rewrites the values naming it, as it rewrites references. A renamed
+entry of a project list isn't followed: a list of text can't tell a rename from a removal and an addition, so a value
+naming the old entry is reported missing.
 
 ### Stage renames
 
@@ -189,7 +216,7 @@ This covers every shard of a format, not only extension shards.
 ## Conformance
 
 `conformance/extensions/*.json` are the contract: hand-written cases for manifest validation, value validation,
-defaults, stage renames and the merge, with their expectations. `test/extensions.test.ts` runs them. A host that
+defaults, stage renames, picks and the merge, with their expectations. `test/extensions.test.ts` runs them. A host that
 reimplements any part runs the same files.
 
 This entry needs `@wildwinter/expr` and `@wildwinter/scoperegistry` (the kernel's value and ladder rules, and
