@@ -1,5 +1,16 @@
 # @wildwinter/toolkit
 
+## 0.2.2
+
+### Added
+
+- **Comment threads merge message by message** (`./extensions`): `mergeComments(base, ours, theirs)`, and the
+  `comments` strategy (`COMMENTS`) for `mergeTree`, lifted from Patter's merge so both families take one rule.
+  Two replies to one thread both land, oldest first; a withdrawn message stays withdrawn, and one a side removed
+  outright, or lost with its thread, counts as withdrawn by that side; one message edited two ways is a clash.
+  A thread's own fields (anchor, marker, `resolved`) merge one by one, and a thread with nothing readable left
+  goes. Threads come back oldest first.
+
 ## 0.2.1
 
 ### Changed

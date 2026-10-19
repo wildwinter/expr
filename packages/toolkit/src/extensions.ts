@@ -24,9 +24,9 @@ export {
 } from "./extensions/values.js";
 export type { StageRename, ValueContext } from "./extensions/values.js";
 export {
-  ATOMIC, SET, UNRESOLVED_KEY, extensionDataStrategy, keyedBy, mapOf, markUnresolved, mergeExtensionData, mergeTree,
-  objectOf, orphanedEntries, stableStringify, strategyForTarget, strategyForType, unresolvedOf, unresolvedProblems,
-  withoutMark,
+  ATOMIC, COMMENTS, SET, UNRESOLVED_KEY, extensionDataStrategy, keyedBy, mapOf, markUnresolved, mergeComments, mergeExtensionData,
+  mergeTree, objectOf, orphanedEntries, stableStringify, strategyForTarget, strategyForType, unresolvedOf,
+  unresolvedProblems, withoutMark,
 } from "./extensions/merge.js";
 export type { Conflict, DataMergeResult, MergeWarning, Strategy, TreeMergeOptions, TreeMergeResult } from "./extensions/merge.js";
 export { atIndex, atKey } from "./extensions/path.js";

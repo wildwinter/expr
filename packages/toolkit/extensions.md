@@ -160,7 +160,7 @@ manifest from the working tree.
 
 ### The engine
 
-`mergeTree(strategy, base, ours, theirs)` is the three-way merge both formats' shards use, a tree of five
+`mergeTree(strategy, base, ours, theirs)` is the three-way merge both formats' shards use, a tree of six
 behaviours (lifted from the Storylets format's strategy table):
 
 - `atomic`: one value, classic three-way.
@@ -170,6 +170,11 @@ behaviours (lifted from the Storylets format's strategy table):
   twice with different content are clashes. `order: "sorted"` (the default) sorts by key; `"preserve"` keeps the
   authored order, taking the side that reordered, and clashes when both did.
 - `object(fields)`: named keys get their own strategy, every other key is atomic.
+- `comments`: a list of comment threads, keyed by id, merged message by message (`mergeComments`). Messages are
+  keyed by author and timestamp and are the union of both sides', oldest first; a withdrawn message stays
+  withdrawn, and one a side removed, or lost with its thread, counts as withdrawn by that side; one message edited
+  two ways clashes. A thread's own fields merge one by one, and a thread with nothing readable left goes. Threads
+  come back oldest first.
 
 ### The unresolved mark
 

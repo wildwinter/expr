@@ -24,16 +24,20 @@ import type { ConflictKind, FieldDecl, HostName, Manifest, Problem, TargetDecl, 
  *                   sorted by key, or in the authored order with `order: "preserve"`
  *   object(fields)  named keys by their own strategy, every other key by `other`
  *                   (atomic when absent)
+ *   comments        a list of comment threads, merged message by message
+ *                   (`mergeComments`)
  */
 export type Strategy =
   | { readonly kind: "atomic" }
   | { readonly kind: "map"; readonly of: Strategy }
   | { readonly kind: "set" }
   | { readonly kind: "keyed"; readonly key: string; readonly of: Strategy; readonly order?: "sorted" | "preserve"; readonly renameWarning?: string }
-  | { readonly kind: "object"; readonly fields: Readonly<Record<string, Strategy>>; readonly other?: Strategy };
+  | { readonly kind: "object"; readonly fields: Readonly<Record<string, Strategy>>; readonly other?: Strategy }
+  | { readonly kind: "comments" };
 
 export const ATOMIC: Strategy = { kind: "atomic" };
 export const SET: Strategy = { kind: "set" };
+export const COMMENTS: Strategy = { kind: "comments" };
 export const mapOf = (of: Strategy): Strategy => ({ kind: "map", of });
 export const keyedBy = (key: string, of: Strategy, opts?: { order?: "sorted" | "preserve"; renameWarning?: string }): Strategy =>
   ({ kind: "keyed", key, of, ...(opts?.order !== undefined ? { order: opts.order } : {}),
@@ -117,7 +121,8 @@ function hasShape(spec: Strategy, v: unknown): boolean {
   switch (spec.kind) {
     case "atomic": return true;
     case "set":
-    case "keyed": return Array.isArray(v);
+    case "keyed":
+    case "comments": return Array.isArray(v);
     case "map":
     case "object": return isObject(v);
   }
@@ -158,6 +163,8 @@ function mergeValue(spec: Strategy, b: unknown, o: unknown, t: unknown, id: stri
     }
     case "keyed":
       return mergeKeyed(spec, asArr(b), o as unknown[], t as unknown[], path, ctx);
+    case "comments":
+      return mergeThreads(asArr(b), o as unknown[], t as unknown[], path, ctx);
   }
 }
 
@@ -244,6 +251,99 @@ function preservedOrder(B: string[], O: string[], T: string[], survivors: Readon
   // Survivors neither list holds in order (cannot happen for well-formed input) go last, sorted.
   for (const k of [...survivors.keys()].sort()) if (!result.includes(k)) result.push(k);
   return result;
+}
+
+// --- comment threads ---------------------------------------------------------------
+
+/**
+ * Three-way merge two lists of comment threads, the shape both families'
+ * comments share: `{ id, messages: [{ author, ts, body, deleted? }], resolved?,
+ * ...}`. Lifted from Patter's merge (patterkit design/family-parity-2026-10.md
+ * item 5), where a thread merged whole made two replies to one thread clash.
+ *
+ * - Messages are keyed by author and timestamp, and are the union of both
+ *   sides', oldest first. A withdrawn message (a tombstone: body emptied,
+ *   `deleted` set) stays withdrawn whichever side withdrew it, and a message a
+ *   side removed outright, or lost with its whole thread, counts as withdrawn
+ *   by that side. One message edited two ways is a clash that keeps ours.
+ * - A thread's other fields (its anchor, its marker, `resolved`) merge one by
+ *   one, a field changed two ways being a clash; a thread one side removed
+ *   takes the other side's.
+ * - A thread with nothing readable left goes, as the editors drop it.
+ *
+ * Threads come back oldest first, by their first message, then by id.
+ */
+export function mergeComments(base: unknown, ours: unknown, theirs: unknown, opts?: TreeMergeOptions): TreeMergeResult {
+  return mergeTree(COMMENTS, base, ours, theirs, opts);
+}
+
+type Thread = Record<string, unknown>;
+
+function mergeThreads(B: unknown[], O: unknown[], T: unknown[], path: string, ctx: Ctx): unknown[] {
+  const index = (arr: unknown[]): Map<string, Thread> => {
+    const m = new Map<string, Thread>();
+    for (const c of arr) if (isObject(c) && typeof c["id"] === "string") m.set(c["id"], c);
+    return m;
+  };
+  const Bm = index(B), Om = index(O), Tm = index(T);
+  const out: Thread[] = [];
+  for (const id of new Set([...Bm.keys(), ...Om.keys(), ...Tm.keys()])) {
+    const b = Bm.get(id), o = Om.get(id), t = Tm.get(id);
+    const here = `${path}[${id}]`;
+    if (o === undefined && t === undefined) continue;   // gone on both sides
+    // An entry with no messages anywhere (a comment from before threads) has nothing inside to merge.
+    if (![b, o, t].some((c) => Array.isArray(c?.["messages"]))) {
+      const v = o !== undefined && t !== undefined ? merge3(b, o, t, id, here, ctx)
+        : (b !== undefined && ctx.eq(o ?? t, b) ? undefined : o ?? t);
+      if (isObject(v)) out.push(v);
+      continue;
+    }
+    const messages = mergeMessages(b, o, t, id, here, ctx);
+    if (messages.length === 0 || messages.every((m) => m["deleted"] === true)) continue;
+    // The thread's own fields: one by one when both sides have it, else the side that does.
+    const fields: Thread = {};
+    if (o !== undefined && t !== undefined) {
+      const B0 = b ?? {};
+      const flag = (c: Thread, k: string): unknown => (k === "resolved" ? (c[k] === true ? true : undefined) : c[k]);
+      for (const k of new Set([...Object.keys(o), ...Object.keys(t), ...Object.keys(B0)])) {
+        if (k === "messages") continue;
+        const v = merge3(flag(B0, k), flag(o, k), flag(t, k), id, `${here}.${k}`, ctx);
+        if (v !== undefined) fields[k] = v;
+      }
+    } else {
+      for (const [k, v] of Object.entries((o ?? t)!)) if (k !== "messages") fields[k] = v;
+    }
+    out.push({ ...fields, messages });
+  }
+  const first = (c: Thread): string => {
+    const m = asArr(c["messages"])[0];
+    return isObject(m) && typeof m["ts"] === "string" ? m["ts"] : "";
+  };
+  return out.sort((x, y) => first(x).localeCompare(first(y)) || String(x["id"]).localeCompare(String(y["id"])));
+}
+
+function mergeMessages(b: Thread | undefined, o: Thread | undefined, t: Thread | undefined, id: string, here: string, ctx: Ctx): Thread[] {
+  const keyOf = (m: Thread): string => `${String(m["author"] ?? "")}|${String(m["ts"] ?? "")}`;
+  const index = (c: Thread | undefined): Map<string, Thread> => {
+    const m = new Map<string, Thread>();
+    for (const x of asArr(c?.["messages"])) if (isObject(x)) m.set(keyOf(x), x);
+    return m;
+  };
+  const Bm = index(b), Om = index(o), Tm = index(t);
+  const out: Thread[] = [];
+  for (const k of new Set([...Bm.keys(), ...Om.keys(), ...Tm.keys()])) {
+    const mb = Bm.get(k), mo = Om.get(k), mt = Tm.get(k);
+    // Withdrawn on either side, or missing from a side that had it at the base.
+    if ([mb, mo, mt].some((m) => m?.["deleted"] === true) || (mb !== undefined && (mo === undefined || mt === undefined))) {
+      out.push({ ...(mo ?? mt ?? mb)!, body: "", deleted: true });
+    } else if (mo !== undefined && mt !== undefined) {
+      out.push(merge3(mb, mo, mt, id, `${here}.messages[${k}]`, ctx) as Thread);
+    } else {
+      out.push((mo ?? mt)!);
+    }
+  }
+  const ts = (m: Thread): string => String(m["ts"] ?? "");
+  return out.sort((x, y) => ts(x).localeCompare(ts(y)) || String(x["author"] ?? "").localeCompare(String(y["author"] ?? "")));
 }
 
 // --- strategies from a manifest ---------------------------------------------------
