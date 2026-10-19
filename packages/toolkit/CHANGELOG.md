@@ -1,5 +1,16 @@
 # @wildwinter/toolkit
 
+## 0.2.3
+
+### Added
+
+- **`@wildwinter/toolkit/vcs`: version-control setup for git, Perforce, Plastic SCM and SVN**, lifted from Patter so
+  both families take one copy. `vcsConfigFiles(format, vcs, posture)` writes the `vcs-setup.md` guide, git's
+  `.gitattributes` and the system's ignore file for a format that says what its files are (`VcsFormat`);
+  `bundlePostureOf` reads back whether the compiled bundle is committed or ignored; `runMergetool` is the wrapper a
+  system with one global merge tool calls, sending the format's source to its structured merge and anything else to
+  the team's own tool. Node-only, as `./archive` is.
+
 ## 0.2.2
 
 ### Added

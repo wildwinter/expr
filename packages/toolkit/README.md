@@ -3,8 +3,8 @@
 Small shared pieces of the **authoring tooling** behind
 [Storylet Studio](https://github.com/storylet-studio) and
 [Patter](https://patterkit.com): opaque ids, a stable hash, JSON5 source parsing,
-find/replace matching, the archive guards, and (in `./extensions`) the spec and merge
-for Patter extensions and Storylet extensions.
+find/replace matching, the archive guards, version-control setup (in `./vcs`), and (in
+`./extensions`) the spec and merge for Patter extensions and Storylet extensions.
 
 **Nothing here runs in a game.** This is the editor/CLI/pipeline side. The
 runtime language lives in [`@wildwinter/expr`](../expr), and unlike that package
@@ -92,6 +92,21 @@ guard, and unpacking should refuse an entry either one rejects.
 pack **deterministic**: a fixed entry timestamp, no folder entries, no streaming.
 A pack of an unchanged project must be byte-identical to the last one, or every
 delivery churns. That is easy to leave out, and silent when you do.
+
+## Version control
+
+A separate, node-only entry point, because `runMergetool` starts the team's own merge tool:
+
+```ts
+import { VCS_KINDS, vcsConfigFiles, bundlePostureOf, runMergetool } from "@wildwinter/toolkit/vcs";
+```
+
+A format says what it is called and what its files are (`VcsFormat`: the tool, the git driver's name, the source
+extensions, the bundle, the packed document, the conflict sidecar). `vcsConfigFiles(format, vcs, posture)` is then
+everything a project is set up with for git, Perforce, Plastic SCM or SVN: the `vcs-setup.md` guide, git's
+`.gitattributes`, and the system's ignore file, with the compiled bundle committed or ignored. `bundlePostureOf`
+reads the posture back, so a switch of system keeps it. `runMergetool` is the one global merge tool Perforce,
+Plastic SCM and SVN allow: the format's source goes to its structured merge, anything else to the team's own tool.
 
 ## Licence
 

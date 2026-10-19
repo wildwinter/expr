@@ -17,7 +17,8 @@
     "zip",
     "tooling",
     "extensions",
-    "merge"
+    "merge",
+    "version-control"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -37,6 +38,11 @@
       "types": "./dist/extensions.d.ts",
       "import": "./dist/extensions.js",
       "require": "./dist/extensions.cjs"
+    },
+    "./vcs": {
+      "types": "./dist/vcs.d.ts",
+      "import": "./dist/vcs.js",
+      "require": "./dist/vcs.cjs"
     }
   },
   "files": [
