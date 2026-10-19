@@ -1,6 +1,6 @@
 # @wildwinter/toolkit
 
-## Unreleased
+## 0.2.5
 
 ### Added
 
