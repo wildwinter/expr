@@ -73,6 +73,20 @@ matcher, or `null` for an empty query. The query is **escaped**: somebody typing
 `a.b` means those three characters, not "a, anything, b". Always global, so
 every occurrence in a string is replaced rather than only the first.
 
+Find by field value, the Field tab both families' Find windows have. Each app
+walks its own project for the values; these say what a query means, so
+`mood = tense` reads the same in both:
+
+- `parseFieldQuery(query)`: `mood`, `mood = tense`, `mood != tense`,
+  `ext.field = "two words"`, or `null` when it is not a field name.
+- `fieldNameMatches(name, query)`: names compare without case.
+- `fieldValueMatches(type, value, query)`: by the field's type. Text, enum and
+  quality compare without case, flags match when the list includes the flag
+  (`= ""` is none set), numbers numerically, booleans as `true` or `false`.
+  `!=` is the opposite, and no operator matches any value. Pass the value that
+  holds, the default where the node sets none.
+- `fieldValueText(type, value)`: the value as a row shows it.
+
 ## Archive
 
 A separate, node-only entry point, because it imports `node:path`:

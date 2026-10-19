@@ -1,5 +1,14 @@
 # @wildwinter/toolkit
 
+## 0.2.4
+
+### Added
+
+- **Find by field value**: `parseFieldQuery`, `fieldNameMatches`, `fieldValueMatches` and `fieldValueText`, so the
+  Field tabs in Storyletter's and Patterpad's Find windows read `mood = tense` by one rule. A value matches by its
+  field's type (text, enum and quality without case, flags by membership, numbers numerically, booleans by word),
+  `!=` negates, and a bare field name matches any value.
+
 ## 0.2.3
 
 ### Added

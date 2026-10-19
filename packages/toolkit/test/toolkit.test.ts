@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newId, slug, fnv32, parseSource, findMatcher } from "../src/index.js";
+import { newId, slug, fnv32, parseSource, findMatcher, parseFieldQuery, fieldNameMatches, fieldValueMatches, fieldValueText } from "../src/index.js";
 import { isUnsafeEntry, escapesTarget, ARCHIVE_ENTRY_OPTS } from "../src/archive.js";
 
 describe("newId", () => {
@@ -127,5 +127,57 @@ describe("archive determinism", () => {
   });
   it("writes no folder entries, whose presence and order vary by writer", () => {
     expect(ARCHIVE_ENTRY_OPTS.createFolders).toBe(false);
+  });
+});
+
+describe("parseFieldQuery", () => {
+  it("reads a bare field, = and !=", () => {
+    expect(parseFieldQuery("Mood")).toEqual({ field: "mood" });
+    expect(parseFieldQuery(" mood = Tense ")).toEqual({ field: "mood", op: "=", value: "Tense" });
+    expect(parseFieldQuery("mood!=tense")).toEqual({ field: "mood", op: "!=", value: "tense" });
+  });
+  it("takes a dotted name, a quoted value and an empty one", () => {
+    expect(parseFieldQuery("weather.sky = \"low cloud\"")).toEqual({ field: "weather.sky", op: "=", value: "low cloud" });
+    expect(parseFieldQuery("note =")).toEqual({ field: "note", op: "=", value: "" });
+  });
+  it("is null for something that is not a field name", () => {
+    expect(parseFieldQuery("")).toBeNull();
+    expect(parseFieldQuery("@gold")).toBeNull();
+    expect(parseFieldQuery("1st = x")).toBeNull();
+    expect(parseFieldQuery("two words")).toBeNull();
+  });
+});
+
+describe("fieldValueMatches", () => {
+  const q = (s: string) => parseFieldQuery(s)!;
+  it("matches text, enum and quality without case", () => {
+    expect(fieldValueMatches("text", "Tense ", q("mood = tense"))).toBe(true);
+    expect(fieldValueMatches("string", "calm", q("mood = tense"))).toBe(false);
+    expect(fieldValueMatches("enum", "North", q("dir = north"))).toBe(true);
+    expect(fieldValueMatches("quality", "Rough", q("finish = rough"))).toBe(true);
+  });
+  it("reads flags as membership, and = \"\" as none set", () => {
+    expect(fieldValueMatches("flags", ["Hot", "loud"], q("traits = hot"))).toBe(true);
+    expect(fieldValueMatches("flags", ["loud"], q("traits = hot"))).toBe(false);
+    expect(fieldValueMatches("flags", [], q("traits ="))).toBe(true);
+  });
+  it("compares numbers numerically and booleans by word", () => {
+    expect(fieldValueMatches("number", 1, q("cost = 1.0"))).toBe(true);
+    expect(fieldValueMatches("number", 1, q("cost = one"))).toBe(false);
+    expect(fieldValueMatches("boolean", true, q("loud = TRUE"))).toBe(true);
+    expect(fieldValueMatches("boolean", false, q("loud = true"))).toBe(false);
+  });
+  it("negates with !=, and a bare field matches anything", () => {
+    expect(fieldValueMatches("text", "calm", q("mood != tense"))).toBe(true);
+    expect(fieldValueMatches("text", "tense", q("mood != tense"))).toBe(false);
+    expect(fieldValueMatches("number", 3, q("mood"))).toBe(true);
+  });
+  it("names compare without case", () => {
+    expect(fieldNameMatches("Mood", q("mood"))).toBe(true);
+  });
+  it("shows a value as text", () => {
+    expect(fieldValueText("flags", ["a", "b"])).toBe("a, b");
+    expect(fieldValueText("number", 2)).toBe("2");
+    expect(fieldValueText("text", undefined)).toBe("");
   });
 });

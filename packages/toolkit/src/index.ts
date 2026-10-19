@@ -15,7 +15,7 @@
 export { newId, slug } from "./ids.js";
 export { fnv32 } from "./hash.js";
 export { parseSource } from "./source.js";
-export { findMatcher } from "./find.js";
-export type { FindOptions } from "./find.js";
+export { findMatcher, parseFieldQuery, fieldNameMatches, fieldValueMatches, fieldValueText } from "./find.js";
+export type { FindOptions, FieldQuery } from "./find.js";
 // The archive guards are NOT here: they need `node:path`, and this entry is
 // isomorphic so a browser bundle can take it. They are `@wildwinter/toolkit/archive`.
