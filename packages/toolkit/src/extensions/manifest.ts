@@ -11,7 +11,7 @@ import { qualityDeclarationProblems } from "@wildwinter/expr";
 import { parseSource } from "../source.js";
 import { atIndex, atKey, isObject, own } from "./path.js";
 import { HOSTS, MANIFEST_SCHEMA, SCALAR_TYPES, VALUE_TYPES } from "./types.js";
-import type { ClaimDecl, FieldDecl, HostName, Manifest, Problem, SettingDecl, TargetDecl, TypeDecl } from "./types.js";
+import type { ClaimDecl, FieldDecl, HostName, Manifest, Problem, SettingDecl, TargetDecl, TypeDecl, ViewDecl } from "./types.js";
 import { isTextList, valueProblems } from "./values.js";
 
 const ID = /^[a-z][a-z0-9-]*$/;
@@ -23,7 +23,10 @@ const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "f
 const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly"]);
 const CLAIM_KEYS = new Set([...TYPE_KEYS, "setting", "label", "help", "required"]);
 const BARE_KEYS = new Set(TYPE_KEYS);
-const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "settings", "targets"]);
+const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "settings", "targets", "views", "reads"]);
+const VIEW_KEYS = new Set(["id", "name", "entry", "element", "hosts"]);
+/** A custom element name: lower case, starting with a letter, with a hyphen. */
+const ELEMENT = /^[a-z][a-z0-9._]*-[a-z0-9._-]*$/;
 
 const err = (code: string, path: string, message: string): Problem => ({ severity: "error", code, path, message });
 
@@ -51,6 +54,8 @@ export function manifestProblems(manifest: unknown): Problem[] {
   if (m["docs"] !== undefined && typeof m["docs"] !== "string") out.push(err("docs", "docs", "docs is a link, as text"));
 
   const settings = settingsProblems(m["settings"], out);
+  viewsProblems(m["views"], m["targets"], out);
+  readsProblems(m["reads"], m["id"], out);
 
   const targets = m["targets"];
   if (!isObject(targets) || Object.keys(targets).length === 0) {
@@ -139,6 +144,70 @@ function pickListProblems(kinds: Record<string, unknown>, hostPath: string, out:
     if (!isObject(target) || !Array.isArray(target["fields"])) continue;
     (target["fields"] as unknown[]).forEach((f, i) => walk(f, atIndex(atKey(atKey(hostPath, kind), "fields"), i)));
   }
+}
+
+/** A package path a view's entry may name: relative, forward slashes, no `.` or `..` segment, a `.js` file. */
+export function isViewEntry(entry: unknown): entry is string {
+  if (typeof entry !== "string" || !entry.endsWith(".js") || entry.includes("\\")) return false;
+  const parts = entry.split("/");
+  return parts.every((p) => p !== "" && p !== "." && p !== "..");
+}
+
+function viewsProblems(views: unknown, targets: unknown, out: Problem[]): void {
+  if (views === undefined) return;
+  if (!Array.isArray(views)) { out.push(err("not-a-list", "views", "views are a list")); return; }
+  const ids = new Set<string>();
+  const elements = new Set<string>();
+  const targeted = isObject(targets) ? Object.keys(targets) : [];
+  views.forEach((v: unknown, i) => {
+    const at = atIndex("views", i);
+    if (!isObject(v)) { out.push(err("not-an-object", at, "a view is an object")); return; }
+    unknownKeys(v, VIEW_KEYS, at, out);
+    const id = v["id"];
+    if (typeof id !== "string" || !ID.test(id)) out.push(err("view-id", atKey(at, "id"), "a view's id is lower case letters, digits and hyphens, starting with a letter"));
+    else if (ids.has(id)) out.push(err("view-duplicate", atKey(at, "id"), `two views are called "${id}"`));
+    else ids.add(id);
+    if (typeof v["name"] !== "string" || v["name"].trim() === "") out.push(err("view-name", atKey(at, "name"), "a view has a name, shown as its window's title"));
+    if (!isViewEntry(v["entry"])) {
+      out.push(err("view-entry", atKey(at, "entry"), "a view's entry is a .js file in the extension's package, as a relative path such as view/sheet.js"));
+    }
+    const element = v["element"];
+    if (typeof element !== "string" || !ELEMENT.test(element)) {
+      out.push(err("view-element", atKey(at, "element"), "a view's element is a custom element name: lower case, starting with a letter, with a hyphen, such as probe-view"));
+    } else if (elements.has(element)) out.push(err("view-duplicate", atKey(at, "element"), `two views define <${element}>`));
+    else elements.add(element);
+    const hosts = v["hosts"];
+    if (hosts === undefined) return;
+    if (!Array.isArray(hosts) || hosts.length === 0) { out.push(err("view-hosts", atKey(at, "hosts"), "a view's hosts are a list of at least one host")); return; }
+    hosts.forEach((h: unknown, j) => {
+      const hp = atIndex(atKey(at, "hosts"), j);
+      if (typeof h !== "string" || !own(HOSTS, h)) out.push(err("unknown-host", hp, `${JSON.stringify(h)} is not a host; a view opens in "patter" or "storylets"`));
+      else if (!targeted.includes(h)) out.push({ severity: "warning", code: "view-host-untargeted", path: hp, message: `the view opens in ${h}, but the manifest targets nothing there` });
+    });
+  });
+}
+
+function readsProblems(reads: unknown, self: unknown, out: Problem[]): void {
+  if (reads === undefined) return;
+  if (!Array.isArray(reads)) { out.push(err("not-a-list", "reads", "reads is a list of extension ids")); return; }
+  const seen = new Set<string>();
+  reads.forEach((r: unknown, i) => {
+    const at = atIndex("reads", i);
+    if (typeof r !== "string" || !ID.test(r)) out.push(err("reads-id", at, "an extension read is named by its id: lower case letters, digits and hyphens"));
+    else if (r === self) out.push({ severity: "warning", code: "reads-self", path: at, message: "an extension always reads its own data; this entry is ignored" });
+    else if (seen.has(r)) out.push(err("reads-duplicate", at, `"${r}" is listed twice`));
+    else seen.add(r);
+  });
+}
+
+/** The views a host offers from a manifest: those naming the host, or every view when it names none and the
+ *  manifest targets the host. A view that fails its checks is left out. */
+export function viewsFor(manifest: Manifest, host: HostName): ViewDecl[] {
+  const targeted = Object.keys(manifest.targets ?? {});
+  return (Array.isArray(manifest.views) ? manifest.views : []).filter((v) =>
+    isObject(v) && typeof v.id === "string" && ID.test(v.id) && typeof v.name === "string" && isViewEntry(v.entry)
+    && typeof v.element === "string" && ELEMENT.test(v.element)
+    && (v.hosts === undefined ? targeted.includes(host) : Array.isArray(v.hosts) && v.hosts.includes(host)));
 }
 
 function unknownKeys(obj: Record<string, unknown>, known: ReadonlySet<string>, path: string, out: Problem[]): void {

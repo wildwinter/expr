@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   compileEntry, compiledTarget, defaultOf, effectiveClaim, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
-  pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems,
+  isViewEntry, pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems, viewsFor,
 } from "../src/extensions.js";
 import type { FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
 
@@ -113,4 +113,24 @@ describe("merge", () => {
   for (const c of file.unresolved) {
     it(`unresolved: ${c.name}`, () => compare(unresolvedProblems(c.shard), c.problems));
   }
+});
+
+describe("viewsFor", () => {
+  const m = {
+    schema: "wildwinter/extension@0", id: "probe", name: "Probe", version: "1.0.0",
+    targets: { patter: { line: { fields: [] } } },
+    views: [
+      { id: "sheet", name: "Sheet", entry: "view/sheet.js", element: "probe-sheet" },
+      { id: "cards", name: "Cards", entry: "view/cards.js", element: "probe-cards", hosts: ["storylets"] },
+      { id: "bad", name: "Bad", entry: "../bad.js", element: "probe-bad" },
+    ],
+  } as unknown as Manifest;
+  it("offers a view with no hosts where the manifest targets, and a named host's views there", () => {
+    expect(viewsFor(m, "patter").map((v) => v.id)).toEqual(["sheet"]);
+    expect(viewsFor(m, "storylets").map((v) => v.id)).toEqual(["cards"]);
+  });
+  it("keeps entries inside the package", () => {
+    expect(isViewEntry("view/sheet.js")).toBe(true);
+    for (const e of ["../x.js", "/x.js", "view/./x.js", "view\\x.js", "x.mjs", "view//x.js"]) expect(isViewEntry(e)).toBe(false);
+  });
 });

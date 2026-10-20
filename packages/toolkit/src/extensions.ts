@@ -13,10 +13,10 @@ export {
 } from "./extensions/types.js";
 export type {
   ClaimDecl, ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
-  SettingDecl, TargetDecl, TypeDecl, UnresolvedEntry, ValueType,
+  SettingDecl, TargetDecl, TypeDecl, UnresolvedEntry, ValueType, ViewDecl,
 } from "./extensions/types.js";
 export {
-  claimClashes, effectiveClaim, manifestProblems, parseManifest, resolvedClaims, settingValues, targetOf,
+  claimClashes, effectiveClaim, isViewEntry, manifestProblems, parseManifest, resolvedClaims, settingValues, targetOf, viewsFor,
 } from "./extensions/manifest.js";
 export type { ResolvedClaim } from "./extensions/manifest.js";
 export {

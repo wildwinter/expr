@@ -136,6 +136,24 @@ export interface Manifest {
   readonly docs?: string;
   readonly settings?: readonly SettingDecl[];
   readonly targets: Readonly<Partial<Record<HostName, Readonly<Record<string, TargetDecl>>>>>;
+  /** Views the extension's installed package supplies (tier 2), each a web component a host opens in a window. */
+  readonly views?: readonly ViewDecl[];
+  /** Other extensions whose data this one's views read, by id. */
+  readonly reads?: readonly string[];
+}
+
+/** A view: a web component in the extension's installed package, opened by a host in a floating window. */
+export interface ViewDecl {
+  /** Lower case, digits and hyphens, unique within the manifest. */
+  readonly id: string;
+  /** The window's title and the menu item. */
+  readonly name: string;
+  /** The component's script, a relative path within the package, such as `view/sheet.js`. */
+  readonly entry: string;
+  /** The custom element the script defines, such as `pattershot-sheet`. */
+  readonly element: string;
+  /** The hosts that offer it; every host the manifest targets when absent. */
+  readonly hosts?: readonly HostName[];
 }
 
 /** One thing wrong, with where it is. A host words it in its own report shape. */

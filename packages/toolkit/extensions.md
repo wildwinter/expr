@@ -48,6 +48,28 @@ read the same one. It is JSON (JSON5 is read too), and is called `<id>.extension
 - **Fields** per target, in the order the editor shows them.
 - **Claims** on host fields, named through a project setting.
 
+### Views and reads
+
+A manifest can declare views: web components in the extension's installed package, each opened by a host in a
+floating window of its own, sandboxed, talking to the host only through the host API (`@wildwinter/app-shell`'s
+`view-client`). The project's copy of the manifest declares them; the code comes from the package installed on the
+machine, never from the project folder.
+
+```json5
+views: [
+  { id: "sheet", name: "Performance sheet", entry: "view/sheet.js", element: "pattershot-sheet", hosts: ["patter"] },
+],
+reads: ["patterstage"],
+```
+
+- `id`: lower case, digits and hyphens, unique among the views; `name`: the window's title and the menu item.
+- `entry`: the component's script, a relative `.js` path inside the package, with no `.` or `..` segment
+  (`isViewEntry`). `element`: the custom element it defines, lower case with a hyphen, unique among the views.
+- `hosts`: the hosts that offer the view. When absent, every host the manifest targets does; naming a host the
+  manifest targets nothing in is a warning. `viewsFor(manifest, host)` lists what a host offers.
+- `reads`: other extensions whose data the views read, by id. An extension always reads its own; naming itself is a
+  warning.
+
 ### Field declarations
 
 ```json5

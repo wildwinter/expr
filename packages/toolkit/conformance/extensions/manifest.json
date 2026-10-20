@@ -1438,6 +1438,238 @@
           "code": "default-misfit"
         }
       ]
+    },
+    {
+      "name": "views and reads pass",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "views": [
+          {
+            "id": "sheet",
+            "name": "Sheet",
+            "entry": "view/sheet.js",
+            "element": "probe-sheet"
+          },
+          {
+            "id": "cards",
+            "name": "Cards",
+            "entry": "cards.js",
+            "element": "probe-cards",
+            "hosts": [
+              "patter"
+            ]
+          }
+        ],
+        "reads": [
+          "patterstage"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "a view's shape is checked",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "views": [
+          {
+            "id": "Sheet",
+            "name": " ",
+            "entry": "../sheet.js",
+            "element": "sheet",
+            "colour": "red"
+          },
+          {
+            "id": "two",
+            "name": "Two",
+            "entry": "/abs/two.js",
+            "element": "Probe-Two",
+            "hosts": []
+          },
+          {
+            "id": "three",
+            "name": "Three",
+            "entry": "view\\three.js",
+            "element": "probe-three",
+            "hosts": [
+              "ink",
+              "storylets"
+            ]
+          },
+          {
+            "id": "three",
+            "name": "Again",
+            "entry": "view/again.mjs",
+            "element": "probe-three"
+          }
+        ]
+      },
+      "problems": [
+        {
+          "path": "views[0].colour",
+          "code": "unknown-key",
+          "severity": "warning"
+        },
+        {
+          "path": "views[0].id",
+          "code": "view-id"
+        },
+        {
+          "path": "views[0].name",
+          "code": "view-name"
+        },
+        {
+          "path": "views[0].entry",
+          "code": "view-entry"
+        },
+        {
+          "path": "views[0].element",
+          "code": "view-element"
+        },
+        {
+          "path": "views[1].entry",
+          "code": "view-entry"
+        },
+        {
+          "path": "views[1].element",
+          "code": "view-element"
+        },
+        {
+          "path": "views[1].hosts",
+          "code": "view-hosts"
+        },
+        {
+          "path": "views[2].entry",
+          "code": "view-entry"
+        },
+        {
+          "path": "views[2].hosts[0]",
+          "code": "unknown-host"
+        },
+        {
+          "path": "views[2].hosts[1]",
+          "code": "view-host-untargeted",
+          "severity": "warning"
+        },
+        {
+          "path": "views[3].id",
+          "code": "view-duplicate"
+        },
+        {
+          "path": "views[3].entry",
+          "code": "view-entry"
+        },
+        {
+          "path": "views[3].element",
+          "code": "view-duplicate"
+        }
+      ]
+    },
+    {
+      "name": "reads name other extensions, once each",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "reads": [
+          "patterstage",
+          "probe",
+          "patterstage",
+          "Bad"
+        ]
+      },
+      "problems": [
+        {
+          "path": "reads[1]",
+          "code": "reads-self",
+          "severity": "warning"
+        },
+        {
+          "path": "reads[2]",
+          "code": "reads-duplicate"
+        },
+        {
+          "path": "reads[3]",
+          "code": "reads-id"
+        }
+      ]
+    },
+    {
+      "name": "views and reads must be lists",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "views": {
+          "id": "sheet"
+        },
+        "reads": "patterstage"
+      },
+      "problems": [
+        {
+          "path": "views",
+          "code": "not-a-list"
+        },
+        {
+          "path": "reads",
+          "code": "not-a-list"
+        }
+      ]
     }
   ]
 }
