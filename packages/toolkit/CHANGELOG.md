@@ -1,5 +1,15 @@
 # @wildwinter/toolkit
 
+## 0.2.6
+
+### Added
+
+- **Views and reads in a manifest** (`./extensions`, tier 2): `views` declares the web components an extension's
+  installed package supplies, each with an `id`, a `name`, an `entry` script inside the package, the custom `element`
+  it defines, and optionally the `hosts` that offer it; `reads` names the other extensions whose data the views read.
+  The manifest check holds both to their shape. `viewsFor(manifest, host)` lists the views a host offers, and
+  `isViewEntry` keeps an entry inside its package.
+
 ## 0.2.5
 
 ### Added
