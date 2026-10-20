@@ -1,5 +1,12 @@
 # @wildwinter/toolkit
 
+## 0.2.7
+
+### Added
+
+- **Value help on a pick** (`./extensions`): a pick's `valueHelp` describes its fixed `words`, a sentence each; the
+  manifest check holds each key to one of them, since the project's lists and nodes are the project's to describe.
+
 ## 0.2.6
 
 ### Added
