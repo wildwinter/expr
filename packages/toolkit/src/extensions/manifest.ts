@@ -83,6 +83,12 @@ export function manifestProblems(manifest: unknown): Problem[] {
   return out;
 }
 
+/** A pick's fixed words, across its `words` sources: what its value help may describe. */
+function pickWords(from: unknown): string[] {
+  if (!Array.isArray(from)) return [];
+  return from.flatMap((s: unknown) => (isObject(s) && Array.isArray(s["words"]) ? s["words"].filter((w): w is string => typeof w === "string") : []));
+}
+
 /** A pick's `from`: a list of sources, each exactly one of `words`, `to` and `list`. */
 function pickSourcesSound(host: HostName, from: unknown, path: string, out: Problem[]): boolean {
   if (!Array.isArray(from) || from.length === 0) {
@@ -411,12 +417,17 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
       out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, or a quality's stages"));
     }
   } else if (decl.valueHelp !== undefined) {
-    const vocabulary = decl.type === "quality" ? decl.stages : decl.type === "enum" || decl.type === "flags" ? decl.values : undefined;
+    const vocabulary = decl.type === "quality" ? decl.stages : decl.type === "enum" || decl.type === "flags" ? decl.values
+      : decl.type === "pick" ? pickWords(decl.from) : undefined;
     if (vocabulary === undefined || !isObject(decl.valueHelp)) {
-      out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, or a quality's stages"));
+      out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, a quality's stages, or a pick's words"));
     } else {
       for (const k of Object.keys(decl.valueHelp)) {
-        if (!vocabulary.includes(k)) out.push(err("value-help", atKey(at("valueHelp"), k), `"${k}" is not one of its values`));
+        if (!vocabulary.includes(k)) {
+          out.push(err("value-help", atKey(at("valueHelp"), k), decl.type === "pick"
+            ? `"${k}" is not one of its words: value help describes a pick's fixed words, never the project's lists or nodes`
+            : `"${k}" is not one of its values`));
+        }
       }
     }
   }

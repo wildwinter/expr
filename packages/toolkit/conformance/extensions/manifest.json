@@ -572,6 +572,81 @@
       ]
     },
     {
+      "name": "a pick's value help describes its fixed words, never its lists or nodes",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "project": {
+              "fields": [
+                {
+                  "name": "types",
+                  "type": "list",
+                  "of": {
+                    "type": "text"
+                  }
+                }
+              ]
+            },
+            "scene": {
+              "fields": [
+                {
+                  "name": "type",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "ambient",
+                        "cinematic"
+                      ]
+                    },
+                    {
+                      "list": "types"
+                    },
+                    {
+                      "words": [
+                        "bark"
+                      ]
+                    }
+                  ],
+                  "valueHelp": {
+                    "ambient": "Voices from sources.",
+                    "bark": "A one-off line.",
+                    "duel": "One of the project's types: not the manifest's to describe."
+                  }
+                },
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "to": "cast"
+                    }
+                  ],
+                  "valueHelp": {
+                    "WREN": "A cast member."
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.scene.fields[0].valueHelp.duel",
+          "code": "value-help"
+        },
+        {
+          "path": "targets.patter.scene.fields[1].valueHelp.WREN",
+          "code": "value-help"
+        }
+      ]
+    },
+    {
       "name": "a reference names a kind its host can point at",
       "manifest": {
         "schema": "wildwinter/extension@0",

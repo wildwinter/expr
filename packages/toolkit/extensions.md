@@ -87,8 +87,8 @@ reads: ["patterstage"],
 }
 ```
 
-- `label`, `help`, `valueHelp` (one sentence per enum or flags value or quality stage) and `group` are for the
-  editor, and never reach a bundle.
+- `label`, `help`, `valueHelp` (one sentence per enum or flags value, quality stage, or a pick's fixed word) and
+  `group` are for the editor, and never reach a bundle.
 - `required`, `min` and `max` (numbers only) are validation.
 - `editorOnly` is allowed on a target's own fields only, not inside a record.
 
@@ -151,6 +151,8 @@ A pick is a single choice whose choices come from sources the manifest names, in
 
 Empty is automatic: no word for it is stored, and an editor shows it as "auto". A pick isn't an `enum` whose values
 change: an enum's values are fixed and checked against the manifest, a pick's are the project's.
+
+`valueHelp` may describe a pick's fixed `words`, never its nodes or lists, which are the project's.
 
 `valueProblems` reports a value no source holds (`not-a-choice`, an error), given the host's nodes (`exists`) and
 lists (`list`) in its context; a source it can't see is not checked, so a value is reported missing only when every
