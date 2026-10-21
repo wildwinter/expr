@@ -12,13 +12,12 @@ export {
   HOSTS, MANIFEST_FILE_SUFFIX, MANIFEST_SCHEMA, SCALAR_TYPES, VALUE_TYPES,
 } from "./extensions/types.js";
 export type {
-  ClaimDecl, ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
-  SettingDecl, TargetDecl, TypeDecl, UnresolvedEntry, ValueType, ViewDecl,
+  ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
+  TargetDecl, TypeDecl, UnresolvedEntry, ValueType, ViewDecl,
 } from "./extensions/types.js";
 export {
-  claimClashes, effectiveClaim, isViewEntry, manifestProblems, parseManifest, resolvedClaims, settingValues, targetOf, viewsFor,
+  isViewEntry, manifestProblems, parseManifest, targetOf, viewsFor,
 } from "./extensions/manifest.js";
-export type { ResolvedClaim } from "./extensions/manifest.js";
 export {
   compileEntry, compiledTarget, defaultOf, entryProblems, isTextList, pickChoices, pickClashes, pickLists, renameStages,
   valueProblems,

@@ -10,8 +10,8 @@
 import { qualityDeclarationProblems } from "@wildwinter/expr";
 import { parseSource } from "../source.js";
 import { atIndex, atKey, isObject, own } from "./path.js";
-import { HOSTS, MANIFEST_SCHEMA, SCALAR_TYPES, VALUE_TYPES } from "./types.js";
-import type { ClaimDecl, FieldDecl, HostName, Manifest, Problem, SettingDecl, TargetDecl, TypeDecl, ViewDecl } from "./types.js";
+import { HOSTS, MANIFEST_SCHEMA, VALUE_TYPES } from "./types.js";
+import type { FieldDecl, HostName, Manifest, Problem, TargetDecl, TypeDecl, ViewDecl } from "./types.js";
 import { isTextList, valueProblems } from "./values.js";
 
 const ID = /^[a-z][a-z0-9-]*$/;
@@ -21,9 +21,15 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** The keys a declaration may carry. Anything else is most likely a misspelling. */
 const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "fields", "key", "of", "id", "min", "max", "valueHelp", "default"];
 const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly"]);
-const CLAIM_KEYS = new Set([...TYPE_KEYS, "setting", "label", "help", "required"]);
 const BARE_KEYS = new Set(TYPE_KEYS);
-const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "settings", "targets", "views", "reads"]);
+const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads"]);
+/** Keys the spec once had and has since removed: warned of by name, with what to do instead, and ignored. */
+const REMOVED_MANIFEST_KEYS: Readonly<Record<string, string>> = {
+  settings: "settings were removed with claims; declare the extension's own fields, or a project field for a project-wide value",
+};
+const REMOVED_TARGET_KEYS: Readonly<Record<string, string>> = {
+  claims: "claims on host fields were removed; declare a field of the extension's own, which the runtimes hand the game",
+};
 const VIEW_KEYS = new Set(["id", "name", "entry", "element", "hosts"]);
 /** A custom element name: lower case, starting with a letter, with a hyphen. */
 const ELEMENT = /^[a-z][a-z0-9._]*-[a-z0-9._-]*$/;
@@ -40,7 +46,7 @@ export function manifestProblems(manifest: unknown): Problem[] {
   const out: Problem[] = [];
   if (!isObject(manifest)) return [err("not-an-object", "", "a manifest is a JSON object")];
   const m = manifest;
-  unknownKeys(m, MANIFEST_KEYS, "", out);
+  unknownKeys(m, MANIFEST_KEYS, "", out, REMOVED_MANIFEST_KEYS);
   if (m["schema"] !== MANIFEST_SCHEMA) {
     out.push(err("schema", "schema", `the schema tag is ${JSON.stringify(m["schema"])}, not "${MANIFEST_SCHEMA}"`));
   }
@@ -53,7 +59,6 @@ export function manifestProblems(manifest: unknown): Problem[] {
   }
   if (m["docs"] !== undefined && typeof m["docs"] !== "string") out.push(err("docs", "docs", "docs is a link, as text"));
 
-  const settings = settingsProblems(m["settings"], out);
   viewsProblems(m["views"], m["targets"], out);
   readsProblems(m["reads"], m["id"], out);
 
@@ -76,7 +81,7 @@ export function manifestProblems(manifest: unknown): Problem[] {
         out.push(err("unknown-kind", kindPath, `"${kind}" is not a node kind of ${host}; it has ${spec.kinds.join(", ")}`));
         continue;
       }
-      targetProblems(host as HostName, kind, target, kindPath, settings, out);
+      targetProblems(host as HostName, target, kindPath, out);
     }
     pickListProblems(kinds, hostPath, out);
   }
@@ -216,68 +221,22 @@ export function viewsFor(manifest: Manifest, host: HostName): ViewDecl[] {
     && (v.hosts === undefined ? targeted.includes(host) : Array.isArray(v.hosts) && v.hosts.includes(host)));
 }
 
-function unknownKeys(obj: Record<string, unknown>, known: ReadonlySet<string>, path: string, out: Problem[]): void {
+function unknownKeys(obj: Record<string, unknown>, known: ReadonlySet<string>, path: string, out: Problem[],
+  removed: Readonly<Record<string, string>> = {}): void {
   for (const k of Object.keys(obj)) {
-    if (!known.has(k)) {
+    if (own(removed, k)) {
+      out.push({ severity: "warning", code: "removed-key", path: atKey(path, k), message: `"${k}" is ignored: ${removed[k]}` });
+    } else if (!known.has(k)) {
       out.push({ severity: "warning", code: "unknown-key", path: atKey(path, k), message: `"${k}" means nothing here; it is ignored` });
     }
   }
 }
 
-function settingsProblems(settings: unknown, out: Problem[]): Set<string> {
-  const names = new Set<string>();
-  if (settings === undefined) return names;
-  if (!Array.isArray(settings)) { out.push(err("not-a-list", "settings", "settings are a list")); return names; }
-  settings.forEach((s: unknown, i) => {
-    const at = atIndex("settings", i);
-    if (!isObject(s)) { out.push(err("not-an-object", at, "a setting is an object")); return; }
-    const name = s["name"];
-    if (typeof name !== "string" || !NAME.test(name)) {
-      out.push(err("setting-name", atKey(at, "name"), "a setting's name is an identifier"));
-    } else if (names.has(name)) {
-      out.push(err("setting-duplicate", atKey(at, "name"), `setting "${name}" is declared twice`));
-    } else {
-      names.add(name);
-    }
-    const dflt = (s as Partial<SettingDecl>).default;
-    if (typeof dflt !== "string" || !NAME.test(dflt)) {
-      out.push(err("setting-default", atKey(at, "default"), "a setting names a host field by default, so its default is a field name"));
-    }
-  });
-  return names;
-}
-
-function targetProblems(host: HostName, kind: string, target: unknown, path: string, settings: ReadonlySet<string>, out: Problem[]): void {
+function targetProblems(host: HostName, target: unknown, path: string, out: Problem[]): void {
   if (!isObject(target)) { out.push(err("not-an-object", path, "a target is an object")); return; }
-  unknownKeys(target, new Set(["fields", "claims"]), path, out);
+  unknownKeys(target, new Set(["fields"]), path, out, REMOVED_TARGET_KEYS);
   const t = target as TargetDecl;
   if (t.fields !== undefined) fieldListProblems(host, t.fields, atKey(path, "fields"), true, out);
-  if (t.claims === undefined) return;
-  if (!Array.isArray(t.claims)) { out.push(err("not-a-list", atKey(path, "claims"), "claims are a list")); return; }
-  const claimable = HOSTS[host].claimable.includes(kind);
-  const claimed = new Set<string>();
-  t.claims.forEach((c: unknown, i) => {
-    const at = atIndex(atKey(path, "claims"), i);
-    if (!claimable) {
-      out.push(err("claim-kind", at, `a ${kind} has no host fields to claim; ${host} has them on ${HOSTS[host].claimable.join(", ")}`));
-      return;
-    }
-    if (!isObject(c)) { out.push(err("not-an-object", at, "a claim is an object")); return; }
-    const claim = c as unknown as ClaimDecl;
-    unknownKeys(c, CLAIM_KEYS, at, out);
-    if (!(SCALAR_TYPES as readonly string[]).includes(claim.type)) {
-      out.push(err("claim-type", atKey(at, "type"), "a claim presents a host field, which is a scalar"));
-    } else {
-      typeProblems(host, claim, at, false, out, true);
-    }
-    if (typeof claim.setting !== "string" || !settings.has(claim.setting)) {
-      out.push(err("claim-setting", atKey(at, "setting"), `a claim names its field through a setting, and "${String(claim.setting)}" is not one of the manifest's settings`));
-    } else if (claimed.has(claim.setting)) {
-      out.push(err("claim-duplicate", atKey(at, "setting"), `setting "${claim.setting}" is claimed twice for one kind`));
-    } else {
-      claimed.add(claim.setting);
-    }
-  });
 }
 
 function fieldListProblems(host: HostName, fields: unknown, path: string, topLevel: boolean, out: Problem[]): void {
@@ -307,13 +266,8 @@ function fieldListProblems(host: HostName, fields: unknown, path: string, topLev
   });
 }
 
-/**
- * A declaration's type and constraints. `named` is false for a map's or a list's bare `of`. `claim` is true for
- * a claim on a host field, which may leave out an enum's or flags' values and a quality's stages: the host's
- * declaration then gives them (`effectiveClaim`), and its value help may describe values the host does not
- * declare, which are simply unused.
- */
-function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boolean, out: Problem[], claim = false): void {
+/** A declaration's type and constraints. `named` is false for a map's or a list's bare `of`. */
+function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boolean, out: Problem[]): void {
   const typeAt = atKey(path, "type");
   if (decl.type === "string") {
     out.push(err("string-type", typeAt, "the text type is spelled \"text\""));
@@ -329,7 +283,6 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
     case "enum":
     case "flags": {
       const values = decl.values;
-      if (claim && values === undefined) break;
       if (!Array.isArray(values) || values.length === 0) {
         out.push(err("values-empty", at("values"), `an ${decl.type === "enum" ? "enum" : "flags field"} lists its values`));
         sound = false;
@@ -344,7 +297,6 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
       break;
     }
     case "quality": {
-      if (claim && decl.stages === undefined) break;
       // The kernel's one rule; the default is checked below, with every type's.
       for (const p of qualityDeclarationProblems(decl.stages)) {
         out.push(err(`quality-${p.kind === "default-not-a-stage" ? "default" : p.kind}`, at("stages"),
@@ -412,11 +364,7 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
     }
   }
   if (decl.renamedStages !== undefined) renamedStagesProblems(decl, at("renamedStages"), out);
-  if (decl.valueHelp !== undefined && claim) {
-    if (!isObject(decl.valueHelp) || !(["enum", "flags", "quality"] as const).includes(decl.type as "enum")) {
-      out.push(err("value-help", at("valueHelp"), "value help describes the values of an enum or flags field, or a quality's stages"));
-    }
-  } else if (decl.valueHelp !== undefined) {
+  if (decl.valueHelp !== undefined) {
     const vocabulary = decl.type === "quality" ? decl.stages : decl.type === "enum" || decl.type === "flags" ? decl.values
       : decl.type === "pick" ? pickWords(decl.from) : undefined;
     if (vocabulary === undefined || !isObject(decl.valueHelp)) {
@@ -463,75 +411,10 @@ function renamedStagesProblems(decl: TypeDecl, path: string, out: Problem[]): vo
   }
 }
 
-// --- settings and claims across a project --------------------------------------
-
-/** The host field each of a manifest's settings names, the project's choice
- *  first, else the setting's default. */
-export function settingValues(manifest: Manifest, chosen?: Readonly<Record<string, unknown>>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const s of manifest.settings ?? []) {
-    const v = chosen !== undefined && own(chosen, s.name) ? chosen[s.name] : undefined;
-    out[s.name] = typeof v === "string" && v !== "" ? v : s.default;
-  }
-  return out;
-}
-
-/** A claim as a project resolves it: the host field it presents, by name. */
-export interface ResolvedClaim {
-  readonly extension: string;
-  readonly host: HostName;
-  readonly kind: string;
-  /** The host field's name, through the setting. */
-  readonly field: string;
-  readonly claim: ClaimDecl;
-}
-
-/** Every claim of a manifest for one host, resolved through the project's settings. */
-export function resolvedClaims(manifest: Manifest, host: HostName, chosen?: Readonly<Record<string, unknown>>): ResolvedClaim[] {
-  const settings = settingValues(manifest, chosen);
-  const out: ResolvedClaim[] = [];
-  for (const [kind, target] of Object.entries(manifest.targets[host] ?? {})) {
-    for (const claim of target.claims ?? []) {
-      const field = settings[claim.setting];
-      if (field !== undefined) out.push({ extension: manifest.id, host, kind, field, claim });
-    }
-  }
-  return out;
-}
-
-/** Two extensions claiming one host field: an error naming both, once per pair. */
-export function claimClashes(claims: readonly ResolvedClaim[]): Problem[] {
-  const out: Problem[] = [];
-  const first = new Map<string, ResolvedClaim>();
-  for (const c of claims) {
-    const key = `${c.host}\u0000${c.kind}\u0000${c.field}`;
-    const prior = first.get(key);
-    if (prior === undefined) { first.set(key, c); continue; }
-    if (prior.extension === c.extension) continue;
-    out.push(err("claim-clash", `${c.kind}.${c.field}`,
-      `extensions "${prior.extension}" and "${c.extension}" both claim the ${c.kind} field "${c.field}"`));
-  }
-  return out;
-}
+// --- a manifest's declarations ---------------------------------------------------
 
 /** One manifest's declarations for one host and node kind, or undefined. */
 export function targetOf(manifest: Manifest | undefined, host: HostName, kind: string): TargetDecl | undefined {
   const kinds = manifest?.targets[host];
   return kinds !== undefined && own(kinds, kind) ? kinds[kind] : undefined;
-}
-
-/**
- * A claim as a host draws and checks its field: the claim's label, help, value help and constraints, over the
- * host's own declaration for what the claim leaves out (an enum's or flags' values, a quality's stages, the
- * default). The host's vocabulary stands when the claim names none, as the host's ladder always does.
- */
-export function effectiveClaim<C extends ClaimDecl>(
-  claim: C, hostDecl: { readonly type?: string; readonly values?: readonly string[]; readonly stages?: readonly string[]; readonly default?: unknown },
-): C {
-  return {
-    ...claim,
-    ...(claim.values === undefined && hostDecl.values !== undefined ? { values: hostDecl.values } : {}),
-    ...(claim.stages === undefined && hostDecl.stages !== undefined ? { stages: hostDecl.stages } : {}),
-    ...(claim.default === undefined && hostDecl.default !== undefined ? { default: hostDecl.default } : {}),
-  };
 }

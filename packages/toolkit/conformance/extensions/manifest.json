@@ -24,20 +24,13 @@
       "problems": []
     },
     {
-      "name": "every type, a claim and a setting pass together",
+      "name": "every type passes together",
       "manifest": {
         "schema": "wildwinter/extension@0",
         "id": "probe",
         "name": "Probe",
         "version": "2.1.0",
         "docs": "https://example.com/probe",
-        "settings": [
-          {
-            "name": "moodField",
-            "label": "Mood field",
-            "default": "mood"
-          }
-        ],
         "targets": {
           "storylets": {
             "card": {
@@ -169,17 +162,6 @@
                   "of": {
                     "type": "text"
                   }
-                }
-              ],
-              "claims": [
-                {
-                  "setting": "moodField",
-                  "type": "enum",
-                  "values": [
-                    "calm",
-                    "tense"
-                  ],
-                  "help": "The card's mood."
                 }
               ]
             },
@@ -1014,159 +996,6 @@
       ]
     },
     {
-      "name": "claims: a claimable kind, a declared setting, a scalar, once per setting",
-      "manifest": {
-        "schema": "wildwinter/extension@0",
-        "id": "probe",
-        "name": "Probe",
-        "version": "1.0.0",
-        "settings": [
-          {
-            "name": "moodField",
-            "default": "mood"
-          }
-        ],
-        "targets": {
-          "storylets": {
-            "deck": {
-              "claims": [
-                {
-                  "setting": "moodField",
-                  "type": "text"
-                }
-              ]
-            },
-            "card": {
-              "claims": [
-                {
-                  "setting": "moodField",
-                  "type": "text"
-                },
-                {
-                  "setting": "moodField",
-                  "type": "text"
-                },
-                {
-                  "setting": "nope",
-                  "type": "text"
-                },
-                {
-                  "setting": "moodField",
-                  "type": "record",
-                  "fields": [
-                    {
-                      "name": "a",
-                      "type": "text"
-                    }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      },
-      "problems": [
-        {
-          "path": "targets.storylets.deck.claims[0]",
-          "code": "claim-kind"
-        },
-        {
-          "path": "targets.storylets.card.claims[1].setting",
-          "code": "claim-duplicate"
-        },
-        {
-          "path": "targets.storylets.card.claims[2].setting",
-          "code": "claim-setting"
-        },
-        {
-          "path": "targets.storylets.card.claims[3].type",
-          "code": "claim-type"
-        },
-        {
-          "path": "targets.storylets.card.claims[3].setting",
-          "code": "claim-duplicate"
-        }
-      ]
-    },
-    {
-      "name": "settings: named once each, defaulting to a field name",
-      "manifest": {
-        "schema": "wildwinter/extension@0",
-        "id": "probe",
-        "name": "Probe",
-        "version": "1.0.0",
-        "settings": [
-          {
-            "name": "a",
-            "default": "x"
-          },
-          {
-            "name": "a",
-            "default": "y"
-          },
-          {
-            "name": "b"
-          },
-          {
-            "name": "c",
-            "default": "not a name"
-          }
-        ],
-        "targets": {
-          "storylets": {
-            "card": {}
-          }
-        }
-      },
-      "problems": [
-        {
-          "path": "settings[1].name",
-          "code": "setting-duplicate"
-        },
-        {
-          "path": "settings[2].default",
-          "code": "setting-default"
-        },
-        {
-          "path": "settings[3].default",
-          "code": "setting-default"
-        }
-      ]
-    },
-    {
-      "name": "an enum claim may leave out its values, and its value help may describe values the host does not declare",
-      "manifest": {
-        "schema": "wildwinter/extension@0",
-        "id": "probe",
-        "name": "Probe",
-        "version": "1.0.0",
-        "settings": [
-          {
-            "name": "moodField",
-            "default": "mood"
-          }
-        ],
-        "targets": {
-          "storylets": {
-            "card": {
-              "claims": [
-                {
-                  "setting": "moodField",
-                  "type": "enum",
-                  "label": "Mood",
-                  "valueHelp": {
-                    "calm": "Unhurried.",
-                    "wild": "Not one the host has."
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "problems": []
-    },
-    {
       "name": "an enum field of the extension's own still lists its values",
       "manifest": {
         "schema": "wildwinter/extension@0",
@@ -1743,6 +1572,51 @@
         {
           "path": "reads",
           "code": "not-a-list"
+        }
+      ]
+    },
+    {
+      "name": "settings and claims were removed: each warned of by name, and ignored",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "settings": [
+          {
+            "name": "moodField",
+            "default": "mood"
+          }
+        ],
+        "targets": {
+          "storylets": {
+            "card": {
+              "fields": [
+                {
+                  "name": "tone",
+                  "type": "text"
+                }
+              ],
+              "claims": [
+                {
+                  "setting": "moodField",
+                  "type": "enum"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "settings",
+          "code": "removed-key",
+          "severity": "warning"
+        },
+        {
+          "path": "targets.storylets.card.claims",
+          "code": "removed-key",
+          "severity": "warning"
         }
       ]
     }

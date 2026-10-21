@@ -20,21 +20,17 @@ export interface HostSpec {
   readonly kinds: readonly string[];
   /** The node kinds a `reference` may point at. */
   readonly references: readonly string[];
-  /** The node kinds with host fields of their own, which a claim may present. */
-  readonly claimable: readonly string[];
 }
 
-/** Each host's node kinds, references and claimable kinds. */
+/** Each host's node kinds and references. */
 export const HOSTS: Readonly<Record<HostName, HostSpec>> = {
   patter: {
     kinds: ["scene", "block", "snippet", "line", "text", "gameEvent", "option", "project"],
     references: ["cast", "scene", "block", "snippet", "line"],
-    claimable: ["scene", "block", "snippet", "line", "text", "gameEvent", "option"],
   },
   storylets: {
     kinds: ["box", "tagGroup", "tag", "deck", "card", "outcome", "handTemplate", "hand", "project"],
     references: ["box", "deck", "card", "outcome", "tag"],
-    claimable: ["card", "outcome"],
   },
 };
 
@@ -105,27 +101,9 @@ export interface FieldDecl extends TypeDecl {
   readonly editorOnly?: boolean;
 }
 
-/** A claim on a host field, named through one of the manifest's settings. */
-export interface ClaimDecl extends TypeDecl {
-  readonly setting: string;
-  readonly label?: string;
-  readonly help?: string;
-  readonly required?: boolean;
-}
-
 /** What an extension declares for one node kind of one host. */
 export interface TargetDecl {
   readonly fields?: readonly FieldDecl[];
-  readonly claims?: readonly ClaimDecl[];
-}
-
-/** A project setting, naming a host field a claim presents. */
-export interface SettingDecl {
-  readonly name: string;
-  readonly label?: string;
-  readonly help?: string;
-  /** The field name used when the project names none. */
-  readonly default: string;
 }
 
 export interface Manifest {
@@ -134,7 +112,6 @@ export interface Manifest {
   readonly name: string;
   readonly version: string;
   readonly docs?: string;
-  readonly settings?: readonly SettingDecl[];
   readonly targets: Readonly<Partial<Record<HostName, Readonly<Record<string, TargetDecl>>>>>;
   /** Views the extension's installed package supplies (tier 2), each a web component a host opens in a window. */
   readonly views?: readonly ViewDecl[];

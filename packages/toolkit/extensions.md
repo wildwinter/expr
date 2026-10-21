@@ -23,14 +23,10 @@ read the same one. It is JSON (JSON5 is read too), and is called `<id>.extension
   name: "Pattershot",
   version: "1.2.0",               // major.minor.patch
   docs: "https://example.com/pattershot",
-  settings: [                     // project settings, each naming a host field a claim presents
-    { name: "moodField", label: "Mood field", help: "The card field holding the mood.", default: "mood" },
-  ],
   targets: {
     storylets: {                  // a host: "patter" or "storylets"
       card: {                     // a node kind of that host
         fields: [ /* field declarations, below */ ],
-        claims: [ /* claims on host fields, below */ ],
       },
     },
   },
@@ -40,13 +36,13 @@ read the same one. It is JSON (JSON5 is read too), and is called `<id>.extension
 - **Identity**: `id`, `name`, `version`, and optionally `docs`, a link to the extension's own documentation.
 - **Targets**, by host and node kind:
 
-  | Host | Node kinds | References | Kinds with host fields (claimable) |
-  |---|---|---|---|
-  | `patter` | `scene`, `block`, `snippet`, `line`, `text`, `gameEvent`, `option`, `project` | `cast`, `scene`, `block`, `snippet`, `line` | every kind but `project` (game data) |
-  | `storylets` | `box`, `tagGroup`, `tag`, `deck`, `card`, `outcome`, `handTemplate`, `hand`, `project` | `box`, `deck`, `card`, `outcome`, `tag` | `card`, `outcome` (fields) |
+  | Host | Node kinds | References |
+  |---|---|---|
+  | `patter` | `scene`, `block`, `snippet`, `line`, `text`, `gameEvent`, `option`, `project` | `cast`, `scene`, `block`, `snippet`, `line` |
+  | `storylets` | `box`, `tagGroup`, `tag`, `deck`, `card`, `outcome`, `handTemplate`, `hand`, `project` | `box`, `deck`, `card`, `outcome`, `tag` |
 
-- **Fields** per target, in the order the editor shows them.
-- **Claims** on host fields, named through a project setting.
+- **Fields** per target, in the order the editor shows them. An extension's data is always its own: it never puts
+  its control on a field the host already has. A value the whole project shares is a field on the `project` target.
 
 ### Views and reads
 
@@ -92,22 +88,12 @@ reads: ["patterstage"],
 - `required`, `min` and `max` (numbers only) are validation.
 - `editorOnly` is allowed on a target's own fields only, not inside a record.
 
-### Claims on host fields
+### Removed keys
 
-A claim presents a field the host already has, with this manifest's control, help and validation, without moving the
-data. It names the field through a setting, so a project whose field has another name says so once:
-
-```json5
-{ setting: "moodField", type: "enum", values: ["calm", "tense"], label: "Mood", help: "..." }
-```
-
-A claim is a scalar. It may leave out an enum's or flags' `values` and a quality's `stages`: the host's
-declaration is then the vocabulary, as the host's ladder always is, and the claim adds its label, help and
-`valueHelp`, which may describe values the host does not declare (they are simply unused). `effectiveClaim(claim,
-hostDecl)` gives the declaration a host draws and checks the field with. The project names the extension's settings when it opts in (each host's project shard says
-how); a setting the project leaves out takes the setting's `default`. A claimed field keeps the host's own merge
-rule, ladder and renames. Two extensions claiming one field is an error naming both (`claimClashes`); a host
-whose field has a type other than the claim's is an error naming where (the host checks: in Storylets, per box).
+Earlier versions of the spec had `settings`, each naming a host field, and `claims` on a target, presenting that
+host field with the manifest's control. Both are gone: a manifest that still carries one is warned of by name
+(`removed-key`) and the key is ignored. Declare a field of the extension's own instead, which the runtimes hand
+the game with every other extension value.
 
 ## The types
 

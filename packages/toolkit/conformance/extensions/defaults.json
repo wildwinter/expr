@@ -28,7 +28,7 @@
         { "name": "tone", "type": "enum", "values": ["calm", "tense"], "valueHelp": { "calm": "x" } },
         { "name": "act", "type": "quality", "stages": ["setup", "turn"], "renamedStages": { "opening": "setup" } },
         { "name": "cue", "type": "record", "fields": [{ "name": "gain", "type": "number", "min": 0, "help": "Loudness." }] }
-      ], "claims": [{ "setting": "moodField", "type": "text" }] },
+      ] },
       "compiled": [
         { "name": "note", "type": "text", "default": "", "required": true },
         { "name": "tone", "type": "enum", "values": ["calm", "tense"], "default": "calm" },
