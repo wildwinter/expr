@@ -16,7 +16,7 @@ export type {
   TargetDecl, TypeDecl, UnresolvedEntry, ValueType, ViewDecl,
 } from "./extensions/types.js";
 export {
-  isViewEntry, manifestProblems, parseManifest, targetOf, viewsFor,
+  isViewEntry, manifestProblems, missingRequirements, parseManifest, targetOf, viewsFor,
 } from "./extensions/manifest.js";
 export {
   compileEntry, compiledTarget, defaultOf, entryProblems, isTextList, pickChoices, pickClashes, pickLists, renameStages,

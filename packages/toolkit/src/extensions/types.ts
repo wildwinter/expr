@@ -99,6 +99,9 @@ export interface FieldDecl extends TypeDecl {
   readonly group?: string;
   /** Stripped at compile: editor data, never in a bundle. A target's own fields only. */
   readonly editorOnly?: boolean;
+  /** One of the manifest's views, by id, that edits this field in the hosts it opens in: a target's own map of
+   *  records only. */
+  readonly editor?: string;
 }
 
 /** What an extension declares for one node kind of one host. */
@@ -117,6 +120,8 @@ export interface Manifest {
   readonly views?: readonly ViewDecl[];
   /** Other extensions whose data this one's views read, by id. */
   readonly reads?: readonly string[];
+  /** Other extensions a project must take for this one to work, by id. */
+  readonly requires?: readonly string[];
 }
 
 /** A view: a web component in the extension's installed package, opened by a host in a floating window. */

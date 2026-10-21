@@ -1,5 +1,17 @@
 # @wildwinter/toolkit
 
+## 0.3.1
+
+### Added
+
+- **Requirements in a manifest** (`./extensions`): `requires` names the other extensions, by id, that a project must
+  take for this one to work. The manifest check holds it to ids, each once, never the extension's own.
+  `missingRequirements(manifest, taken)` lists those a project lacks, for a host's Add Extension, its validation,
+  and its views.
+- **A view as a field's editor** (`./extensions`): a target's own map of records can name one of the manifest's views
+  as its `editor`, which a host opens in place of its own record grid. The check holds it to a declared view that
+  opens in that host, and warns of one on any other kind of field, where it means nothing.
+
 ## 0.3.0
 
 ### Removed

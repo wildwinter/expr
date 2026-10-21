@@ -66,6 +66,18 @@ reads: ["patterstage"],
 - `reads`: other extensions whose data the views read, by id. An extension always reads its own; naming itself is a
   warning.
 
+### Requirements
+
+```json5
+requires: ["patterstage"],
+```
+
+`requires` names other extensions, by id, that a project must take for this one to work: Pattershot's runner
+attaches to Patterstage's Director, so a project with Pattershot and no Patterstage can't play its performances.
+Each id appears once, and never the extension's own. A host refuses to add an extension whose requirements the
+project doesn't take (or offers to add them first), its validation warns of a project that takes one without them,
+and it tells the extension's views which are missing. `missingRequirements(manifest, taken)` lists them.
+
 ### Field declarations
 
 ```json5
@@ -80,6 +92,7 @@ reads: ["patterstage"],
   required: true,                 // a node of this kind must set it
   group: "Delivery",              // a heading within the extension's group, in field order
   editorOnly: true,               // stripped at compile; editor data, never in the bundle
+  editor: "sheet",                // a map of records only: one of the manifest's views edits it
 }
 ```
 
@@ -87,6 +100,10 @@ reads: ["patterstage"],
   `group` are for the editor, and never reach a bundle.
 - `required`, `min` and `max` (numbers only) are validation.
 - `editorOnly` is allowed on a target's own fields only, not inside a record.
+- `editor` names one of the manifest's views, by id, that edits the field: the host's inspector opens that view at
+  the node instead of its own grid for a map of records. It's allowed on a target's own fields only, the view must
+  open in that target's host, and on a field that isn't a map of records it's warned of and ignored, as such a field
+  is edited in place.
 
 ### Removed keys
 

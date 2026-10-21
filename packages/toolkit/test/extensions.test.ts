@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   compileEntry, compiledTarget, defaultOf, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
-  isViewEntry, pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems, viewsFor,
+  isViewEntry, missingRequirements, pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems, viewsFor,
 } from "../src/extensions.js";
 import type { FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
 
@@ -107,6 +107,20 @@ describe("merge", () => {
   for (const c of file.unresolved) {
     it(`unresolved: ${c.name}`, () => compare(unresolvedProblems(c.shard), c.problems));
   }
+});
+
+describe("missingRequirements", () => {
+  const m = {
+    schema: "wildwinter/extension@0", id: "probe", name: "Probe", version: "1.0.0",
+    targets: { patter: { line: { fields: [] } } },
+    requires: ["patterstage", "probe", "Bad", "lights", "patterstage"],
+  } as unknown as Manifest;
+  it("lists the sound requirements a project doesn't take, once each, in order", () => {
+    expect(missingRequirements(m, [])).toEqual(["patterstage", "lights"]);
+    expect(missingRequirements(m, new Set(["lights"]))).toEqual(["patterstage"]);
+    expect(missingRequirements(m, ["patterstage", "lights"])).toEqual([]);
+    expect(missingRequirements({ ...m, requires: undefined } as unknown as Manifest, [])).toEqual([]);
+  });
 });
 
 describe("viewsFor", () => {

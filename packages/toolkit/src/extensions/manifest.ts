@@ -20,9 +20,9 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** The keys a declaration may carry. Anything else is most likely a misspelling. */
 const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "fields", "key", "of", "id", "min", "max", "valueHelp", "default"];
-const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly"]);
+const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly", "editor"]);
 const BARE_KEYS = new Set(TYPE_KEYS);
-const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads"]);
+const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads", "requires"]);
 /** Keys the spec once had and has since removed: warned of by name, with what to do instead, and ignored. */
 const REMOVED_MANIFEST_KEYS: Readonly<Record<string, string>> = {
   settings: "settings were removed with claims; declare the extension's own fields, or a project field for a project-wide value",
@@ -61,6 +61,7 @@ export function manifestProblems(manifest: unknown): Problem[] {
 
   viewsProblems(m["views"], m["targets"], out);
   readsProblems(m["reads"], m["id"], out);
+  requiresProblems(m["requires"], m["id"], out);
 
   const targets = m["targets"];
   if (!isObject(targets) || Object.keys(targets).length === 0) {
@@ -84,6 +85,7 @@ export function manifestProblems(manifest: unknown): Problem[] {
       targetProblems(host as HostName, target, kindPath, out);
     }
     pickListProblems(kinds, hostPath, out);
+    editorProblems(host as HostName, kinds, m["views"], Object.keys(targets), hostPath, out);
   }
   return out;
 }
@@ -211,6 +213,57 @@ function readsProblems(reads: unknown, self: unknown, out: Problem[]): void {
   });
 }
 
+function requiresProblems(requires: unknown, self: unknown, out: Problem[]): void {
+  if (requires === undefined) return;
+  if (!Array.isArray(requires)) { out.push(err("not-a-list", "requires", "requires is a list of extension ids")); return; }
+  const seen = new Set<string>();
+  requires.forEach((r: unknown, i) => {
+    const at = atIndex("requires", i);
+    if (typeof r !== "string" || !ID.test(r)) out.push(err("requires-id", at, "a required extension is named by its id: lower case letters, digits and hyphens"));
+    else if (r === self) out.push(err("requires-self", at, "an extension can't require itself"));
+    else if (seen.has(r)) out.push(err("requires-duplicate", at, `"${r}" is listed twice`));
+    else seen.add(r);
+  });
+}
+
+/** The extensions a manifest requires that a project doesn't take, by id, in the manifest's order. An entry that
+ *  fails its checks is left out. */
+export function missingRequirements(manifest: Manifest, taken: Iterable<string>): string[] {
+  const have = new Set(taken);
+  const out: string[] = [];
+  for (const r of Array.isArray(manifest.requires) ? manifest.requires : []) {
+    if (typeof r === "string" && ID.test(r) && r !== manifest.id && !have.has(r) && !out.includes(r)) out.push(r);
+  }
+  return out;
+}
+
+/** Each of a host's target fields naming a view as its editor: a view the manifest declares, opening in that host,
+ *  on a map of records (the one kind of field the editors open elsewhere). */
+function editorProblems(host: HostName, kinds: Record<string, unknown>, views: unknown, targeted: readonly string[], hostPath: string, out: Problem[]): void {
+  const declared = Array.isArray(views) ? views.filter((v): v is Record<string, unknown> => isObject(v) && typeof v["id"] === "string") : [];
+  for (const [kind, target] of Object.entries(kinds)) {
+    if (!isObject(target) || !Array.isArray(target["fields"])) continue;
+    (target["fields"] as unknown[]).forEach((f, i) => {
+      if (!isObject(f) || f["editor"] === undefined) return;
+      const at = atKey(atIndex(atKey(atKey(hostPath, kind), "fields"), i), "editor");
+      const editor = f["editor"];
+      const view = typeof editor === "string" ? declared.find((v) => v["id"] === editor) : undefined;
+      if (view === undefined) {
+        out.push(err("editor-view", at, typeof editor === "string"
+          ? `the manifest declares no view called "${editor}"; an editor names one of its views by id`
+          : "an editor names one of the manifest's views by its id"));
+        return;
+      }
+      const opensIn = Array.isArray(view["hosts"]) ? view["hosts"] : targeted;
+      if (!opensIn.includes(host)) { out.push(err("editor-host", at, `the view "${editor}" doesn't open in ${host}`)); return; }
+      const d = f as unknown as TypeDecl;
+      if (!(d.type === "map" && isObject(d.of) && d.of.type === "record")) {
+        out.push({ severity: "warning", code: "editor-ignored", path: at, message: "only a map of records opens in an editor; this field is edited in place, so the editor is ignored" });
+      }
+    });
+  }
+}
+
 /** The views a host offers from a manifest: those naming the host, or every view when it names none and the
  *  manifest targets the host. A view that fails its checks is left out. */
 export function viewsFor(manifest: Manifest, host: HostName): ViewDecl[] {
@@ -257,6 +310,9 @@ function fieldListProblems(host: HostName, fields: unknown, path: string, topLev
     typeProblems(host, field, at, true, out);
     if (field.editorOnly !== undefined && !topLevel) {
       out.push(err("editor-only-nested", atKey(at, "editorOnly"), "only a target's own fields can be editor-only, not a record's"));
+    }
+    if (field.editor !== undefined && !topLevel) {
+      out.push(err("editor-nested", atKey(at, "editor"), "only a target's own fields open in a view, not a record's"));
     }
     for (const flag of ["required", "editorOnly"] as const) {
       if (field[flag] !== undefined && typeof field[flag] !== "boolean") {

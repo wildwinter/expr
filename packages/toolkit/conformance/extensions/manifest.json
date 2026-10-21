@@ -1619,6 +1619,281 @@
           "severity": "warning"
         }
       ]
+    },
+    {
+      "name": "requires and a field's editor pass",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "performance",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "look",
+                        "type": "text"
+                      }
+                    ]
+                  },
+                  "editor": "sheet"
+                }
+              ]
+            }
+          }
+        },
+        "views": [
+          {
+            "id": "sheet",
+            "name": "Sheet",
+            "entry": "view/sheet.js",
+            "element": "probe-sheet",
+            "hosts": [
+              "patter"
+            ]
+          }
+        ],
+        "reads": [
+          "patterstage"
+        ],
+        "requires": [
+          "patterstage"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "requires names other extensions, once each",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "requires": [
+          "patterstage",
+          "probe",
+          "patterstage",
+          "Bad"
+        ]
+      },
+      "problems": [
+        {
+          "path": "requires[1]",
+          "code": "requires-self"
+        },
+        {
+          "path": "requires[2]",
+          "code": "requires-duplicate"
+        },
+        {
+          "path": "requires[3]",
+          "code": "requires-id"
+        }
+      ]
+    },
+    {
+      "name": "requires must be a list",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "requires": "patterstage"
+      },
+      "problems": [
+        {
+          "path": "requires",
+          "code": "not-a-list"
+        }
+      ]
+    },
+    {
+      "name": "a field's editor names a view that opens in its host, on a map of records",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "perf",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "look",
+                        "type": "text",
+                        "editor": "sheet"
+                      }
+                    ]
+                  },
+                  "editor": "nope"
+                },
+                {
+                  "name": "cues",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "at",
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "editor": 3
+                },
+                {
+                  "name": "mood",
+                  "type": "text",
+                  "editor": "sheet"
+                }
+              ]
+            }
+          },
+          "storylets": {
+            "card": {
+              "fields": [
+                {
+                  "name": "perf",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "look",
+                        "type": "text"
+                      }
+                    ]
+                  },
+                  "editor": "sheet"
+                }
+              ]
+            }
+          }
+        },
+        "views": [
+          {
+            "id": "sheet",
+            "name": "Sheet",
+            "entry": "view/sheet.js",
+            "element": "probe-sheet",
+            "hosts": [
+              "patter"
+            ]
+          }
+        ]
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].of.fields[0].editor",
+          "code": "editor-nested"
+        },
+        {
+          "path": "targets.patter.line.fields[0].editor",
+          "code": "editor-view"
+        },
+        {
+          "path": "targets.patter.line.fields[1].editor",
+          "code": "editor-view"
+        },
+        {
+          "path": "targets.patter.line.fields[2].editor",
+          "code": "editor-ignored",
+          "severity": "warning"
+        },
+        {
+          "path": "targets.storylets.card.fields[0].editor",
+          "code": "editor-host"
+        }
+      ]
+    },
+    {
+      "name": "an editor names a view the manifest declares",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "perf",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "look",
+                        "type": "text"
+                      }
+                    ]
+                  },
+                  "editor": "sheet"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].editor",
+          "code": "editor-view"
+        }
+      ]
     }
   ]
 }
