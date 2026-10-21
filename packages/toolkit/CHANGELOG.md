@@ -1,5 +1,14 @@
 # @wildwinter/toolkit
 
+## 0.3.0
+
+### Removed
+
+- **Claims and settings** (`./extensions`): a manifest's `settings` and a target's `claims`, and with them
+  `ClaimDecl`, `SettingDecl`, `HostSpec.claimable`, `settingValues`, `resolvedClaims`, `claimClashes`, and
+  `effectiveClaim`. An extension's data is always its own; a project-wide value is a field on the `project` target.
+  A manifest that still has `settings` or `claims` is warned of by name (`removed-key`), and the key is ignored.
+
 ## 0.2.7
 
 ### Added
