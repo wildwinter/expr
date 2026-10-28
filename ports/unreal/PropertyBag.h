@@ -184,6 +184,13 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
         return true;
     }
 
+    /** Whether a declaration chose none: an enum whose own default is "". */
+    inline bool ChoosesNone(const ScopeDeclaration& decl)
+    {
+        return decl.type == PropertyTypes::Enum && decl.defaultValue.has_value()
+            && decl.defaultValue->isString() && decl.defaultValue->asString().empty();
+    }
+
     inline bool ValueFits(const ScopeDeclaration& decl, const ExprValue& value, bool noneChosen = false)
     {
         return ValueFits(decl.type, decl.values, decl.stages, value, noneChosen);
@@ -402,7 +409,8 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
             for (const auto& pair : decls_)
             {
                 const ExprValue* value = saved.get(pair.first);
-                if (!value || ValueFits(pair.second, *value)) continue;
+                // An enum whose own default is "" (none chosen) takes "" back, as a host write does.
+                if (!value || ValueFits(pair.second, *value, ChoosesNone(pair.second))) continue;
                 misfits.push_back(BagMisfit{pair.first, *value});
                 values_.set(pair.first, pair.second.defaultOrTypeDefault());
             }

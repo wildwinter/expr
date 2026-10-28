@@ -775,6 +775,29 @@ export const cases: RegistryCase[] = [
     ],
   },
   {
+    // An enum whose own default is "" (none chosen, an editor's "(none)") takes "" back, as a host
+    // write does; an enum with any other default, or none, does not.
+    name: "a refitting load keeps none chosen on an enum whose default is none chosen, and only there",
+    steps: [
+      { op: "owned", token: "game", declarations: [
+        { name: "mood", type: "enum", values: ["calm", "tense"], default: "" },
+        { name: "pose", type: "enum", values: ["sit", "stand"] },
+        { name: "tone", type: "enum", values: ["dry", "warm"], default: "warm" },
+        { name: "hue", type: "enum", values: ["red", "blue"], default: "" },
+      ] },
+      { op: "load", refit: true, blob: { game: { mood: "", pose: "", tone: "", hue: "green" } } },
+      { op: "get", scope: "game", name: "mood", expect: "" },
+      { op: "get", scope: "game", name: "pose", expect: "sit" },
+      { op: "get", scope: "game", name: "tone", expect: "warm" },
+      { op: "get", scope: "game", name: "hue", expect: "" },
+      { op: "misfits", expect: [
+        { scope: "game", name: "pose", value: "" },
+        { scope: "game", name: "tone", value: "" },
+        { scope: "game", name: "hue", value: "green" },
+      ] },
+    ],
+  },
+  {
     name: "taking the misfits empties the list",
     steps: [
       { op: "owned", token: "game", declarations: [{ name: "standing", type: "quality", stages: ["stranger", "friend"] }] },

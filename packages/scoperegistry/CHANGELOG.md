@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1] - 2026-10-28
+
+### Fixed
+
+- **A refitting load keeps "none chosen".** An enum whose own default is `""` (an editor's
+  "(none)") takes a saved `""` back, as a host write does, instead of reporting it as a misfit.
+  An enum with any other default, or none, still refits `""` to its default. Every native
+  registry has the same fix, and the registry corpus pins it.
+
 ## [0.9.0] - 2026-10-18
 
 ### Added

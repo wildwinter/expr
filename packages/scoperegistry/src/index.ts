@@ -316,7 +316,8 @@ export class PropertyBag {
     for (const [name, d] of this.decls) {
       if (!saved.has(name)) continue;
       const value = saved.get(name)!;
-      if (valueFits(d, value)) continue;
+      // An enum whose own default is "" (none chosen) takes "" back, as a host write does.
+      if (valueFits(d, value, { noneChosen: d.type === "enum" && d.default === "" })) continue;
       this.values[name] = structuredClone(defaultFor(d));
       misfits.push({ name, value });
     }
