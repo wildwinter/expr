@@ -66,6 +66,14 @@ Notable options beyond the basics:
   away`, a "by" field, Apply) that writes `<ref> + n` or `<ref> - n`, the same
   source as picking the property and adding a term. "Set it to" below it still
   writes a literal, and says "Not a number." when it holds something else.
+- `homeScope`: the host's own scope (Patterpad's `patter`). A property pill then
+  reads the way an author writes a reference: `@gold` for a property in that
+  scope and `@world.time` in full for any other, on an effect's target and in
+  its value alike (`@gold = @gold + 1`). Display only: targets are still
+  written `@patter.gold` and values as before. Without it, pills read `gold` in
+  the dialect's default scope and `world.time` elsewhere, and a target shows as
+  written. Accepted by the expression editor, the effects editor, and the
+  previews.
 - `valueWizard`'s `expectedChoices` supersedes `expectedEnumValues` — one
   channel for "the target's closed set of values", filled with `choicesOf(entry)`
   so a quality's ladder arrives with its type. The old name still works.
@@ -125,6 +133,18 @@ const fx = mountEffectsEditor(hostEl, {
 // fx.setValue(effects); fx.destroy();
 ```
 
+With `onCreateProperty(name, scope)`, the "+ set property" picker also creates a
+property: search text that no property in a scope has, and which is a legal name
+(letters, digits, and `_`, not starting with a digit, not a keyword; folded to
+lower case), offers `+ New property "<name>"` with the scope it goes in. Text that
+can't be a name says why when nothing matched it. The host creates the
+declaration (choosing its type, or asking the author) and returns it as a
+catalogue entry, or `null` to cancel; it may return a promise. The new property
+then goes straight on to its value as a listed one does, and the editor knows it
+at once. `newPropertyScopes` lists the scopes a new property can go in (default:
+the dialect's default scope; never another engine's); typing `scope.name` picks
+one. Without the callback nothing is offered.
+
 The pure list operations (`addSet`, `addEmit`, `removeAt`, `moveAt`, `updateAt`,
 `addArg`, `setArgAt`, `removeArgAt`, `seedValueSrc`) are exported and node-testable.
 
@@ -135,7 +155,8 @@ The pure list operations (`addSet`, `addEmit`, `removeAt`, `moveAt`, `updateAt`,
   validation wrapper. Node-testable, no DOM.
 - **UI** (`mount.ts`, `ui/*`) — pills, popover micro-editors, the property picker, clause
   wizards, the tree chrome, and the raw-text fallback. Verified in a host's browser preview, and
-  in the jsdom suites (`test/change-by.test.ts`, `test/string-arg-choices.test.ts`).
+  in the jsdom suites (`test/change-by.test.ts`, `test/string-arg-choices.test.ts`,
+  `test/new-property.test.ts`, `test/home-scope.test.ts`).
 
 ## Status
 

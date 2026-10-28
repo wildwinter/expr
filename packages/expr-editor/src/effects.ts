@@ -17,7 +17,7 @@ import { el, button, openPopover, type Popover, propertyMenuBody } from "./dom.j
 import {
   type CatalogueEntry, type PropertyType,
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf, targetRefOf,
-  choicesOf, propertyTip, otherEngineTip, scopeOfRef,
+  choicesOf, propertyTip, otherEngineTip, scopeOfRef, targetLabel, newPropertyName, schemaWith, lookup,
 } from "./schema.js";
 import type { FunctionTemplateSpec, StringArgChoices } from "./types.js";
 import { advancedRef, normaliseRef } from "./ast.js";
@@ -84,6 +84,20 @@ export interface EffectsEditorOptions {
    *  definition). Threaded to every inline value editor, and honoured by the
    *  set rows' own target pills (resolved via the catalogue). */
   propertyActions?(ref: { scope: string; name: string }): Array<{ label: string; run: () => void }>;
+  /** The host's own scope (Patterpad's `patter`): pills, targets included, show `@gold` for a
+   *  property in it and `@world.time` in full for any other. Display only (see
+   *  ExpressionEditorOptions.homeScope); targets are still written `@patter.gold`. */
+  homeScope?: string;
+  /** Lets the "+ set property" picker create a property. Search text no property in a scope has, and
+   *  which is a legal name, offers `+ New property "<name>"` (with the scope it goes in); choosing it
+   *  calls this with the name (lower case) and that scope. The host creates the declaration, picking
+   *  its type or asking the author, and returns it as a catalogue entry, or null to cancel. The new
+   *  property then goes straight on to its value, as a listed one does. Absent, nothing is offered. */
+  onCreateProperty?: (name: string, scope: string) => Promise<CatalogueEntry | null> | CatalogueEntry | null;
+  /** The scopes a new property can go in, in the order offered (default: the dialect's default
+   *  scope). Typing `scope.name` picks one; otherwise each is offered. Another engine's scopes are
+   *  never offered. Only read with `onCreateProperty`. */
+  newPropertyScopes?: readonly string[];
   /** Emitted on every structural / value edit with the whole new list. */
   onChange: (effects: EditorEffect[]) => void;
 }
@@ -188,6 +202,12 @@ export function seedValueSrc(type: PropertyType, values?: string[], ref?: string
   }
 }
 
+/** What the picker says when the host's `onCreateProperty` throws or rejects. */
+const createFailure = (err: unknown): string => {
+  const msg = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  return msg ? `Couldn't create the property: ${msg}` : "Couldn't create the property.";
+};
+
 // --- mount -----------------------------------------------------------------
 
 export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions): EffectsEditorHandle {
@@ -196,6 +216,13 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
   let textMode = opts.text ?? false; // raw-text view for every inline value editor (host-driven)
   let popover: Popover | null = null;
   const inner: ExpressionEditorHandle[] = []; // inline value / arg editors, destroyed on re-render
+  // The host's catalogue and schema, plus any property created from the picker since mounting, so a
+  // new property's target and value pills know it before the host next re-mounts. Never mutated:
+  // replaced with a copy that adds the entry.
+  let catalogue = opts.catalogue;
+  let schema = opts.schema;
+  let destroyed = false;
+  const newScopes = (opts.newPropertyScopes ?? [defaultScope]).filter((s) => !opts.otherEngineScopes?.includes(s));
   host.classList.add("exed-root", "exed-effects-root");
 
   const closePopover = (): void => { popover?.close(); popover = null; };
@@ -205,7 +232,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
   const openValueWizard = (anchor: HTMLElement, expected: CatalogueEntry | undefined, onCommit: (src: string) => void): void => {
     closePopover();
     popover = openPopover(anchor, (close) => valueWizard({
-      catalogue: opts.catalogue, scopeOrder: opts.scopeOrder ?? [], defaultScope,
+      catalogue, scopeOrder: opts.scopeOrder ?? [], defaultScope,
       ...(expected?.type ? { expectedType: expected.type } : {}),
       // choicesOf, never a raw field: a quality's ladder lives in `stages`, and reading `enumValues`
       // here told the wizard the type and withheld the values.
@@ -225,7 +252,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
   /** The declared type of a `set` target (resolved from the catalogue by its ref), so the value editor
    *  offers the right "+ term" extension (arithmetic for numbers, logical for booleans, none else). */
   const targetType = (target: string): PropertyType | undefined =>
-    entryForTarget(opts.catalogue, target, defaultScope)?.type;
+    entryForTarget(catalogue, target, defaultScope)?.type;
 
   /** The committed value as an INLINE editable pill editor (click pills to edit; "+ term" to extend) -
    *  the storylets ExpressionField model. The initial value is picked via the wizard; this edits it.
@@ -235,10 +262,11 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     const sub = el("div", "exed-effect-value");
     const addTerm = type === "number" ? "arithmetic" : type === "boolean" ? "boolean" : undefined;
     inner.push(mountExpressionEditor(sub, {
-      value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
+      value, schema, dialect: opts.dialect, catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
       ...(opts.otherEngineScopes ? { otherEngineScopes: opts.otherEngineScopes } : {}),
       ...(opts.stringArgChoices ? { stringArgChoices: opts.stringArgChoices } : {}),
+      ...(opts.homeScope !== undefined ? { homeScope: opts.homeScope } : {}),
       // Every editor here holds a VALUE (a set's value, an emit's argument), never a condition. Say
       // so, or emptying one falls back to the condition empty state and an outcome row reads
       // "always / + Add your first condition" - condition vocabulary, offering clauses where a value
@@ -253,19 +281,75 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     return sub;
   };
 
+  /** Take a property the host has just created into this editor's own catalogue and schema, so its
+   *  pills resolve before the host re-mounts. The host's entry wins if it already listed it. */
+  const adopt = (entry: CatalogueEntry): CatalogueEntry => {
+    const known = lookup(catalogue, entry.scope, entry.name);
+    if (known) return known;
+    catalogue = [...catalogue, entry];
+    schema = schemaWith(schema, entry);
+    return entry;
+  };
+
+  /** The picker's "+ New property" rows (or why the search text can't be one), when the host can
+   *  create properties. A scope that already has the name lists it above instead. */
+  const createRows = (query: string, hasMatches: boolean, onCreated: (e: CatalogueEntry) => void,
+    close: () => void): HTMLElement[] => {
+    if (!opts.onCreateProperty || !newScopes.length) return [];
+    const parsed = newPropertyName(query, newScopes);
+    if (!parsed) return [];
+    // A search that matched something is a search, not a failed name: only explain when nothing did.
+    if ("why" in parsed) return hasMatches ? [] : [el("div", "exed-hint exed-create-why", [parsed.why])];
+    const rows: HTMLElement[] = [];
+    for (const scope of parsed.scopes) {
+      if (lookup(catalogue, scope, parsed.name)) continue;
+      const row = button("exed-opt exed-opt-create", "", () => {
+        if (row.disabled) return;
+        row.disabled = true;
+        row.classList.add("busy");
+        const fail = (msg?: string): void => {
+          row.disabled = false;
+          row.classList.remove("busy");
+          if (msg) row.after(el("div", "exed-hint exed-create-why", [msg]));
+        };
+        const done = (entry: CatalogueEntry | null): void => {
+          if (destroyed) return;
+          if (!entry) { fail(); return; }
+          close();
+          onCreated(adopt(entry));
+        };
+        let result: Promise<CatalogueEntry | null> | CatalogueEntry | null;
+        try { result = opts.onCreateProperty!(parsed.name, scope); } catch (err) { fail(createFailure(err)); return; }
+        if (result && typeof (result as Promise<unknown>).then === "function") {
+          (result as Promise<CatalogueEntry | null>).then(done, (err) => { if (!destroyed) fail(createFailure(err)); });
+        } else done(result as CatalogueEntry | null);
+      });
+      row.append(
+        el("span", "exed-opt-name", [`+ New property "${parsed.name}"`]),
+        el("span", "exed-opt-type", [`in ${scope}`]),
+      );
+      rows.push(row);
+    }
+    return rows;
+  };
+
   /** The target-property picker popover (reuses the catalogue helpers). */
   const pickTarget = (anchor: HTMLElement, accept: PropertyType[] | undefined, onPick: (e: CatalogueEntry) => void): void => {
     closePopover();
     popover = openPopover(anchor, (close) => {
       const wrap = el("div", "exed-picker");
       const search = el("input", "exed-input");
-      search.type = "text"; search.placeholder = "Search properties…";
+      search.type = "text";
+      search.placeholder = opts.onCreateProperty && newScopes.length ? "Search or name a new property…" : "Search properties…";
       const list = el("div", "exed-picker-list");
-      const pool = filterCatalogue(opts.catalogue, { acceptTypes: accept });
+      const pool = filterCatalogue(catalogue, { acceptTypes: accept });
       const draw = (): void => {
         list.replaceChildren();
-        const groups = groupByScope(searchCatalogue(pool, search.value, defaultScope), opts.scopeOrder ?? []);
-        if (!groups.length) { list.append(el("div", "exed-hint", ["No matching properties."])); return; }
+        // `@gold` searches as `gold`: the picker lists names, and an author may well type the sigil.
+        const query = search.value.trim().replace(/^@/, "");
+        const groups = groupByScope(searchCatalogue(pool, query, defaultScope), opts.scopeOrder ?? []);
+        const create = createRows(search.value, groups.length > 0, onPick, close);
+        if (!groups.length && !create.some((r) => r.tagName === "BUTTON")) list.append(el("div", "exed-hint", ["No matching properties."]));
         for (const g of groups) {
           list.append(el("div", "exed-picker-scope", [g.scope]));
           for (const e of g.entries) {
@@ -275,6 +359,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
             list.append(row);
           }
         }
+        list.append(...create);
       };
       search.addEventListener("input", draw);
       draw();
@@ -291,12 +376,12 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     // One line, storylets-style: [target] = [value inline] [actions].
     const row = el("div", "exed-effect exed-effect-set");
     // Target pill — click to repick (re-seeds the value to match the new type).
-    const targetBtn = button("exed-pill exed-pill-prop", eff.target || "(pick property)", (e) => {
+    const targetBtn = button("exed-pill exed-pill-prop", eff.target ? targetLabel(eff.target, defaultScope, opts.homeScope) : "(pick property)", (e) => {
       pickTarget(e.currentTarget as HTMLElement, undefined, (entry) => {
         commit(updateAt(effects, i, { target: targetRefOf(entry), value: initialValueFor(entry, defaultScope).src }));
       });
     }, "change the target property");
-    const targetEntry = entryForTarget(opts.catalogue, eff.target, defaultScope);
+    const targetEntry = entryForTarget(catalogue, eff.target, defaultScope);
     // The same affordances the pills inside values carry: the declaration's
     // purpose (and ladder) on hover, the host's menu on right-click. Left-click
     // stays the repick, which the fallback title still teaches.
@@ -420,6 +505,6 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
     setValue: (next) => { effects = clone(next ?? []); render(); },
     // Flip every live inline value editor in place — keeps any open target/wizard popover alive.
     setText: (on) => { textMode = on; for (const h of inner) h.setText(on); },
-    destroy: () => { closePopover(); for (const h of inner.splice(0)) h.destroy(); host.replaceChildren(); host.classList.remove("exed-root", "exed-effects-root"); },
+    destroy: () => { destroyed = true; closePopover(); for (const h of inner.splice(0)) h.destroy(); host.replaceChildren(); host.classList.remove("exed-root", "exed-effects-root"); },
   };
 }

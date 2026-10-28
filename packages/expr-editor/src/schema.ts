@@ -5,7 +5,7 @@
 // the catalogue from its project (e.g. patter from buildSchema's properties).
 // ---------------------------------------------------------------------------
 
-import type { PropertyType } from "@wildwinter/expr";
+import { isValidPropertyName, RESERVED_PROPERTY_NAMES, type ExpressionSchema, type PropertyType } from "@wildwinter/expr";
 
 export type { PropertyType } from "@wildwinter/expr";
 
@@ -68,6 +68,83 @@ export const targetRefOf = (e: { scope: string; name: string }): string =>
 /** The label shown in the picker / on a property pill. */
 export const displayName = (e: { scope: string; name: string }, defaultScope: string): string =>
   e.scope === defaultScope ? e.name : `${e.scope}.${e.name}`;
+
+/** The label a property PILL shows. Without `homeScope`, as it always has: `gold` in the dialect's
+ *  default scope, `world.time` in any other. With it (the host's own scope, such as Patterpad's
+ *  `patter`), every reference reads the way an author writes one: `@gold` in that scope, and
+ *  `@world.time` in full elsewhere. Display only: the source keeps whatever form it was written in. */
+export const pillLabel = (e: { scope: string; name: string }, defaultScope: string, homeScope?: string): string =>
+  homeScope === undefined ? displayName(e, defaultScope)
+    : e.scope === homeScope ? `@${e.name}` : `@${e.scope}.${e.name}`;
+
+/** The label a set row's TARGET pill shows. Without `homeScope`, the target exactly as written
+ *  (`@patter.gold`, since targets are always written in full); with it, the same label a pill in the
+ *  value shows, so `@patter.gold = @gold + 1` reads `@gold = @gold + 1`. A bare `@name` (an older
+ *  save) is in the default scope; anything that is not a ref is shown as written. */
+export function targetLabel(target: string, defaultScope: string, homeScope?: string): string {
+  if (homeScope === undefined) return target;
+  const m = /^@(?:([^.\s]+)\.)?([^.\s]+)$/.exec(target.trim());
+  return m ? pillLabel({ scope: m[1] ?? defaultScope, name: m[2]! }, defaultScope, homeScope) : target;
+}
+
+/** What a picker's search text says about a NEW property: the name it would have and the scopes it
+ *  could go in, or why it can't be one. `null` for empty text (nothing to offer or explain).
+ *
+ *  A leading `@` is allowed, and `scope.name` (or `@scope.name`) names the scope, which must be one of
+ *  `scopes`. The name is folded to lower case, as every reference is, and must then be a name the
+ *  expression language can hold (`isValidPropertyName`): letters, digits and `_`, not starting with
+ *  a digit, not a keyword. */
+export function newPropertyName(
+  text: string, scopes: readonly string[],
+): { name: string; scopes: string[] } | { why: string } | null {
+  let t = text.trim();
+  if (t.startsWith("@")) t = t.slice(1);
+  if (!t) return null;
+  let only: string | undefined;
+  const dot = t.indexOf(".");
+  if (dot !== -1) {
+    only = t.slice(0, dot);
+    t = t.slice(dot + 1);
+    if (!scopes.includes(only)) {
+      return { why: scopes.length
+        ? `A new property can go in ${orList(scopes)}, not ${only}.`
+        : "New properties can't be added here." };
+    }
+    if (!t) return null;
+  }
+  const name = t.toLowerCase();
+  if (!isValidPropertyName(name)) {
+    if (/[^a-z0-9_]/.test(name)) return { why: "A property name takes only letters, digits, and _." };
+    if (/^[0-9]/.test(name)) return { why: "A property name can't start with a digit." };
+    if (RESERVED_PROPERTY_NAMES.includes(name)) return { why: `"${name}" is a reserved word, so it can't be a property name.` };
+    return { why: "That can't be a property name." };
+  }
+  return { name, scopes: only !== undefined ? [only] : [...scopes] };
+}
+
+/** `a`, `a or b`, `a, b, or c` (Oxford comma). */
+const orList = (xs: readonly string[]): string =>
+  xs.length <= 2 ? xs.join(" or ") : `${xs.slice(0, -1).join(", ")}, or ${xs[xs.length - 1]}`;
+
+/** `schema` with `entry` declared in it, for validating values that name a property created since
+ *  the schema was built. The host's schema is never changed: a copy is returned when the entry is
+ *  new, and the schema itself when it already declares it or doesn't list its scope. */
+export function schemaWith(schema: ExpressionSchema, entry: CatalogueEntry): ExpressionSchema {
+  const name = entry.name.toLowerCase();
+  const declared = schema.properties.get(entry.scope);
+  // A scope the schema doesn't list is unchecked already; listing it now would turn every other
+  // reference into it into an unknown property.
+  if (!declared || declared.has(name)) return schema;
+  const properties = new Map(schema.properties);
+  const scope = new Map(declared);
+  scope.set(name, {
+    type: entry.type,
+    ...(entry.enumValues ? { enumValues: entry.enumValues } : {}),
+    ...(entry.stages ? { stages: entry.stages } : {}),
+  });
+  properties.set(entry.scope, scope);
+  return { ...schema, properties };
+}
 
 export function filterCatalogue(entries: readonly CatalogueEntry[], filter: Filter = {}): CatalogueEntry[] {
   return entries.filter(

@@ -91,6 +91,8 @@ export interface EditCtx {
   nodeLabel?(id: string): string;
   /** See ExpressionEditorOptions.stringArgChoices. */
   stringArgChoices?: StringArgChoices;
+  /** See ExpressionEditorOptions.homeScope. */
+  homeScope?: string;
   /** Ask the mount to auto-open the micro-editor of the pill at `path` after the
    *  next render — used by insert-then-refine templates so the author lands
    *  straight in the first unfilled slot instead of chasing the error ring. */

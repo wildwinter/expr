@@ -50,6 +50,11 @@ export interface ExpressionEditorOptions {
    *  free-text field. E.g. `{ count_played: [{ value: "gate", label: "The Gate" }] }`. A function
    *  not listed keeps the field; with the option absent nothing changes. */
   stringArgChoices?: StringArgChoices;
+  /** The host's own scope (Patterpad's `patter`). When set, a property pill reads the way an author
+   *  writes a reference: `@gold` for a property in this scope, `@world.time` in full for any other.
+   *  Display only: the source is written exactly as without it. Absent, pills show `gold` in the
+   *  dialect's default scope and `world.time` elsewhere, as before. */
+  homeScope?: string;
   /** Start in raw-text mode (the host's global "show as text" toggle drives this; no inline `</>`). */
   text?: boolean;
   /** Render the editor's own validation message list under the pills (default true).
@@ -148,6 +153,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),
       ...(opts.stringArgChoices ? { stringArgChoices: opts.stringArgChoices } : {}),
+      ...(opts.homeScope !== undefined ? { homeScope: opts.homeScope } : {}),
     };
   }
 

@@ -9,7 +9,7 @@ import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
 import { setNodeAt, deleteAt, findChoicePeer, advancedRef, normaliseRef, getNodeAt as pathNode, boolLit, numLit, strLit, scopedVar, flagDelta, isComparisonOp } from "./ast.js";
 import { BINARY_LABEL, UNARY_LABEL, OP_WORD, opSwapGroup, needsParens, formatNumber } from "./ops.js";
 import {
-  type CatalogueEntry, choicesOf, displayName, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
+  type CatalogueEntry, choicesOf, displayName, pillLabel, refOf, lookup, filterCatalogue, searchCatalogue, groupByScope, type PropertyType,
   propertyTip,
   propertyPillNote,
 } from "./schema.js";
@@ -79,7 +79,7 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
     }
     case "scopedvar": {
       const entry = lookup(ctx.catalogue, node.scope, node.name);
-      const label = displayName({ scope: node.scope, name: node.name }, ctx.defaultScope);
+      const label = pillLabel({ scope: node.scope, name: node.name }, ctx.defaultScope, ctx.homeScope);
       // The rollover: an issue outranks it (pill() prefers `issue`), so a
       // broken reference explains itself and a healthy one says what it means.
       const note = propertyPillNote(entry, node.scope, label, ctx.otherEngineScopes);

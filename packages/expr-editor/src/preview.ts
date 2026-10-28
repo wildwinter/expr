@@ -11,9 +11,9 @@ import type { Dialect, ExprNode, ExpressionSchema } from "@wildwinter/expr";
 import { validateSource } from "./validate.js";
 import { renderNode } from "./flat.js";
 import { el, openPopover, propertyMenuBody } from "./dom.js";
-import { otherEngineTip, propertyTip, refOf, scopeOfRef, type CatalogueEntry } from "./schema.js";
+import { otherEngineTip, propertyTip, scopeOfRef, targetLabel, type CatalogueEntry } from "./schema.js";
 import type { EditCtx, StringArgChoices } from "./types.js";
-import { isSelfAdvance, type EditorEffect } from "./effects.js";
+import { entryForTarget, isSelfAdvance, type EditorEffect } from "./effects.js";
 
 export interface PreviewOptions {
   schema: ExpressionSchema;
@@ -28,6 +28,8 @@ export interface PreviewOptions {
   nodeLabel?: (id: string) => string;
   /** The editor's `stringArgChoices`, so a listed argument shows its label here too. */
   stringArgChoices?: StringArgChoices;
+  /** The editor's `homeScope`, so a preview reads `@gold = @gold + 1` as the editor does. */
+  homeScope?: string;
   /** Host actions for a property pill (e.g. "Go to definition"). When set, the
    *  preview becomes right-click interactive on property pills (left-click still
    *  falls through to the host); otherwise the preview is fully non-interactive. */
@@ -55,6 +57,7 @@ function frozenCtx(src: string, o: PreviewOptions, selfAdvanceRef?: string): { c
     ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
     ...(o.nodeLabel ? { nodeLabel: o.nodeLabel } : {}),
     ...(o.stringArgChoices ? { stringArgChoices: o.stringArgChoices } : {}),
+    ...(o.homeScope !== undefined ? { homeScope: o.homeScope } : {}),
     ...(o.propertyActions ? {
       propertyActions: o.propertyActions,
       openMenu: (anchor, render) => { openPopover(anchor, render, { container: o.popoverContainer }); },
@@ -83,8 +86,11 @@ export function renderConditionPreview(src: string, o: PreviewOptions): HTMLElem
  *  one was built here as bare text. It is the property being WRITTEN, so on an inspector row it is
  *  the first thing a reader asks about. */
 function targetPill(ref: string, o: PreviewOptions): HTMLElement {
-  const pill = el("span", "exed-pill exed-pill-prop", [ref || "(property)"]);
-  const entry = o.catalogue.find((e) => refOf(e, o.dialect.defaultScope) === ref);
+  const defaultScope = o.dialect.defaultScope;
+  const pill = el("span", "exed-pill exed-pill-prop", [ref ? targetLabel(ref, defaultScope, o.homeScope) : "(property)"]);
+  // Either spelling of the target finds its declaration: targets are written in full (`@patter.gold`),
+  // which matching on the shorthand alone never found, so a default-scope target had no tip or menu.
+  const entry = entryForTarget(o.catalogue, ref, defaultScope);
   if (!entry) {
     const scope = scopeOfRef(ref);
     if (scope !== undefined && o.otherEngineScopes?.includes(scope)) pill.title = otherEngineTip(ref);
