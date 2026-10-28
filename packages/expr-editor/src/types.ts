@@ -41,6 +41,27 @@ export interface FunctionTemplateSpec {
   build(): ExprNode;
 }
 
+/** One entry a host offers for a function's string argument (see `stringArgChoices`): the
+ *  `value` is written as the string literal, the `label` is what the author reads (the value when
+ *  absent). Storyletter's `count_played("gate")` is the case it was made for: the value is a card's
+ *  Game ID, the label its title. */
+export interface StringArgChoice {
+  value: string;
+  label?: string;
+}
+
+/** A function's list with the words its empty slot shows ("pick a card…"); the bare-array form
+ *  shows "pick one…". */
+export interface StringArgList {
+  choices: readonly StringArgChoice[];
+  placeholder?: string;
+}
+
+/** Host-supplied choices for a function's FIRST argument when it is a string, keyed by function
+ *  name. A function listed here offers a searchable picker for that argument instead of a free-text
+ *  field; a function not listed keeps the field. */
+export type StringArgChoices = Readonly<Record<string, readonly StringArgChoice[] | StringArgList>>;
+
 /** The editing context every renderer receives. */
 export interface EditCtx {
   schema: ExpressionSchema;
@@ -68,6 +89,8 @@ export interface EditCtx {
   pickNode?(anchor: HTMLElement, current: string, onPick: (id: string) => void): void;
   /** Resolve a node id to its readable label for the node-ref pill (falls back to the raw id). */
   nodeLabel?(id: string): string;
+  /** See ExpressionEditorOptions.stringArgChoices. */
+  stringArgChoices?: StringArgChoices;
   /** Ask the mount to auto-open the micro-editor of the pill at `path` after the
    *  next render — used by insert-then-refine templates so the author lands
    *  straight in the first unfilled slot instead of chasing the error ring. */

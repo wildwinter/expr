@@ -52,6 +52,20 @@ Notable options beyond the basics:
   entirely: there is no question left worth asking. A host still passing a
   ladder through `enumValues` keeps its value picker, but not the ordering
   affordances.
+- `stringArgChoices: { [functionName]: [{ value, label? }] | { choices, placeholder? } }`: choices for a
+  function's first string argument, such as `count_played`'s card. A listed
+  function's argument opens a searchable picker (labels shown, matched on label
+  and value) and writes the chosen `value` as the string literal; its pill shows
+  the label, with the value as its tip. An empty slot reads "pick one…", or the
+  list's own `placeholder` ("pick a card…"). A function not listed keeps the
+  free-text field, and with the option absent nothing changes. Accepted by the
+  expression editor, the effects editor, and the previews.
+- **Change by**: when `valueWizard` gets a number target's ref (`expectedType:
+  "number"` with `expectedRef`, which the effects editor's "+ set property"
+  passes), the number step leads with a "Change by" row (`＋ add` / `－ take
+  away`, a "by" field, Apply) that writes `<ref> + n` or `<ref> - n`, the same
+  source as picking the property and adding a term. "Set it to" below it still
+  writes a literal, and says "Not a number." when it holds something else.
 - `valueWizard`'s `expectedChoices` supersedes `expectedEnumValues` — one
   channel for "the target's closed set of values", filled with `choicesOf(entry)`
   so a quality's ladder arrives with its type. The old name still works.
@@ -120,7 +134,8 @@ The pure list operations (`addSet`, `addEmit`, `removeAt`, `moveAt`, `updateAt`,
   mutation, the AND/OR tree model, operator metadata, the property catalogue, and a
   validation wrapper. Node-testable, no DOM.
 - **UI** (`mount.ts`, `ui/*`) — pills, popover micro-editors, the property picker, clause
-  wizards, the tree chrome, and the raw-text fallback. Verified in a host's browser preview.
+  wizards, the tree chrome, and the raw-text fallback. Verified in a host's browser preview, and
+  in the jsdom suites (`test/change-by.test.ts`, `test/string-arg-choices.test.ts`).
 
 ## Status
 

@@ -12,7 +12,7 @@ import { validateSource } from "./validate.js";
 import { renderNode } from "./flat.js";
 import { el, openPopover, propertyMenuBody } from "./dom.js";
 import { otherEngineTip, propertyTip, refOf, scopeOfRef, type CatalogueEntry } from "./schema.js";
-import type { EditCtx } from "./types.js";
+import type { EditCtx, StringArgChoices } from "./types.js";
 import { isSelfAdvance, type EditorEffect } from "./effects.js";
 
 export interface PreviewOptions {
@@ -26,6 +26,8 @@ export interface PreviewOptions {
   otherEngineScopes?: readonly string[];
   /** Resolve a node id to a readable label for seen()/visits() node pills. */
   nodeLabel?: (id: string) => string;
+  /** The editor's `stringArgChoices`, so a listed argument shows its label here too. */
+  stringArgChoices?: StringArgChoices;
   /** Host actions for a property pill (e.g. "Go to definition"). When set, the
    *  preview becomes right-click interactive on property pills (left-click still
    *  falls through to the host); otherwise the preview is fully non-interactive. */
@@ -52,6 +54,7 @@ function frozenCtx(src: string, o: PreviewOptions, selfAdvanceRef?: string): { c
     pickNode: () => {}, // enables labelled node pills; never fires (preview is read-only)
     ...(selfAdvanceRef ? { selfAdvanceRef } : {}),
     ...(o.nodeLabel ? { nodeLabel: o.nodeLabel } : {}),
+    ...(o.stringArgChoices ? { stringArgChoices: o.stringArgChoices } : {}),
     ...(o.propertyActions ? {
       propertyActions: o.propertyActions,
       openMenu: (anchor, render) => { openPopover(anchor, render, { container: o.popoverContainer }); },

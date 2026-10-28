@@ -19,4 +19,4 @@ export { renderConditionPreview, renderEffectsPreview } from "./preview.js";
 export type { PreviewOptions } from "./preview.js";
 export { valueWizard } from "./valuewizard.js";
 export type { ValueWizardOptions } from "./valuewizard.js";
-export type { FunctionTemplateSpec, EditCtx, WizardSpec, WizardStepSpec, WizardValue } from "./types.js";
+export type { FunctionTemplateSpec, EditCtx, WizardSpec, WizardStepSpec, WizardValue, StringArgChoice, StringArgChoices, StringArgList } from "./types.js";

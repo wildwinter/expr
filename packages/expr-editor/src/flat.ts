@@ -15,7 +15,7 @@ import {
 } from "./schema.js";
 import { el, button, textField, propertyMenuBody } from "./dom.js";
 import { issuesAt } from "./validate.js";
-import type { EditCtx } from "./types.js";
+import type { EditCtx, StringArgChoice, StringArgList } from "./types.js";
 
 const FLAG_FNS = new Set(["check_flags", "set_flags"]);
 const TAG_ARG0_FNS = new Set(["seen", "patter_seen", "visits", "patter_visits"]);
@@ -53,6 +53,17 @@ export function renderNode(node: ExprNode, path: AstPath, ctx: EditCtx, parentOp
       // A node-reference arg (seen/visits arg0) gets a flow-node picker when the host provides one,
       // instead of a free-text field - the value is a node id, shown via its readable label.
       const call = isArg ? pathNode(ctx.getAst(), path.slice(0, -2)) : null;
+      // A host-listed argument (`count_played`'s card) picks from the host's list, showing each
+      // choice's label and writing its value. It outranks the node-ref picker below: a host that
+      // names the function here has said what the argument holds.
+      const listed = call?.kind === "call" && path[path.length - 1] === 0 ? argChoicesFor(ctx, call.name) : undefined;
+      if (listed) {
+        const { choices } = listed;
+        const openPick = (b: HTMLButtonElement): void => choicePicker(ctx, path, node.value, choices, b);
+        if (node.value === "") return pill("placeholder", listed.placeholder ?? "pick one…", openPick, { issue, path });
+        const label = choices.find((c) => c.value === node.value)?.label ?? node.value;
+        return pill("tag", label, openPick, { issue, title: node.value, path });
+      }
       const isNodeRef = !!ctx.pickNode && call?.kind === "call" && TAG_ARG0_FNS.has(call.name) && path[path.length - 1] === 0;
       if (isNodeRef) {
         const openPick = (b: HTMLButtonElement): void => ctx.pickNode!(b, node.value, (id) => replace(ctx, path, strLit(id)));
@@ -235,6 +246,46 @@ function stringEditor(ctx: EditCtx, path: AstPath, node: ExprNode & { kind: "str
       initial: node.value, caption: "Text value", placeholder: "value",
       onCommit: (v) => { replace(ctx, path, strLit(v)); close(); },
     });
+  });
+}
+
+/** The host's choices for a call's first string argument, read as an OWN entry: the key is a
+ *  function name an author wrote, and a plain object answers `constructor` from its prototype. */
+function argChoicesFor(ctx: EditCtx, fn: string): StringArgList | undefined {
+  const all = ctx.stringArgChoices;
+  if (!all || !Object.prototype.hasOwnProperty.call(all, fn)) return undefined;
+  const entry = all[fn]!;
+  return Array.isArray(entry) ? { choices: entry as readonly StringArgChoice[] } : (entry as StringArgList);
+}
+
+/** The picker for a host-listed string argument: searchable like the property picker, over each
+ *  choice's label and value, and committing the value as the string literal. */
+function choicePicker(ctx: EditCtx, path: AstPath, current: string, choices: readonly StringArgChoice[], anchor: HTMLButtonElement): void {
+  ctx.openPopover(anchor, (close) => {
+    const wrap = el("div", "exed-picker");
+    const search = el("input", "exed-input");
+    search.type = "text"; search.placeholder = "Search…";
+    const list = el("div", "exed-picker-list");
+    const draw = (): void => {
+      list.replaceChildren();
+      const q = search.value.trim().toLowerCase();
+      const shown = q
+        ? choices.filter((c) => c.value.toLowerCase().includes(q) || (c.label ?? "").toLowerCase().includes(q))
+        : choices;
+      if (!shown.length) { list.append(el("div", "exed-hint", ["No matches."])); return; }
+      for (const c of shown) {
+        const row = button(`exed-opt${c.value === current ? " sel" : ""}`, "", () => { replace(ctx, path, strLit(c.value)); close(); });
+        row.append(el("span", "exed-opt-name", [c.label ?? c.value]));
+        // The value beside a label, so an author who knows the ID can still see it.
+        if (c.label && c.label !== c.value) row.append(el("span", "exed-opt-type", [c.value]));
+        list.append(row);
+      }
+    };
+    search.addEventListener("input", draw);
+    draw();
+    wrap.append(search, list);
+    setTimeout(() => search.focus(), 0);
+    return wrap;
   });
 }
 

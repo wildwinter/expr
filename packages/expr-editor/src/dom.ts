@@ -124,6 +124,11 @@ export function openPopover(anchor: HTMLElement, render: (close: () => void) => 
 export function textField(opts: {
   initial?: string; caption?: string; placeholder?: string; submitLabel?: string;
   validate?: (v: string) => boolean; onCommit: (v: string) => void;
+  /** Said under the field while it holds something `validate` refuses, so a greyed Apply is never
+   *  the only answer. Nothing is said while the field is empty. */
+  invalidHint?: string;
+  /** Take the focus when shown (default true). A step with two fields gives it to one. */
+  autofocus?: boolean;
 }): HTMLElement {
   const wrap = el("div", "exed-field");
   if (opts.caption) wrap.append(el("div", "exed-field-cap", [opts.caption]));
@@ -133,7 +138,11 @@ export function textField(opts: {
   if (opts.placeholder) input.placeholder = opts.placeholder;
   const submit = button("exed-btn primary", opts.submitLabel ?? "Apply", () => commit());
   const ok = (): boolean => (opts.validate ? opts.validate(input.value) : true);
-  const sync = (): void => { submit.disabled = !ok(); };
+  const hint = opts.invalidHint ? el("div", "exed-hint exed-field-hint") : null;
+  const sync = (): void => {
+    submit.disabled = !ok();
+    if (hint) hint.textContent = input.value.trim() !== "" && !ok() ? opts.invalidHint! : "";
+  };
   const commit = (): void => { if (ok()) opts.onCommit(input.value); };
   input.addEventListener("input", sync);
   input.addEventListener("keydown", (e) => {
@@ -141,7 +150,8 @@ export function textField(opts: {
   });
   sync();
   wrap.append(el("div", "exed-field-row", [input, submit]));
-  setTimeout(() => input.focus(), 0);
+  if (hint) wrap.append(hint);
+  if (opts.autofocus ?? true) setTimeout(() => input.focus(), 0);
   return wrap;
 }
 

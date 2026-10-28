@@ -4,14 +4,17 @@
 // "ChangeValueStep". It picks ONE value - a property reference, or a type-
 // appropriate literal (number / text / true-false / enum) - and commits it.
 // No operator step: extending into `x + y` is done afterwards, optionally, via
-// the inline editor's "+ term" affordance (not a forced popup).
+// the inline editor's "+ term" affordance (not a forced popup). The one
+// exception is a number target whose ref is known: there the step leads with
+// "Change by", which writes `<ref> + n` or `<ref> - n` in one go.
 //
-// Commits a name-form source string (`5`, `"autumn"`, `true`, `@gold`).
+// Commits a name-form source string (`5`, `"autumn"`, `true`, `@gold`,
+// `@gold + 1`).
 // ---------------------------------------------------------------------------
 
 import { KEYWORD_NAMES } from "@wildwinter/expr";
 import { el, button, textField } from "./dom.js";
-import { flagChangeSrc } from "./ast.js";
+import { flagChangeSrc, changeBySrc } from "./ast.js";
 import { propertyPicker } from "./flat.js";
 import { refOf, type CatalogueEntry, type PropertyType } from "./schema.js";
 import type { EditCtx } from "./types.js";
@@ -28,11 +31,12 @@ export interface ValueWizardOptions {
   expectedChoices?: string[];
   /** @deprecated Use `expectedChoices`. Kept so a 0.11.x caller keeps working. */
   expectedEnumValues?: string[];
-  /** A FLAGS target's qualified ref and declared flags: together they unlock the
+  /** The target's qualified ref. For a FLAGS target, with `expectedFlags`, it unlocks the
    *  set/clear-a-flag step, which is what outcomes on a flags property
    *  overwhelmingly want and which a whole-value change cannot express (the
-   *  Storyletter antagonist audit's find, 2026-08-29). Absent, the generic
-   *  kinds stand alone as before. */
+   *  Storyletter antagonist audit's find, 2026-08-29). For a NUMBER target it
+   *  unlocks "Change by" (`<ref> + n`), which leads the number step. Absent,
+   *  the generic kinds stand alone as before. */
   expectedRef?: string;
   expectedFlags?: string[];
   /** Receives the chosen value as name-form source. */
@@ -73,6 +77,8 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
   // The flags step exists when the caller handed us the target's ref (without
   // it there is nothing to write set_flags against).
   const flagsReady = opts.expectedType === "flags" && opts.expectedRef !== undefined;
+  // Likewise Change by: `<ref> + n` needs the ref to write.
+  const changeReady = opts.expectedType === "number" && opts.expectedRef !== undefined;
   // Lead straight to a known target type's input; otherwise show the kind chooser.
   // Any type with a closed set of values leads straight to it - a quality included, which fell through
   // to the generic chooser before 0.12.0 because the test named only `enum`.
@@ -85,6 +91,9 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
    *  the reason clausewizard's flag step already uses one: the flags are data,
    *  so laying out sign x flag puts an unbounded list on the screen twice. */
   let flagSign: "+" | "-" = "+";
+  /** Change by's sign: add, or take away. */
+  let changeSign: "+" | "-" = "+";
+  const isNumber = (v: string): boolean => v.trim() !== "" && Number.isFinite(Number(v));
 
   const draw = (): void => {
     body.replaceChildren();
@@ -134,10 +143,50 @@ export function valueWizard(opts: ValueWizardOptions): HTMLElement {
         body.append(propertyPicker(pickCtx, { onPick: (e) => opts.onCommit(refOf(e, opts.defaultScope)) }));
         body.append(other());
         break;
-      case "number":
-        body.append(textField({ caption: "Number", placeholder: "e.g. 5 or 0.5", validate: (v) => v.trim() !== "" && Number.isFinite(Number(v)), onCommit: (v) => opts.onCommit(String(Number(v))) }));
+      case "number": {
+        // Add to it or take from it, keep the rest: the form outcomes on a
+        // number property overwhelmingly want (reputation goes up by one, gold
+        // down by five). Without this step the number field took only a
+        // literal, and the route to `@reputation + 1` was eight steps through
+        // "a different kind", the property again, and "+ term" (ruled
+        // 2026-10-28). It writes exactly what that route writes, so the value
+        // reads back as the property plus a term. Setting an absolute number
+        // stays right below it, because that is a real choice too.
+        //
+        // The sign is a TOGGLE, the flags step's shape, and switching it
+        // restyles the two buttons in place rather than redrawing, so an
+        // amount already typed survives the switch.
+        if (changeReady) {
+          const change = el("div", "exed-vwiz-section");
+          change.append(el("div", "exed-menu-head", ["Change by"]));
+          const signRow = el("div", "exed-field-row");
+          const add = button("exed-opt", "＋ add", () => { changeSign = "+"; syncSign(); });
+          const take = button("exed-opt", "－ take away", () => { changeSign = "-"; syncSign(); });
+          const syncSign = (): void => {
+            add.className = `exed-opt${changeSign === "+" ? " sel" : ""}`;
+            take.className = `exed-opt${changeSign === "-" ? " sel" : ""}`;
+          };
+          syncSign();
+          signRow.append(add, take);
+          change.append(signRow);
+          change.append(textField({
+            caption: "by", placeholder: "e.g. 1", validate: isNumber,
+            onCommit: (v) => opts.onCommit(changeBySrc(opts.expectedRef!, changeSign, Number(v), opts.defaultScope)),
+          }));
+          body.append(change);
+        }
+        const set = el("div", "exed-vwiz-section");
+        set.append(textField({
+          caption: "Set it to", placeholder: "e.g. 5 or 0.5", validate: isNumber,
+          invalidHint: changeReady ? "Not a number. To add to it, use Change by above." : "Not a number.",
+          // Change by leads, so it takes the focus when it is there.
+          autofocus: !changeReady,
+          onCommit: (v) => opts.onCommit(String(Number(v))),
+        }));
+        body.append(set);
         body.append(other());
         break;
+      }
       case "text":
         body.append(textField({ caption: "Text", placeholder: "e.g. autumn", onCommit: (v) => opts.onCommit(JSON.stringify(v)) }));
         body.append(other());

@@ -19,7 +19,7 @@ import {
   filterCatalogue, searchCatalogue, groupByScope, displayName, refOf, targetRefOf,
   choicesOf, propertyTip, otherEngineTip, scopeOfRef,
 } from "./schema.js";
-import type { FunctionTemplateSpec } from "./types.js";
+import type { FunctionTemplateSpec, StringArgChoices } from "./types.js";
 import { advancedRef, normaliseRef } from "./ast.js";
 import { valueWizard } from "./valuewizard.js";
 import { mountExpressionEditor, type ExpressionEditorHandle } from "./mount.js";
@@ -66,6 +66,9 @@ export interface EffectsEditorOptions {
   otherEngineScopes?: readonly string[];
   /** Dialect clause templates passed through to each value editor. */
   functions?: FunctionTemplateSpec[];
+  /** Choices for a function's first string argument, threaded to every inline value editor (see
+   *  ExpressionEditorOptions.stringArgChoices). */
+  stringArgChoices?: StringArgChoices;
   /** Known host event names to suggest when adding an `emit` (optional). */
   events?: string[];
   /** Offer the "+ emit event" affordance (default true). A host whose effects are SET-ONLY (e.g.
@@ -212,6 +215,8 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       // out of it deliberately - flags are not a pick-one list, and a pinned
       // test holds it to that.
       ...(expected?.type === "flags" ? { expectedRef: targetRefOf(expected), expectedFlags: expected.enumValues ?? [] } : {}),
+      // Change by needs the same: the ref its `<ref> + n` is written against.
+      ...(expected?.type === "number" ? { expectedRef: targetRefOf(expected) } : {}),
       onCommit: (src) => { onCommit(src); close(); },
       onCancel: close,
     }), { container: opts.popoverContainer });
@@ -233,6 +238,7 @@ export function mountEffectsEditor(host: HTMLElement, opts: EffectsEditorOptions
       value, schema: opts.schema, dialect: opts.dialect, catalogue: opts.catalogue,
       scopeOrder: opts.scopeOrder, functions: opts.functions, mode: "flat",
       ...(opts.otherEngineScopes ? { otherEngineScopes: opts.otherEngineScopes } : {}),
+      ...(opts.stringArgChoices ? { stringArgChoices: opts.stringArgChoices } : {}),
       // Every editor here holds a VALUE (a set's value, an emit's argument), never a condition. Say
       // so, or emptying one falls back to the condition empty state and an outcome row reads
       // "always / + Add your first condition" - condition vocabulary, offering clauses where a value

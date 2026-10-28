@@ -11,7 +11,7 @@
 //   top-level node       -> []
 // ---------------------------------------------------------------------------
 
-import type { ExprNode, BinaryOp, AstPath } from "@wildwinter/expr";
+import { unparse, type ExprNode, type BinaryOp, type AstPath } from "@wildwinter/expr";
 
 // --- small node constructors (one place for the node shapes) ---------------
 export const boolLit = (value: boolean): ExprNode => ({ kind: "bool", value });
@@ -167,6 +167,23 @@ export const normaliseRef = (ref: string, defaultScope: string): string => {
  *  it without importing the effects mount (which imports the wizard). */
 export const flagChangeSrc = (targetRef: string, sign: "+" | "-", flag: string): string =>
   `set_flags(${targetRef}, ${sign}${flag})`;
+
+/** A name-form property ref (`@name` or `@scope.name`) as a scopedvar node; a bare name is in the
+ *  default scope. */
+export function refNode(ref: string, defaultScope: string): ExprNode {
+  const bare = ref.replace(/^@/, "");
+  const dot = bare.indexOf(".");
+  return dot >= 0 ? scopedVar(bare.slice(0, dot), bare.slice(dot + 1)) : scopedVar(defaultScope, bare);
+}
+
+/** The change-by value: `<ref> + n` or `<ref> - n`, the property plus one term. Built as the AST and
+ *  unparsed in the dialect's default scope, so it is the same source the inline editor's "+ term"
+ *  writes after picking the property, and it reads back as that property and a term. A negative
+ *  amount flips the sign (`- 2`, never `+ -2`). */
+export function changeBySrc(targetRef: string, sign: "+" | "-", amount: number, defaultScope: string): string {
+  const op: BinaryOp = (sign === "+") === (amount >= 0) ? "+" : "-";
+  return unparse(binary(op, refNode(targetRef, defaultScope), numLit(Math.abs(amount))), { defaultScope });
+}
 
 /** The name-form ref a call ADVANCES, when the call is the plain `advance(@x)` shape: one scopedvar
  *  argument and nothing else. Null for any other call, and for an argument that is not a property

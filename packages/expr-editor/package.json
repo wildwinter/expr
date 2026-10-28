@@ -50,5 +50,8 @@
   },
   "dependencies": {
     "@wildwinter/expr": "^0.6.0"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }

@@ -157,6 +157,10 @@
 .exed-vwiz-back { background: none; border: 0; cursor: pointer; color: var(--exed-muted); font-size: 0.85rem; padding: 0 0.2rem; border-radius: 4px; }
 .exed-vwiz-back:hover { color: var(--exed-accent); }
 .exed-vwiz-body { display: flex; flex-direction: column; gap: 0.1rem; }
+/* The number step's two sections (Change by, then Set it to), ruled apart. */
+.exed-vwiz-section { display: flex; flex-direction: column; gap: 0.1rem; }
+.exed-vwiz-section + .exed-vwiz-section { border-top: 1px solid var(--exed-line); margin-top: 0.2rem; padding-top: 0.3rem; }
+.exed-field-hint:empty { display: none; }
 .exed-vwiz-other { background: none; border: 0; cursor: pointer; color: var(--exed-muted); font: 0.72rem var(--font-ui, system-ui); text-align: left; padding: 0.25rem 0.4rem; margin-top: 0.15rem; }
 .exed-vwiz-other:hover { color: var(--exed-accent); }
 .exed-field-cap, .exed-picker-scope { font: 600 12.5px/1.2 var(--font-ui, system-ui); color: var(--exed-muted); padding: 0.2rem 0.3rem 0.1rem; }

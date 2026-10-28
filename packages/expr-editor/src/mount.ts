@@ -7,14 +7,14 @@
 
 import { unparse } from "@wildwinter/expr";
 import type { ExprNode, BinaryOp, Dialect, ExpressionSchema, AstPath } from "@wildwinter/expr";
-import { boolLit, binary, numLit, scopedVar, strLit, callNode, flagDelta } from "./ast.js";
+import { boolLit, binary, numLit, scopedVar, strLit, callNode, flagDelta, refNode } from "./ast.js";
 import { validateSource } from "./validate.js";
 import { ARITHMETIC_OPS, BINARY_LABEL } from "./ops.js";
 import type { CatalogueEntry } from "./schema.js";
 import { el, button, textField, openPopover, type Popover } from "./dom.js";
 import { renderNode, propertyPicker, signToggle } from "./flat.js";
 import { renderTree, clauseMenu, requestFocusForInsert } from "./treeview.js";
-import type { EditCtx, FunctionTemplateSpec } from "./types.js";
+import type { EditCtx, FunctionTemplateSpec, StringArgChoices } from "./types.js";
 
 export type { FunctionTemplateSpec } from "./types.js";
 
@@ -45,6 +45,11 @@ export interface ExpressionEditorOptions {
   pickNode?: EditCtx["pickNode"];
   /** Resolve a node id to a readable label for node-ref pills. */
   nodeLabel?: EditCtx["nodeLabel"];
+  /** Choices for a function's first string argument, keyed by function name: the argument then
+   *  opens a searchable picker (label shown, value written as the string literal) instead of a
+   *  free-text field. E.g. `{ count_played: [{ value: "gate", label: "The Gate" }] }`. A function
+   *  not listed keeps the field; with the option absent nothing changes. */
+  stringArgChoices?: StringArgChoices;
   /** Start in raw-text mode (the host's global "show as text" toggle drives this; no inline `</>`). */
   text?: boolean;
   /** Render the editor's own validation message list under the pills (default true).
@@ -142,6 +147,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
       ...(opts.propertyActions ? { propertyActions: opts.propertyActions } : {}),
       ...(opts.pickNode ? { pickNode: opts.pickNode } : {}),
       ...(opts.nodeLabel ? { nodeLabel: opts.nodeLabel } : {}),
+      ...(opts.stringArgChoices ? { stringArgChoices: opts.stringArgChoices } : {}),
     };
   }
 
@@ -221,13 +227,6 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
     return el("div", "exed-flat", [renderNode(strLit(""), [], ctx)]);
   }
 
-  /** Parse a name-form property ref ("@name" / "@scope.name") to a scopedvar. */
-  function parseRef(ref: string): ExprNode {
-    const bare = ref.replace(/^@/, "");
-    const dot = bare.indexOf(".");
-    return dot >= 0 ? scopedVar(bare.slice(0, dot), bare.slice(dot + 1)) : scopedVar(defaultScope, bare);
-  }
-
   // Compact flags value: render a set_flags(@target, +a, -b) call as only its
   // flag-delta pills (reusing the flat flag-delta editor) plus an "+ flag" chip.
   // The function name and target arg are hidden - the target is implied by the
@@ -265,7 +264,7 @@ export function mountExpressionEditor(host: HTMLElement, opts: ExpressionEditorO
           const delta = flagDelta(sign, name);
           emit(toSrc(call
             ? { ...call, args: [...call.args, delta] }
-            : callNode("set_flags", [parseRef(opts.flagValue!.target), delta])));
+            : callNode("set_flags", [refNode(opts.flagValue!.target, defaultScope), delta])));
           close();
         };
         if (available.length) {
