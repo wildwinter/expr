@@ -1,6 +1,6 @@
 {
   "name": "@wildwinter/toolkit",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Small shared pieces of the authoring tooling: opaque ids, Game IDs, a stable hash, JSON5 source parsing, find/replace matching, the archive guards, and (in ./extensions) the spec and merge for Patter extensions and Storylet extensions. Nothing here runs in a game.",
   "type": "module",
   "license": "MIT",
