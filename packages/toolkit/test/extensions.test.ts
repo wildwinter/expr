@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 import {
   compileEntry, compiledTarget, defaultOf, entryProblems, manifestProblems, mergeExtensionData, mergeTree,
   isViewEntry, missingRequirements, pickChoices, pickClashes, pickLists, renameStages, unresolvedProblems, valueProblems, viewsFor,
+  UNRESOLVED_KEY, clearUnresolved, markUnresolved, unresolvedOf,
 } from "../src/extensions.js";
-import type { FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
+import type { Conflict, FieldDecl, Manifest, Problem, Strategy, TargetDecl } from "../src/extensions.js";
 
 const load = (name: string): any => JSON.parse(readFileSync(new URL(`../conformance/extensions/${name}.json`, import.meta.url), "utf8"));
 
@@ -140,5 +141,43 @@ describe("viewsFor", () => {
   it("keeps entries inside the package", () => {
     expect(isViewEntry("view/sheet.js")).toBe(true);
     for (const e of ["../x.js", "/x.js", "view/./x.js", "view\\x.js", "x.mjs", "view//x.js"]) expect(isViewEntry(e)).toBe(false);
+  });
+});
+
+describe("clearUnresolved", () => {
+  const clash = (path: string): Conflict => ({ id: "", path, base: 1, ours: 2, theirs: 3, kind: "both-changed" });
+  const marked = markUnresolved({ a: 2, b: 2 }, [clash("a"), clash("b")]);
+
+  it("removes the named entries and keeps the rest", () => {
+    const out = clearUnresolved(marked, ["a"]);
+    expect(out).toEqual({ a: 2, b: 2, unresolved: [{ path: "b", kind: "both-changed", base: 1, ours: 2, theirs: 3 }] });
+  });
+  it("removes the key when the mark empties", () => {
+    const out = clearUnresolved(marked, new Set(["a", "b"]));
+    expect(out).toEqual({ a: 2, b: 2 });
+    expect(Object.prototype.hasOwnProperty.call(out, UNRESOLVED_KEY)).toBe(false);
+    expect(unresolvedProblems(out)).toEqual([]);
+  });
+  it("is pure", () => {
+    const before = JSON.stringify(marked);
+    clearUnresolved(marked, ["a", "b"]);
+    expect(JSON.stringify(marked)).toBe(before);
+  });
+  it("ignores a path not in the mark, and returns a shard with no mark as it is", () => {
+    expect(unresolvedOf(clearUnresolved(marked, ["c"]))).toEqual(unresolvedOf(marked));
+    const plain = { a: 1 };
+    expect(clearUnresolved(plain, ["a"])).toBe(plain);
+  });
+  it("keeps an entry with no path, which can't be named, and drops an empty or malformed mark", () => {
+    expect(clearUnresolved({ x: 1, unresolved: [{ kind: "structural" }, { path: "a", kind: "both-changed" }] }, ["a"]))
+      .toEqual({ x: 1, unresolved: [{ kind: "structural" }] });
+    expect(clearUnresolved({ x: 1, unresolved: [] }, [])).toEqual({ x: 1 });
+    expect(clearUnresolved({ x: 1, unresolved: "junk" }, [])).toEqual({ x: 1 });
+  });
+  it("reads back, through unresolvedOf, as path, kind and the three sides", () => {
+    expect(unresolvedOf(marked)).toEqual([
+      { path: "a", kind: "both-changed", base: 1, ours: 2, theirs: 3 },
+      { path: "b", kind: "both-changed", base: 1, ours: 2, theirs: 3 },
+    ]);
   });
 });

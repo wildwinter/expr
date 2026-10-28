@@ -235,8 +235,10 @@ behaviours (lifted from the Storylets format's strategy table):
 **An unresolved merge is marked in the merged shard, in both formats.** `markUnresolved` writes the clashes into the
 shard under the reserved key `unresolved` (`UNRESOLVED_KEY`), each with its path, its kind and the three values; a
 mark already on either side is carried until somebody resolves it. Validation, and so CI, refuses a shard carrying
-the mark (`unresolvedProblems`); resolving removes it. The mark travels with the file in every version control
-system and needs no ignore rule. Conflict sidecars, where a format writes them, stay uncommitted.
+the mark (`unresolvedProblems`); resolving removes it. A resolver reads the clashes with `unresolvedOf` and, as each
+is settled, takes it out with `clearUnresolved`, which drops the key with the last one. The mark travels with the
+file in every version control system and needs no ignore rule. Conflict sidecars, where a format writes them, stay
+uncommitted.
 
 This covers every shard of a format, not only extension shards.
 

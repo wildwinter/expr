@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 export { newId, slug } from "./ids.js";
+export { gameIdify, isValidGameId } from "./gameid.js";
 export { fnv32 } from "./hash.js";
 export { parseSource } from "./source.js";
 export { findMatcher, parseFieldQuery, fieldNameMatches, fieldValueMatches, fieldValueText } from "./find.js";

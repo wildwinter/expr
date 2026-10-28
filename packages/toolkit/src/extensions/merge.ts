@@ -436,6 +436,20 @@ export function markUnresolved<T extends Record<string, unknown>>(
   return { ...result, [UNRESOLVED_KEY]: [...out.keys()].sort().map((p) => out.get(p)!) } as unknown as T;
 }
 
+/**
+ * A shard with the named clashes resolved: their entries leave its `unresolved` mark, and the key goes when
+ * nothing is left in it. Pure: the shard passed in is not changed, and one with no mark comes back as it is.
+ * An entry with no path can't be named, so it stays. Read the clashes to resolve with `unresolvedOf`.
+ */
+export function clearUnresolved<T>(shard: T, paths: Iterable<string>): T {
+  const mark = unresolvedOf(shard);
+  if (mark === undefined) return shard;
+  const named = new Set(paths);
+  const left = mark.filter((e) => !(isObject(e) && typeof e.path === "string" && named.has(e.path)));
+  const rest = withoutMark(shard) as Record<string, unknown>;
+  return (left.length === 0 ? rest : { ...rest, [UNRESOLVED_KEY]: left }) as T;
+}
+
 /** Validation's refusal of a marked shard: one error per clash, or one for an empty mark. */
 export function unresolvedProblems(shard: unknown): Problem[] {
   const mark = unresolvedOf(shard);

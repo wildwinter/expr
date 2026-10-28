@@ -2,7 +2,7 @@
 
 Small shared pieces of the **authoring tooling** behind
 [Storylet Studio](https://github.com/storylet-studio) and
-[Patter](https://patterkit.com): opaque ids, a stable hash, JSON5 source parsing,
+[Patter](https://patterkit.com): opaque ids, Game IDs, a stable hash, JSON5 source parsing,
 find/replace matching, the archive guards, version-control setup (in `./vcs`), and (in
 `./extensions`) the spec and merge for Patter extensions and Storylet extensions.
 
@@ -52,6 +52,15 @@ four.
 
 `slug(name, fallback = "project")` is the human-facing counterpart, a url-ish
 label with a fallback for when nothing usable is left.
+
+## Game IDs
+
+`gameIdify(text)` turns a name into a Game ID, the address a game uses for a
+scene, a card or a deck: lower case, apostrophes dropped, every other run of
+anything but a-z, 0-9 and hyphens made one hyphen, and no hyphen at either end
+(`"Torin's Offer!"` is `torins-offer`). It can be empty, and a caller falls back
+as it sees fit. `isValidGameId(gameId)` checks one an author typed. Both families
+address things by this rule, and a Storylet card finds its Patter scene by it.
 
 ## Hash
 

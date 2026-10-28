@@ -1,5 +1,17 @@
 # @wildwinter/toolkit
 
+## 0.4.0
+
+### Added
+
+- **Game IDs**: `gameIdify(text)` turns a name into a Game ID, and `isValidGameId(gameId)` checks an authored one. Both
+  families had the same copy of each, and Storyletter matches a card to its Patter scene by them, so they now live in
+  one place. The rule is unchanged: lower case, apostrophes dropped, every other run of anything but a-z, 0-9 and
+  hyphens made one hyphen, and no hyphen at either end. What a family derives an address from stays its own.
+- **Resolving the unresolved mark** (`./extensions`): `clearUnresolved(shard, paths)` returns the shard with the named
+  clashes taken out of its `unresolved` mark, and without the key once nothing is left in it. `unresolvedOf` already
+  reads the mark as each clash's path, kind and three sides, for a resolver to show.
+
 ## 0.3.1
 
 ### Added

@@ -24,7 +24,7 @@ export {
 } from "./extensions/values.js";
 export type { PickChoice, PickSources, StageRename, ValueContext } from "./extensions/values.js";
 export {
-  ATOMIC, COMMENTS, SET, UNRESOLVED_KEY, extensionDataStrategy, keyedBy, mapOf, markUnresolved, mergeComments, mergeExtensionData,
+  ATOMIC, COMMENTS, SET, UNRESOLVED_KEY, clearUnresolved, extensionDataStrategy, keyedBy, mapOf, markUnresolved, mergeComments, mergeExtensionData,
   mergeTree, objectOf, orphanedEntries, stableStringify, strategyForTarget, strategyForType, unresolvedOf,
   unresolvedProblems, withoutMark,
 } from "./extensions/merge.js";
