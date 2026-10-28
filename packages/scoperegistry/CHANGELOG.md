@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **An exported Godot game can `load()` its imported bundle again** (native ports only: the
+  shared Godot export plugin; no npm change, and the C++ kernel id stays `k481740d0`). The
+  plugin put a bundle's raw bytes back at its own path and skipped the imported product, which
+  also dropped the `.import` remap a running game needs, so `load("res://x.<ext>")` (and any
+  scene holding the bundle as a Resource) found nothing in a build while working in the editor.
+  An export now carries a small stand-in at the imported path, with the remap, that extends the
+  addon's own bundle Resource and reads `json_text` from the raw file as it loads: both routes
+  work, and the bundle is in the pack once. `ports/godot/testing/export_check.sh` exports a
+  stand-in family as a pack and as a macOS app and runs both.
+
 ## [0.9.1] - 2026-10-28
 
 ### Fixed
