@@ -49,7 +49,7 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@wildwinter/expr": "^0.6.0"
+    "@wildwinter/expr": "^1.0.0"
   },
   "devDependencies": {
     "jsdom": "^26.1.0"
