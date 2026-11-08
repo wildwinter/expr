@@ -83,16 +83,7 @@ jobs:
           else
             npm publish -w packages/scoperegistry
           fi
-      # expr-specificity peer-depends on expr, so it publishes after it too.
-      - name: Publish @wildwinter/expr-specificity
-        run: |
-          VER=$(node -p "require('./packages/expr-specificity/package.json').version")
-          if npm view "@wildwinter/expr-specificity@$VER" version >/dev/null 2>&1; then
-            echo "@wildwinter/expr-specificity@$VER already published; skipping."
-          else
-            npm publish -w packages/expr-specificity
-          fi
-      # expr-editor also depends on expr, so it publishes after it too.
+      # expr-editor depends on expr, so it publishes after it too.
       - name: Publish @wildwinter/expr-editor
         run: |
           VER=$(node -p "require('./packages/expr-editor/package.json').version")
@@ -100,4 +91,14 @@ jobs:
             echo "@wildwinter/expr-editor@$VER already published; skipping."
           else
             npm publish -w packages/expr-editor
+          fi
+      # expr-specificity peer-depends on expr, and nothing here depends on it, so it goes last:
+      # a package whose publish fails must not stop the ones after it.
+      - name: Publish @wildwinter/expr-specificity
+        run: |
+          VER=$(node -p "require('./packages/expr-specificity/package.json').version")
+          if npm view "@wildwinter/expr-specificity@$VER" version >/dev/null 2>&1; then
+            echo "@wildwinter/expr-specificity@$VER already published; skipping."
+          else
+            npm publish -w packages/expr-specificity
           fi
