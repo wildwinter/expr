@@ -1,5 +1,10 @@
 # @wildwinter/expr
 
+## 1.0.0
+
+The 1.0 release: the API of 0.6.0, unchanged, declared settled. From here the version follows semver: a patch fixes, a minor adds, and a major removes or
+changes a meaning (patterkit `design/release-1-0-readiness-2026-11.md`, section F).
+
 ## 0.6.0
 
 Qualities' shared logic, moved here from both product families so it exists once (the

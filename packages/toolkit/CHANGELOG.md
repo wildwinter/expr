@@ -1,5 +1,14 @@
 # @wildwinter/toolkit
 
+## 1.0.0
+
+The 1.0 release: the API of 0.4.0, unchanged, declared settled. From here the version follows semver: a patch fixes, a minor adds, and a major removes or
+changes a meaning (patterkit `design/release-1-0-readiness-2026-11.md`, section F).
+
+### Changed
+
+- The optional peers of `./extensions` read `>=1.0.0 <2.0.0` on `@wildwinter/expr` and `@wildwinter/scoperegistry`: toolkit 1.x goes with the 1.x of both.
+
 ## 0.4.0
 
 ### Added

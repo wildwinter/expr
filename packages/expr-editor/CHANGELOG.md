@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.0] - 2026-11-08
+
+The 1.0 release: the API of 0.18.0, unchanged, declared settled, on `@wildwinter/expr` 1.x. From here the version follows semver: a patch fixes, a minor adds, and a major removes or
+changes a meaning (patterkit `design/release-1-0-readiness-2026-11.md`, section F).
+
 ## [0.18.0] - 2026-10-28
 
 ### Added
