@@ -227,10 +227,12 @@ export const fixtures: Fixtures = {
       c("subtraction of two numbers", "@v.n - @w.n", { expected: -2 }),
       c("multiplication of two numbers", "@v.n * @w.n", { expected: 15 }),
       c("division of two numbers is not integer division", "@v.n / @w.n", { expected: 0.6 }),
-      // `+` is the one overloaded operator: two numbers or two strings, never
-      // a mix. A port that reaches for its host language's `+` gets "3cd" or
-      // "ab5" here instead of an error.
-      c("addition concatenates two strings", "@v.s + @v.t", { expected: "abcd" }),
+      // `+` takes two numbers and nothing else. It joined two strings until
+      // 2026-11-08, and that was wrong: text built by joining pieces fixes its
+      // word order in the expression, so it cannot be translated (Ian). A port
+      // that reaches for its host language's `+` gets "abcd", "3cd" or "ab5"
+      // here instead of an error.
+      c("addition rejects two strings", "@v.s + @v.t", { expectError: true }),
       c("addition rejects a number and a string", "@v.n + @v.s", { expectError: true }),
       c("addition rejects a string and a number", "@v.s + @v.n", { expectError: true }),
       c("addition rejects two booleans", "@v.yes + @v.no", { expectError: true }),

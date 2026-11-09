@@ -151,9 +151,10 @@ export function evaluate(node: ExprNode, ctx: EvalContext, dialect: Dialect): Sc
           case "<":  assertNumbers(left, right, "<");  return (left as number) <  (right as number);
           case "<=": assertNumbers(left, right, "<="); return (left as number) <= (right as number);
           case "+":
-            if (typeof left === "number" && typeof right === "number") return left + right;
-            if (typeof left === "string" && typeof right === "string") return left + right;
-            throw new EvalError(`'+' requires two numbers or two strings, got ${typeof left} and ${typeof right}`);
+            // Numbers only. Text joined by '+' fixes its word order in the
+            // expression, so it cannot be translated: put the value in the text.
+            if (typeof left === "string" || typeof right === "string") throw new EvalError(JOIN_TEXT);
+            assertNumbers(left, right, "+"); return (left as number) + (right as number);
           case "-": assertNumbers(left, right, "-"); return (left as number) - (right as number);
           case "*": assertNumbers(left, right, "*"); return (left as number) * (right as number);
           case "/":
@@ -200,6 +201,9 @@ function valueEquals(a: ScalarValue, b: ScalarValue): boolean {
   }
   return a === b;
 }
+
+/** Why '+' refuses a string. Word for word the same in every port and the checker. */
+export const JOIN_TEXT = "'+' cannot join text: put the value into the text itself, so it can be translated";
 
 function assertNumbers(l: ScalarValue, r: ScalarValue, op: string): void {
   if (typeof l !== "number" || typeof r !== "number") {

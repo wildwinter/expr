@@ -1,5 +1,18 @@
 # @wildwinter/expr
 
+## 1.0.1
+
+### Fixed
+
+- **`+` takes two numbers only; the evaluators no longer join strings.** The checker always refused `+` on strings,
+  but the evaluators joined them, so the language disagreed with itself. Joining is now refused everywhere, because
+  text built from pieces fixes its word order in the expression and can't be translated: put the value into the text
+  itself. The evaluator, in TypeScript and every native kernel, throws `'+' cannot join text: put the value into the
+  text itself, so it can be translated` when either side is a string, and the checker reports the same message as one
+  `operand-type-mismatch` (it said "requires a number" before). A non-string mix, such as two booleans, reads
+  `'+' requires numeric operands`, as `-`, `*` and `/` do. Content that passed the checker is unaffected. The parity
+  corpus case "addition concatenates two strings" is now "addition rejects two strings". C++ kernel id `ke14a776a`.
+
 ## 1.0.0
 
 The 1.0 release: the API of 0.6.0, unchanged, declared settled. From here the version follows semver: a patch fixes, a minor adds, and a major removes or

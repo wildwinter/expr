@@ -35,8 +35,8 @@ compile("@hp > 0", dialect);                          // { src, ast: ["bin", ">"
   identifier with no `(` is sugar for a string (`@season == winter`).
 - **Property refs:** `@name` (the dialect's default scope) or `@scope.name`. Names are lowercased.
 - **Operators:** `and` `or` `not` (short-circuit; aliases `&&` `||` `!`), comparisons
-  `== != > >= < <=` (`=` is an alias for `==`), arithmetic `+ - * /` (`+` also concatenates
-  strings).
+  `== != > >= < <=` (`=` is an alias for `==`), arithmetic `+ - * /` on numbers only. `+` does not join strings: text built from pieces
+  can't be translated, so put the value into the text itself.
 - **Functions:** dialect-supplied. A function may declare `flagDeltaArgs` so its trailing args
   parse as `+flag` / `-flag` (reaching `eval` as `flagdelta` nodes).
 

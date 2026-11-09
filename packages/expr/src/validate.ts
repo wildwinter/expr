@@ -18,6 +18,7 @@ import type { AstPath, BinaryOp, ExprNode, UnaryOp } from "./ast.js";
 import type { Dialect, ReturnType } from "./dialect.js";
 import { parse } from "./parser.js";
 import { own } from "./own.js";
+import { JOIN_TEXT } from "./evaluate.js";
 
 /** Property value types a schema can declare. */
 export type PropertyType = "boolean" | "number" | "string" | "enum" | "flags" | "quality";
@@ -390,6 +391,11 @@ function checkBinaryOperandTypes(
         message: `'${op}' cannot be applied to a quality - a stage is a position, not a number; use advance() to move it` });
       return;
     }
+  }
+
+  if (op === "+" && (lt === "string" || rt === "string")) {
+    issues.push({ path, kind: "operand-type-mismatch", severity: "error", message: JOIN_TEXT });
+    return;
   }
 
   if (op === "+" || op === "-" || op === "*" || op === "/" || ordering) {

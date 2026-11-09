@@ -339,9 +339,10 @@ namespace wildwinter { namespace expr { inline namespace __EXPR_KERNEL_ID__
                         }
                         if (n->op == "+")
                         {
-                            if (left.isNumber() && right.isNumber()) return ExprValue::Num(left.asNumber() + right.asNumber());
-                            if (left.isString() && right.isString()) return ExprValue::Str(left.asString() + right.asString());
-                            throw ExprError("'+' requires two numbers or two strings, got " + TypeOf(left) + " and " + TypeOf(right));
+                            // Numbers only: text joined by '+' cannot be translated.
+                            if (left.isString() || right.isString()) throw ExprError("'+' cannot join text: put the value into the text itself, so it can be translated");
+                            AssertNumbers(left, right, "+");
+                            return ExprValue::Num(left.asNumber() + right.asNumber());
                         }
                         if (n->op == "-")
                         {
