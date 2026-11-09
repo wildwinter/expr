@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { parse, evaluate, EvalError, parseAndValidate } from "../src/index.js";
-import type { Dialect, ExpressionSchema } from "../src/index.js";
+import type { Dialect, ExpressionSchema, ScalarValue } from "../src/index.js";
 
 const dialect: Dialect = { defaultScope: "story", scopes: [{ token: "story" }], functions: {} };
 
@@ -26,7 +26,7 @@ const schema: ExpressionSchema = {
   ]),
 };
 
-const run = (src: string, values: Record<string, unknown>) =>
+const run = (src: string, values: Record<string, ScalarValue>) =>
   evaluate(parse(src, dialect), { scopes: { story: values } }, dialect);
 
 describe("'+' at evaluation", () => {
