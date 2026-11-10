@@ -98,18 +98,21 @@ function pickWords(from: unknown): string[] {
   return from.flatMap((s: unknown) => (isObject(s) && Array.isArray(s["words"]) ? s["words"].filter((w): w is string => typeof w === "string") : []));
 }
 
-/** A pick's `from`: a list of sources, each exactly one of `words`, `to`, `list` and `keys`. */
+/** The one key each kind of pick source has. */
+const SOURCE_KEYS: readonly string[] = ["words", "to", "list", "keys", "pool"];
+
+/** A pick's `from`: a list of sources, each exactly one of `words`, `to`, `list`, `keys` and `pool`. */
 function pickSourcesSound(host: HostName, from: unknown, path: string, out: Problem[]): boolean {
   if (!Array.isArray(from) || from.length === 0) {
-    out.push(err("pick-from", path, "a pick lists its sources in \"from\": { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, or { \"keys\": a project map }"));
+    out.push(err("pick-from", path, "a pick lists its sources in \"from\": { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, { \"keys\": a project map }, or { \"pool\": a name }"));
     return false;
   }
   let sound = true;
   from.forEach((s: unknown, i) => {
     const at = atIndex(path, i);
-    const keys = isObject(s) ? Object.keys(s).filter((k) => k === "words" || k === "to" || k === "list" || k === "keys") : [];
+    const keys = isObject(s) ? Object.keys(s).filter((k) => SOURCE_KEYS.includes(k)) : [];
     if (!isObject(s) || keys.length !== 1) {
-      out.push(err("pick-source", at, "a source is one of { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, { \"keys\": a project map }"));
+      out.push(err("pick-source", at, "a source is one of { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, { \"keys\": a project map }, { \"pool\": a name }"));
       sound = false;
       return;
     }
@@ -133,6 +136,11 @@ function pickSourcesSound(host: HostName, from: unknown, path: string, out: Prob
         out.push(err("pick-list", atKey(at, "list"), "a list source names a field of the extension's project node"));
         sound = false;
       }
+    } else if (keys[0] === "pool") {
+      if (typeof s["pool"] !== "string" || !NAME.test(s["pool"])) {
+        out.push(err("pick-pool", atKey(at, "pool"), "a pool source is named, as a field is: the fields naming the same pool share their values"));
+        sound = false;
+      }
     } else if (typeof s["keys"] !== "string" || !NAME.test(s["keys"])) {
       out.push(err("pick-keys", atKey(at, "keys"), "a keys source names a field of the extension's project node"));
       sound = false;
@@ -153,7 +161,7 @@ function pickListProblems(kinds: Record<string, unknown>, hostPath: string, out:
     if (d.type === "pick" && Array.isArray(d.from)) {
       d.from.forEach((s, i) => {
         // A source that isn't exactly one kind is already reported (pick-source): not again here.
-        if (!isObject(s) || ["words", "to", "list", "keys"].filter((k) => k in s).length !== 1) return;
+        if (!isObject(s) || SOURCE_KEYS.filter((k) => k in s).length !== 1) return;
         if (typeof (s as { list?: unknown }).list === "string" && !lists.has((s as { list: string }).list)) {
           const name = (s as { list: string }).list;
           out.push(err("pick-list", atKey(atIndex(atKey(path, "from"), i), "list"),

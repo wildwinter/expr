@@ -2294,6 +2294,82 @@
           "code": "pick-source"
         }
       ]
+    },
+    {
+      "name": "a pick's pool is any name, and may be its only source",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "look",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "away"
+                      ]
+                    },
+                    {
+                      "to": "cast"
+                    },
+                    {
+                      "pool": "pointOfInterest"
+                    }
+                  ]
+                },
+                {
+                  "name": "camera",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "pool": "locationCamera"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a pool is named as a field is",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "camera",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "pool": "9 cameras"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].pool",
+          "code": "pick-pool"
+        }
+      ]
     }
   ]
 }

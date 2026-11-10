@@ -30,3 +30,5 @@ export {
 } from "./extensions/merge.js";
 export type { Conflict, DataMergeResult, MergeWarning, Strategy, TreeMergeOptions, TreeMergeResult } from "./extensions/merge.js";
 export { atIndex, atKey } from "./extensions/path.js";
+export { addPoolValues, poolNearDuplicates, poolValues } from "./extensions/pools.js";
+export type { PoolCounts } from "./extensions/pools.js";

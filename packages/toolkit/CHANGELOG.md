@@ -11,6 +11,12 @@
   checked against them and offered by `pickChoices`. The manifest check refuses a `keys` source that names no such
   map (`pick-keys`). A 1.1.x host refuses the source (`pick-source`), so an extension that uses it should ask for
   the new editors.
+- **A pick can take any name, and suggest the ones already used** (`./extensions`): a `{ "pool": "name" }` source
+  makes a pick accept any text, for names only the game knows, such as a level's points of interest. Every field
+  naming the same pool shares its values: `addPoolValues` counts them across a project's data, `poolValues` orders
+  them (the commonest first), and `pickChoices` offers them as suggestions, after the other sources' choices.
+  `poolNearDuplicates` warns of two names that differ only in case, spaces, or punctuation
+  (`pool-near-duplicate`). A 1.1.x host refuses the source (`pick-source`).
 
 ### Changed
 

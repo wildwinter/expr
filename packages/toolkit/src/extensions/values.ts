@@ -91,14 +91,17 @@ export function valueProblems(decl: TypeDecl, value: unknown, ctx: ValueContext 
     case "pick": {
       if (typeof value !== "string") { wrong("one of its choices, as text"); break; }
       if (value === "") break;   // automatic
-      const sources = decl.from ?? [];
+      // A pool takes any text: what one of the other sources holds is that choice, and anything else is the
+      // pool's own. So a pool is never among the sources holding a value, and never makes one ambiguous.
+      const pooled = (decl.from ?? []).some((s) => "pool" in s);
+      const sources = (decl.from ?? []).filter((s) => !("pool" in s));
       const holding = sources.filter((s) => sourceHolds(s, value, ctx) === true);
       // Ambiguous only where a node is among them: text sources (words, a list, a map's keys) holding the same
       // name mean the same text, so a word a project table repeats is one choice.
       if (holding.length > 1 && holding.some((s) => "to" in s)) {
         out.push({ severity: "warning", code: "pick-ambiguous", path,
           message: `${where(path)} is "${value}", which is ${holding.map(sourceWord).join(" and ")}` });
-      } else if (holding.length === 0 && sources.every((s) => sourceHolds(s, value, ctx) !== undefined)) {
+      } else if (!pooled && holding.length === 0 && sources.every((s) => sourceHolds(s, value, ctx) !== undefined)) {
         out.push(err("not-a-choice", path, `${where(path)} is "${value}", which is not one of its choices`));
       }
       break;
@@ -186,6 +189,7 @@ function sourceHolds(source: PickSource, value: string, ctx: ValueContext): bool
   if ("to" in source) return ctx.exists === undefined ? undefined : ctx.exists(source.to, value);
   if ("list" in source) return ctx.list === undefined ? undefined : (ctx.list(source.list) ?? []).includes(value);
   if ("keys" in source) return ctx.list === undefined ? undefined : (ctx.list(source.keys) ?? []).includes(value);
+  if ("pool" in source) return value !== "";
   return false;
 }
 
@@ -194,6 +198,7 @@ function sourceWord(source: PickSource): string {
   if ("words" in source) return "a fixed word";
   if ("to" in source) return source.to === "cast" ? "a cast member" : `a ${source.to}`;
   if ("keys" in source) return `a key of the map "${source.keys}"`;
+  if ("pool" in source) return `a name in the pool "${source.pool}"`;
   return `an entry of the list "${source.list}"`;
 }
 
@@ -203,6 +208,8 @@ export interface PickSources {
   readonly nodes?: (kind: string) => readonly { readonly id: string; readonly label?: string }[];
   /** As `ValueContext.list`. */
   readonly list?: (name: string) => readonly string[] | undefined;
+  /** A pool's values, in the order to offer them (`poolValues`: the commonest first). */
+  readonly pool?: (name: string) => readonly string[] | undefined;
 }
 
 /** One choice of a pick: the text a value holds, the name it is shown by, and where it comes from. */
@@ -216,7 +223,9 @@ export interface PickChoice {
  * Every choice a pick offers, source by source in its declared order, each source's own in its order. A text
  * value (a word, a list entry, a map's key) is offered once, under the first text source that holds it: the
  * same text means the same thing. A node that shares a name with another choice appears under each
- * (`pickClashes` reports it). An empty entry is left out, as empty means automatic.
+ * (`pickClashes` reports it). An empty entry is left out, as empty means automatic. A pool's values come last
+ * whatever its place in `from`, less any the other sources offer (that value means their choice): they are
+ * suggestions for a pick that takes any text.
  */
 export function pickChoices(decl: TypeDecl, src: PickSources): PickChoice[] {
   const out: PickChoice[] = [];
@@ -237,6 +246,15 @@ export function pickChoices(decl: TypeDecl, src: PickSources): PickChoice[] {
       for (const k of src.list?.(source.keys) ?? []) offer(k, source);
     }
   }
+  const taken = new Set(out.map((c) => c.value));
+  for (const source of decl.from ?? []) {
+    if (!("pool" in source)) continue;
+    for (const v of src.pool?.(source.pool) ?? []) {
+      if (v === "" || taken.has(v)) continue;
+      taken.add(v);
+      out.push({ value: v, label: v, source });
+    }
+  }
   return out;
 }
 
@@ -248,6 +266,7 @@ export function pickChoices(decl: TypeDecl, src: PickSources): PickChoice[] {
 export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Problem[] {
   const by = new Map<string, PickSource[]>();
   for (const c of pickChoices(decl, src)) {
+    if ("pool" in c.source) continue;   // a pool's value is what no other source holds: never a clash
     const held = by.get(c.value) ?? [];
     if (!held.includes(c.source)) held.push(c.source);
     by.set(c.value, held);

@@ -1,5 +1,5 @@
 {
-  "about": "Value validation. A case gives a field declaration and a value (valueProblems), or a target and a node's entry (entryProblems), with the nodes that exist for references as kind:id and, for a pick's list sources, the extension's project lists by name (`lists`; absent, list sources are not checked). Paths are relative to the value or entry. A problem's severity is error unless the case says warning; `options` is checked where given. `picks` gives a pick's declaration and what the host offers (`nodes` by kind, as id and label, and `lists`): every choice `pickChoices` makes, in order, and the names `pickClashes` reports.",
+  "about": "Value validation. A case gives a field declaration and a value (valueProblems), or a target and a node's entry (entryProblems), with the nodes that exist for references as kind:id and, for a pick's list sources, the extension's project lists by name (`lists`; absent, list sources are not checked). Paths are relative to the value or entry. A problem's severity is error unless the case says warning; `options` is checked where given. `picks` gives a pick's declaration and what the host offers (`nodes` by kind, as id and label, and `lists`): every choice `pickChoices` makes, in order, and the names `pickClashes` reports. A pick's `pools` gives a pool's values in the order the host offers them. `pools` lists entries of one target (`target`, `entries`): each pool's values in order (`values`, the commonest first), and the sets of values `poolNearDuplicates` reports (`nearDuplicates`, each in its order).",
   "cases": [
     {
       "name": "scalars that fit pass",
@@ -1071,6 +1071,70 @@
         ]
       },
       "problems": []
+    },
+    {
+      "name": "a pick: any text is a pool's",
+      "decl": {
+        "name": "look",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "away"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "pool": "pointOfInterest"
+          }
+        ]
+      },
+      "value": "the gate",
+      "refs": [
+        "cast:TAM"
+      ],
+      "problems": []
+    },
+    {
+      "name": "a pick: a cast member's id is the cast member, not ambiguous with a pool",
+      "decl": {
+        "name": "look",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "away"
+            ]
+          },
+          {
+            "to": "cast"
+          },
+          {
+            "pool": "pointOfInterest"
+          }
+        ]
+      },
+      "value": "TAM",
+      "refs": [
+        "cast:TAM"
+      ],
+      "problems": []
+    },
+    {
+      "name": "a pick: a pool takes any text even with nothing else known",
+      "decl": {
+        "name": "camera",
+        "type": "pick",
+        "from": [
+          {
+            "pool": "locationCamera"
+          }
+        ]
+      },
+      "value": "tower-low",
+      "problems": []
     }
   ],
   "picks": [
@@ -1292,6 +1356,61 @@
         }
       ],
       "clashes": []
+    },
+    {
+      "name": "a pool's values come last, less what the other sources offer",
+      "decl": {
+        "name": "look",
+        "type": "pick",
+        "from": [
+          {
+            "pool": "pointOfInterest"
+          },
+          {
+            "words": [
+              "away"
+            ]
+          },
+          {
+            "to": "cast"
+          }
+        ]
+      },
+      "nodes": {
+        "cast": [
+          {
+            "id": "TAM",
+            "label": "TAM"
+          }
+        ]
+      },
+      "pools": {
+        "pointOfInterest": [
+          "the gate",
+          "away",
+          "TAM",
+          "well"
+        ]
+      },
+      "choices": [
+        {
+          "value": "away",
+          "source": 1
+        },
+        {
+          "value": "TAM",
+          "source": 2
+        },
+        {
+          "value": "the gate",
+          "source": 0
+        },
+        {
+          "value": "well",
+          "source": 0
+        }
+      ],
+      "clashes": []
     }
   ],
   "pickLists": [
@@ -1417,6 +1536,225 @@
         ],
         "byCast": null
       }
+    }
+  ],
+  "pools": [
+    {
+      "name": "every field naming a pool counts, however deep, the commonest first",
+      "target": {
+        "fields": [
+          {
+            "name": "look",
+            "type": "pick",
+            "from": [
+              {
+                "words": [
+                  "away"
+                ]
+              },
+              {
+                "pool": "pointOfInterest"
+              }
+            ]
+          },
+          {
+            "name": "camera",
+            "type": "pick",
+            "from": [
+              {
+                "pool": "locationCamera"
+              }
+            ]
+          },
+          {
+            "name": "performance",
+            "type": "record",
+            "fields": [
+              {
+                "name": "look",
+                "type": "pick",
+                "from": [
+                  {
+                    "pool": "pointOfInterest"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "beats",
+            "type": "list",
+            "of": {
+              "type": "record",
+              "fields": [
+                {
+                  "name": "at",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "pool": "pointOfInterest"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "note",
+            "type": "text"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "look": "the gate",
+          "camera": "tower-low",
+          "performance": {
+            "look": "well"
+          }
+        },
+        {
+          "look": "the gate",
+          "beats": [
+            {
+              "at": "well"
+            },
+            {
+              "at": "the gate"
+            },
+            {
+              "at": ""
+            }
+          ],
+          "note": "the gate"
+        },
+        {
+          "look": "away"
+        },
+        {
+          "look": "Anvil"
+        }
+      ],
+      "values": {
+        "pointOfInterest": [
+          "the gate",
+          "well",
+          "Anvil",
+          "away"
+        ],
+        "locationCamera": [
+          "tower-low"
+        ]
+      },
+      "nearDuplicates": []
+    },
+    {
+      "name": "values differing only in case, spaces, or punctuation are near-duplicates",
+      "target": {
+        "fields": [
+          {
+            "name": "look",
+            "type": "pick",
+            "from": [
+              {
+                "words": [
+                  "away"
+                ]
+              },
+              {
+                "pool": "pointOfInterest"
+              }
+            ]
+          },
+          {
+            "name": "camera",
+            "type": "pick",
+            "from": [
+              {
+                "pool": "locationCamera"
+              }
+            ]
+          },
+          {
+            "name": "performance",
+            "type": "record",
+            "fields": [
+              {
+                "name": "look",
+                "type": "pick",
+                "from": [
+                  {
+                    "pool": "pointOfInterest"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "beats",
+            "type": "list",
+            "of": {
+              "type": "record",
+              "fields": [
+                {
+                  "name": "at",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "pool": "pointOfInterest"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "note",
+            "type": "text"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "look": "the gate"
+        },
+        {
+          "look": "the gate"
+        },
+        {
+          "look": "The Gate"
+        },
+        {
+          "camera": "tower-low"
+        },
+        {
+          "camera": "Tower Low"
+        },
+        {
+          "camera": "tower"
+        }
+      ],
+      "values": {
+        "pointOfInterest": [
+          "the gate",
+          "The Gate"
+        ],
+        "locationCamera": [
+          "tower",
+          "Tower Low",
+          "tower-low"
+        ]
+      },
+      "nearDuplicates": [
+        [
+          "Tower Low",
+          "tower-low"
+        ],
+        [
+          "the gate",
+          "The Gate"
+        ]
+      ]
     }
   ]
 }

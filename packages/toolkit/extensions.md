@@ -190,8 +190,26 @@ A pick is a single choice whose choices come from sources the manifest names, in
 { name: "relationship", type: "pick", from: [{ words: ["stranger", "friend"] }, { keys: "relationshipClasses" }] }
 ```
 
+- `pool`: any text at all, under a name of the manifest's choosing. Every field of the same extension whose pick
+  names the same pool shares its values, wherever they are (a node's field, a field inside a record, a list's
+  items, a map's values, the project's own), and an editor offers them as suggestions. For names only the game knows,
+  such as the points of interest in a level:
+
+```json5
+{ name: "look",   type: "pick", from: [{ words: ["away"] }, { to: "cast" }, { pool: "pointOfInterest" }] }
+{ name: "camera", type: "pick", from: [{ pool: "locationCamera" }] }
+```
+
 A text value (a word, a list entry, a map's key) is offered once, under the first source that holds it: a word the
 project's table repeats is the same text, so the table's row adds to it rather than competing with it.
+
+A value one of the other sources holds is that choice (`TAM` is the cast member, and follows a rename), and any other
+text is the pool's. So a pool never makes a value ambiguous or missing. The host counts a pool's values across its
+data with `addPoolValues` (one count per extension, every entry, the project's among them), and `poolValues` puts
+them in the order to offer (the commonest first, then alphabetically). `pickChoices` offers a pool's values last,
+less any another source offers, when the host passes them as `PickSources.pool`. `poolNearDuplicates` warns of
+values that differ only in case, spaces, or punctuation (`pool-near-duplicate`: "The gate" and "the gate"), since a
+game looking a name up would take them as two.
 
 Empty is automatic: no word for it is stored, and an editor shows it as "auto". A pick isn't an `enum` whose values
 change: an enum's values are fixed and checked against the manifest, a pick's are the project's.
