@@ -19,8 +19,8 @@ export interface ValueContext {
   /** Does a node of `kind` with `id` exist? Absent, references are not checked
    *  (a host checking a manifest's default, say, has no nodes to hand). */
   readonly exists?: (kind: string, id: string) => boolean;
-  /** The entries of a list of text on the extension's own project node, by field name (`pickLists`), for a
-   *  pick's `list` source. Absent, list sources are not checked. */
+  /** The entries of a list of text, or the keys of a map with text keys, on the extension's own project node, by
+   *  field name (`pickLists`), for a pick's `list` and `keys` sources. Absent, those sources are not checked. */
   readonly list?: (name: string) => readonly string[] | undefined;
 }
 
@@ -93,7 +93,9 @@ export function valueProblems(decl: TypeDecl, value: unknown, ctx: ValueContext 
       if (value === "") break;   // automatic
       const sources = decl.from ?? [];
       const holding = sources.filter((s) => sourceHolds(s, value, ctx) === true);
-      if (holding.length > 1) {
+      // Ambiguous only where a node is among them: text sources (words, a list, a map's keys) holding the same
+      // name mean the same text, so a word a project table repeats is one choice.
+      if (holding.length > 1 && holding.some((s) => "to" in s)) {
         out.push({ severity: "warning", code: "pick-ambiguous", path,
           message: `${where(path)} is "${value}", which is ${holding.map(sourceWord).join(" and ")}` });
       } else if (holding.length === 0 && sources.every((s) => sourceHolds(s, value, ctx) !== undefined)) {
@@ -183,6 +185,7 @@ function sourceHolds(source: PickSource, value: string, ctx: ValueContext): bool
   if ("words" in source) return Array.isArray(source.words) && source.words.includes(value);
   if ("to" in source) return ctx.exists === undefined ? undefined : ctx.exists(source.to, value);
   if ("list" in source) return ctx.list === undefined ? undefined : (ctx.list(source.list) ?? []).includes(value);
+  if ("keys" in source) return ctx.list === undefined ? undefined : (ctx.list(source.keys) ?? []).includes(value);
   return false;
 }
 
@@ -190,6 +193,7 @@ function sourceHolds(source: PickSource, value: string, ctx: ValueContext): bool
 function sourceWord(source: PickSource): string {
   if ("words" in source) return "a fixed word";
   if ("to" in source) return source.to === "cast" ? "a cast member" : `a ${source.to}`;
+  if ("keys" in source) return `a key of the map "${source.keys}"`;
   return `an entry of the list "${source.list}"`;
 }
 
@@ -209,27 +213,37 @@ export interface PickChoice {
 }
 
 /**
- * Every choice a pick offers, source by source in its declared order, each source's own in its order. A name
- * in two sources appears under each (`pickClashes` reports it); an empty entry is left out, as empty means
- * automatic.
+ * Every choice a pick offers, source by source in its declared order, each source's own in its order. A text
+ * value (a word, a list entry, a map's key) is offered once, under the first text source that holds it: the
+ * same text means the same thing. A node that shares a name with another choice appears under each
+ * (`pickClashes` reports it). An empty entry is left out, as empty means automatic.
  */
 export function pickChoices(decl: TypeDecl, src: PickSources): PickChoice[] {
   const out: PickChoice[] = [];
+  const text = new Set<string>();
+  const offer = (value: string, source: PickSource): void => {
+    if (value === "" || text.has(value)) return;
+    text.add(value);
+    out.push({ value, label: value, source });
+  };
   for (const source of decl.from ?? []) {
     if ("words" in source) {
-      for (const w of source.words ?? []) if (typeof w === "string" && w !== "") out.push({ value: w, label: w, source });
+      for (const w of source.words ?? []) if (typeof w === "string") offer(w, source);
     } else if ("to" in source) {
       for (const n of src.nodes?.(source.to) ?? []) if (n.id !== "") out.push({ value: n.id, label: n.label ?? n.id, source });
     } else if ("list" in source) {
-      for (const e of src.list?.(source.list) ?? []) if (e !== "") out.push({ value: e, label: e, source });
+      for (const e of src.list?.(source.list) ?? []) offer(e, source);
+    } else if ("keys" in source) {
+      for (const k of src.list?.(source.keys) ?? []) offer(k, source);
     }
   }
   return out;
 }
 
 /**
- * A pick's names that more than one of its sources holds (a character and a point of interest both called
- * Gate): a warning each, once, for the project; each value naming one has its own from `valueProblems`.
+ * A pick's names that a node source and another source both hold (a character and a point of interest both
+ * called Gate): a warning each, once, for the project; each value naming one has its own from `valueProblems`.
+ * Text sources alone never clash: a word a project table repeats is the same text.
  */
 export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Problem[] {
   const by = new Map<string, PickSource[]>();
@@ -240,7 +254,7 @@ export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Proble
   }
   const out: Problem[] = [];
   for (const [name, sources] of by) {
-    if (sources.length < 2) continue;
+    if (sources.length < 2 || !sources.some((s) => "to" in s)) continue; // text sources only: the same text, no clash
     out.push({ severity: "warning", code: "pick-clash", path, options: [name],
       message: `"${name}" is ${sources.map(sourceWord).join(" and ")}, so a value naming it is ambiguous` });
   }
@@ -248,18 +262,28 @@ export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Proble
 }
 
 /**
- * The lists of text a pick's `list` sources name, read off the extension's project entry: each a list field of
- * the extension's `project` target holding text, the entry's own value else the field's default. Undefined for a
- * name that is no such field.
+ * The text a pick's `list` and `keys` sources name, read off the extension's project entry: a list field of the
+ * extension's `project` target holding text gives its entries, a map field with text keys gives its keys, in
+ * its order; the entry's own value, else the field's default. Undefined for a name that is no such field.
  */
 export function pickLists(projectTarget: TargetDecl | undefined, projectEntry: Readonly<Record<string, unknown>> | undefined): (name: string) => readonly string[] | undefined {
   return (name) => {
     const field = (projectTarget?.fields ?? []).find((f) => f.name === name);
-    if (field === undefined || !isTextList(field)) return undefined;
+    if (field === undefined) return undefined;
     const held = projectEntry !== undefined && own(projectEntry, name) ? projectEntry[name] : undefined;
+    if (isTextKeyedMap(field)) {
+      const map = isObject(held) ? held : defaultOf(field);
+      return isObject(map) ? Object.keys(map) : [];
+    }
+    if (!isTextList(field)) return undefined;
     const value = Array.isArray(held) ? held : defaultOf(field);
     return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
   };
+}
+
+/** A map keyed by text: what a pick's `keys` source names. */
+export function isTextKeyedMap(decl: TypeDecl): boolean {
+  return decl.type === "map" && decl.key?.type === "text";
 }
 
 /** A list without ids holding text: what a pick's `list` source names. */

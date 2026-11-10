@@ -81,12 +81,14 @@ export interface TypeDecl {
 
 /**
  * Where a pick's choices come from: fixed words, the nodes of a reference kind (by id, as a reference holds
- * them), or a list of text on the extension's own project node, by that field's name.
+ * them), a list of text on the extension's own project node, by that field's name, or the keys of a map with
+ * text keys there, by that field's name.
  */
 export type PickSource =
   | { readonly words: readonly string[] }
   | { readonly to: string }
-  | { readonly list: string };
+  | { readonly list: string }
+  | { readonly keys: string };
 
 /** A named field: a target's, or a record's. */
 export interface FieldDecl extends TypeDecl {

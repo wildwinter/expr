@@ -180,6 +180,18 @@ A pick is a single choice whose choices come from sources the manifest names, in
 - `to`: the nodes of a reference kind (the table above), held by id as a reference holds them.
 - `list`: a list of text (`{ type: "list", of: { type: "text" } }`, no `id`) on the extension's own `project`
   target, by that field's name; the project node's value, else the field's default (`pickLists`).
+- `keys`: the keys of a map with text keys (`{ type: "map", key: { type: "text" }, of: ... }`) on the extension's
+  own `project` target, by that field's name, in the map's order; the project node's value, else the field's
+  default (`pickLists`). One project table can then be both the choices and what each choice means:
+
+```json5
+// project: { name: "relationshipClasses", type: "map", key: { type: "text" },
+//            of: { type: "record", fields: [{ name: "distance", type: "number" }, { name: "shot", type: "text" }] } }
+{ name: "relationship", type: "pick", from: [{ words: ["stranger", "friend"] }, { keys: "relationshipClasses" }] }
+```
+
+A text value (a word, a list entry, a map's key) is offered once, under the first source that holds it: a word the
+project's table repeats is the same text, so the table's row adds to it rather than competing with it.
 
 Empty is automatic: no word for it is stored, and an editor shows it as "auto". A pick isn't an `enum` whose values
 change: an enum's values are fixed and checked against the manifest, a pick's are the project's.
@@ -188,13 +200,13 @@ change: an enum's values are fixed and checked against the manifest, a pick's ar
 
 `valueProblems` reports a value no source holds (`not-a-choice`, an error), given the host's nodes (`exists`) and
 lists (`list`) in its context; a source it can't see is not checked, so a value is reported missing only when every
-source can say. A value two sources hold is ambiguous (`pick-ambiguous`, a warning), and `pickClashes` reports each
-such name once for the project (`pick-clash`). `pickChoices` lists the choices, source by source, for an editor to
+source can say. A value a node source and another source both hold is ambiguous (`pick-ambiguous`, a warning), and `pickClashes`
+reports each such name once for the project (`pick-clash`); text sources holding the same text are not. `pickChoices` lists the choices, source by source, for an editor to
 draw.
 
 A host that renames a node of a `to` source rewrites the values naming it, as it rewrites references. A renamed
 entry of a project list isn't followed: a list of text can't tell a rename from a removal and an addition, so a value
-naming the old entry is reported missing.
+naming the old entry is reported missing. So is a renamed key of a `keys` source's map.
 
 ### Stage renames
 

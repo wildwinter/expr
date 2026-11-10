@@ -2086,6 +2086,214 @@
           "code": "not-an-object"
         }
       ]
+    },
+    {
+      "name": "a pick's keys name a map with text keys on the project node",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "words": [
+                        "stranger"
+                      ]
+                    },
+                    {
+                      "keys": "relationshipClasses"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "relationshipClasses",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "distance",
+                        "type": "number"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick's keys are a map with text keys, not a list or a map keyed by reference",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "keys": "moods"
+                    },
+                    {
+                      "keys": "byCast"
+                    },
+                    {
+                      "keys": "nowhere"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "moods",
+                  "type": "list",
+                  "of": {
+                    "type": "text"
+                  }
+                },
+                {
+                  "name": "byCast",
+                  "type": "map",
+                  "key": {
+                    "type": "reference",
+                    "to": "cast"
+                  },
+                  "of": {
+                    "type": "text"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].keys",
+          "code": "pick-keys"
+        },
+        {
+          "path": "targets.patter.line.fields[0].from[1].keys",
+          "code": "pick-keys"
+        },
+        {
+          "path": "targets.patter.line.fields[0].from[2].keys",
+          "code": "pick-keys"
+        }
+      ]
+    },
+    {
+      "name": "a pick's list is still a list of text, not a map",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "list": "relationshipClasses"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "relationshipClasses",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "distance",
+                        "type": "number"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0].list",
+          "code": "pick-list"
+        }
+      ]
+    },
+    {
+      "name": "a source is one kind: list and keys together is no source",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "line": {
+              "fields": [
+                {
+                  "name": "to",
+                  "type": "pick",
+                  "from": [
+                    {
+                      "list": "a",
+                      "keys": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            "project": {
+              "fields": []
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.line.fields[0].from[0]",
+          "code": "pick-source"
+        }
+      ]
     }
   ]
 }

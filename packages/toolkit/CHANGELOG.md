@@ -1,5 +1,24 @@
 # @wildwinter/toolkit
 
+## 1.2.0
+
+### Added
+
+- **A pick can offer the keys of a project map** (`./extensions`): a `{ "keys": "name" }` source offers the keys of
+  a map with text keys on the extension's own project node, so one project table can be both a pick's choices and
+  what each choice means, where before a list and a map had to be kept in step by hand. Everything a `list` source
+  does holds for it: `pickLists` reads the keys (the project's map, else the field's default), and values are
+  checked against them and offered by `pickChoices`. The manifest check refuses a `keys` source that names no such
+  map (`pick-keys`). A 1.1.x host refuses the source (`pick-source`), so an extension that uses it should ask for
+  the new editors.
+
+### Changed
+
+- **A word a pick's list or map repeats is one choice, not a clash.** A text value held by more than one text
+  source (fixed words, a list, a map's keys) is offered once, under the first, and is no longer reported as
+  ambiguous (`pick-ambiguous`, `pick-clash`): the same text means the same thing. A name a node and another source
+  share is still reported.
+
 ## 1.1.0
 
 ### Added

@@ -12,7 +12,7 @@ import { parseSource } from "../source.js";
 import { atIndex, atKey, isObject, own } from "./path.js";
 import { HOSTS, MANIFEST_SCHEMA, VALUE_TYPES } from "./types.js";
 import type { FieldDecl, HostName, Manifest, Problem, TargetDecl, TypeDecl, ViewDecl } from "./types.js";
-import { isTextList, valueProblems } from "./values.js";
+import { isTextList, isTextKeyedMap, valueProblems } from "./values.js";
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -98,18 +98,18 @@ function pickWords(from: unknown): string[] {
   return from.flatMap((s: unknown) => (isObject(s) && Array.isArray(s["words"]) ? s["words"].filter((w): w is string => typeof w === "string") : []));
 }
 
-/** A pick's `from`: a list of sources, each exactly one of `words`, `to` and `list`. */
+/** A pick's `from`: a list of sources, each exactly one of `words`, `to`, `list` and `keys`. */
 function pickSourcesSound(host: HostName, from: unknown, path: string, out: Problem[]): boolean {
   if (!Array.isArray(from) || from.length === 0) {
-    out.push(err("pick-from", path, "a pick lists its sources in \"from\": { \"words\": [...] }, { \"to\": a node kind }, or { \"list\": a project list }"));
+    out.push(err("pick-from", path, "a pick lists its sources in \"from\": { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, or { \"keys\": a project map }"));
     return false;
   }
   let sound = true;
   from.forEach((s: unknown, i) => {
     const at = atIndex(path, i);
-    const keys = isObject(s) ? Object.keys(s).filter((k) => k === "words" || k === "to" || k === "list") : [];
+    const keys = isObject(s) ? Object.keys(s).filter((k) => k === "words" || k === "to" || k === "list" || k === "keys") : [];
     if (!isObject(s) || keys.length !== 1) {
-      out.push(err("pick-source", at, "a source is one of { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }"));
+      out.push(err("pick-source", at, "a source is one of { \"words\": [...] }, { \"to\": a node kind }, { \"list\": a project list }, { \"keys\": a project map }"));
       sound = false;
       return;
     }
@@ -128,27 +128,41 @@ function pickSourcesSound(host: HostName, from: unknown, path: string, out: Prob
         out.push(err("reference-to", atKey(at, "to"), `a source's nodes are of a kind, one of ${HOSTS[host].references.join(", ")}`));
         sound = false;
       }
-    } else if (typeof s["list"] !== "string" || !NAME.test(s["list"])) {
-      out.push(err("pick-list", atKey(at, "list"), "a list source names a field of the extension's project node"));
+    } else if (keys[0] === "list") {
+      if (typeof s["list"] !== "string" || !NAME.test(s["list"])) {
+        out.push(err("pick-list", atKey(at, "list"), "a list source names a field of the extension's project node"));
+        sound = false;
+      }
+    } else if (typeof s["keys"] !== "string" || !NAME.test(s["keys"])) {
+      out.push(err("pick-keys", atKey(at, "keys"), "a keys source names a field of the extension's project node"));
       sound = false;
     }
   });
   return sound;
 }
 
-/** Each pick's `list` sources against the extension's project target: a list of text the project node holds. */
+/** Each pick's `list` and `keys` sources against the extension's project target: a list of text, or a map with
+ *  text keys, the project node holds. */
 function pickListProblems(kinds: Record<string, unknown>, hostPath: string, out: Problem[]): void {
   const project = isObject(kinds["project"]) && Array.isArray(kinds["project"]["fields"]) ? kinds["project"]["fields"] as unknown[] : [];
   const lists = new Set(project.filter((f): f is FieldDecl => isObject(f) && isTextList(f as unknown as TypeDecl)).map((f) => f.name));
+  const maps = new Set(project.filter((f): f is FieldDecl => isObject(f) && isTextKeyedMap(f as unknown as TypeDecl)).map((f) => f.name));
   const walk = (decl: unknown, path: string): void => {
     if (!isObject(decl)) return;
     const d = decl as unknown as TypeDecl;
     if (d.type === "pick" && Array.isArray(d.from)) {
       d.from.forEach((s, i) => {
-        if (isObject(s) && typeof (s as { list?: unknown }).list === "string" && !lists.has((s as { list: string }).list)) {
+        // A source that isn't exactly one kind is already reported (pick-source): not again here.
+        if (!isObject(s) || ["words", "to", "list", "keys"].filter((k) => k in s).length !== 1) return;
+        if (typeof (s as { list?: unknown }).list === "string" && !lists.has((s as { list: string }).list)) {
           const name = (s as { list: string }).list;
           out.push(err("pick-list", atKey(atIndex(atKey(path, "from"), i), "list"),
             `"${name}" is not a list of text on the extension's project node; declare it there, as { "name": "${name}", "type": "list", "of": { "type": "text" } }`));
+        }
+        if (typeof (s as { keys?: unknown }).keys === "string" && !maps.has((s as { keys: string }).keys)) {
+          const name = (s as { keys: string }).keys;
+          out.push(err("pick-keys", atKey(atIndex(atKey(path, "from"), i), "keys"),
+            `"${name}" is not a map with text keys on the extension's project node; declare it there, as { "name": "${name}", "type": "map", "key": { "type": "text" }, "of": ... }`));
         }
       });
     }

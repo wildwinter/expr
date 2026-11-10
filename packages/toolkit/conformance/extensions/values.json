@@ -935,6 +935,142 @@
           "code": "wrong-type"
         }
       ]
+    },
+    {
+      "name": "a pick: a key of a project map",
+      "decl": {
+        "name": "relationship",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "stranger",
+              "friend"
+            ]
+          },
+          {
+            "keys": "relationshipClasses"
+          }
+        ]
+      },
+      "value": "hostile",
+      "lists": {
+        "relationshipClasses": [
+          "hostile"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: a fixed word that's also a key is one choice, not ambiguous",
+      "decl": {
+        "name": "relationship",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "stranger",
+              "friend"
+            ]
+          },
+          {
+            "keys": "relationshipClasses"
+          }
+        ]
+      },
+      "value": "friend",
+      "lists": {
+        "relationshipClasses": [
+          "friend",
+          "hostile"
+        ]
+      },
+      "problems": []
+    },
+    {
+      "name": "a pick: a name in no source, keys among them",
+      "decl": {
+        "name": "relationship",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "stranger",
+              "friend"
+            ]
+          },
+          {
+            "keys": "relationshipClasses"
+          }
+        ]
+      },
+      "value": "hostle",
+      "lists": {
+        "relationshipClasses": [
+          "hostile"
+        ]
+      },
+      "problems": [
+        {
+          "path": "",
+          "code": "not-a-choice"
+        }
+      ]
+    },
+    {
+      "name": "a pick: a key that's also a node is ambiguous",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "to": "cast"
+          },
+          {
+            "keys": "places"
+          }
+        ]
+      },
+      "value": "Gate",
+      "refs": [
+        "cast:Gate"
+      ],
+      "lists": {
+        "places": [
+          "Gate"
+        ]
+      },
+      "problems": [
+        {
+          "path": "",
+          "code": "pick-ambiguous",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "a pick: a fixed word that's also a list entry is one choice, not ambiguous",
+      "decl": {
+        "name": "to",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "Gate"
+            ]
+          },
+          {
+            "list": "pointsOfInterest"
+          }
+        ]
+      },
+      "value": "Gate",
+      "lists": {
+        "pointsOfInterest": [
+          "Gate"
+        ]
+      },
+      "problems": []
     }
   ],
   "picks": [
@@ -1028,7 +1164,7 @@
       "clashes": []
     },
     {
-      "name": "a name in two sources is a clash, once",
+      "name": "a name in a node source and a text source is a clash, once; a text value is offered once",
       "decl": {
         "name": "to",
         "type": "pick",
@@ -1068,10 +1204,6 @@
         {
           "value": "Gate",
           "source": 1
-        },
-        {
-          "value": "Gate",
-          "source": 2
         },
         {
           "value": "Gate",
@@ -1118,6 +1250,45 @@
         {
           "value": "Gate",
           "source": 2
+        }
+      ],
+      "clashes": []
+    },
+    {
+      "name": "a map's keys, in its order; a word it repeats is offered once, under the word, and is no clash",
+      "decl": {
+        "name": "relationship",
+        "type": "pick",
+        "from": [
+          {
+            "words": [
+              "stranger",
+              "friend"
+            ]
+          },
+          {
+            "keys": "relationshipClasses"
+          }
+        ]
+      },
+      "lists": {
+        "relationshipClasses": [
+          "friend",
+          "hostile"
+        ]
+      },
+      "choices": [
+        {
+          "value": "stranger",
+          "source": 0
+        },
+        {
+          "value": "friend",
+          "source": 0
+        },
+        {
+          "value": "hostile",
+          "source": 1
         }
       ],
       "clashes": []
@@ -1175,6 +1346,76 @@
         "studio": null,
         "counts": null,
         "nowhere": null
+      }
+    },
+    {
+      "name": "a map with text keys gives its keys: the project's own, else the field's default; a map keyed by reference gives none",
+      "target": {
+        "fields": [
+          {
+            "name": "relationshipClasses",
+            "type": "map",
+            "key": {
+              "type": "text"
+            },
+            "of": {
+              "type": "record",
+              "fields": [
+                {
+                  "name": "distance",
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          {
+            "name": "staging",
+            "type": "map",
+            "key": {
+              "type": "text"
+            },
+            "of": {
+              "type": "text"
+            },
+            "default": {
+              "conversation": "two-shot"
+            }
+          },
+          {
+            "name": "byCast",
+            "type": "map",
+            "key": {
+              "type": "reference",
+              "to": "cast"
+            },
+            "of": {
+              "type": "text"
+            }
+          }
+        ]
+      },
+      "entry": {
+        "relationshipClasses": {
+          "hostile": {
+            "distance": 3
+          },
+          "friend": {
+            "distance": 1
+          }
+        },
+        "byCast": {
+          "ANNA": "x"
+        }
+      },
+      "lists": {
+        "relationshipClasses": [
+          "hostile",
+          "friend"
+        ],
+        "staging": [
+          "conversation"
+        ],
+        "byCast": null
       }
     }
   ]
