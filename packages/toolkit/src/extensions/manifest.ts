@@ -22,7 +22,8 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "fields", "key", "of", "id", "min", "max", "valueHelp", "default"];
 const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly", "editor"]);
 const BARE_KEYS = new Set(TYPE_KEYS);
-const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads", "requires"]);
+const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads", "requires", "groups"]);
+const GROUP_KEYS = new Set(["closed"]);
 /** Keys the spec once had and has since removed: warned of by name, with what to do instead, and ignored. */
 const REMOVED_MANIFEST_KEYS: Readonly<Record<string, string>> = {
   settings: "settings were removed with claims; declare the extension's own fields, or a project field for a project-wide value",
@@ -62,6 +63,7 @@ export function manifestProblems(manifest: unknown): Problem[] {
   viewsProblems(m["views"], m["targets"], out);
   readsProblems(m["reads"], m["id"], out);
   requiresProblems(m["requires"], m["id"], out);
+  groupsProblems(m["groups"], m["targets"], out);
 
   const targets = m["targets"];
   if (!isObject(targets) || Object.keys(targets).length === 0) {
@@ -224,6 +226,40 @@ function requiresProblems(requires: unknown, self: unknown, out: Problem[]): voi
     else if (seen.has(r)) out.push(err("requires-duplicate", at, `"${r}" is listed twice`));
     else seen.add(r);
   });
+}
+
+/** Every `group` name a target's own fields carry, in any host. */
+function groupNames(targets: unknown): Set<string> {
+  const names = new Set<string>();
+  if (!isObject(targets)) return names;
+  for (const kinds of Object.values(targets)) {
+    if (!isObject(kinds)) continue;
+    for (const target of Object.values(kinds)) {
+      if (!isObject(target) || !Array.isArray(target["fields"])) continue;
+      for (const f of target["fields"]) if (isObject(f) && typeof f["group"] === "string") names.add(f["group"]);
+    }
+  }
+  return names;
+}
+
+function groupsProblems(groups: unknown, targets: unknown, out: Problem[]): void {
+  if (groups === undefined) return;
+  if (!isObject(groups)) { out.push(err("not-an-object", "groups", "groups are an object, by the group name the fields carry")); return; }
+  const used = groupNames(targets);
+  for (const [name, g] of Object.entries(groups)) {
+    const at = atKey("groups", name);
+    if (!isObject(g)) { out.push(err("not-an-object", at, "a group is an object, such as { \"closed\": true }")); continue; }
+    unknownKeys(g, GROUP_KEYS, at, out);
+    if (g["closed"] !== undefined && typeof g["closed"] !== "boolean") out.push(err("group-closed", atKey(at, "closed"), "closed is true or false"));
+    if (!used.has(name)) out.push({ severity: "warning", code: "group-unused", path: at, message: `no field is in the group "${name}"; it is ignored` });
+  }
+}
+
+/** Whether a group starts closed in the editor: the manifest's `groups` says `closed: true` for its name. */
+export function groupClosed(manifest: Pick<Manifest, "groups">, group: string | undefined): boolean {
+  if (group === undefined || !isObject(manifest.groups) || !own(manifest.groups, group)) return false;
+  const g = manifest.groups[group];
+  return isObject(g) && g["closed"] === true;
 }
 
 /** The extensions a manifest requires that a project doesn't take, by id, in the manifest's order. An entry that

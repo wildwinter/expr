@@ -12,11 +12,11 @@ export {
   HOSTS, MANIFEST_FILE_SUFFIX, MANIFEST_SCHEMA, SCALAR_TYPES, VALUE_TYPES,
 } from "./extensions/types.js";
 export type {
-  ConflictKind, ExtensionData, FieldDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
+  ConflictKind, ExtensionData, FieldDecl, GroupDecl, HostName, HostSpec, JsonValue, Manifest, PickSource, Problem, ScalarType,
   TargetDecl, TypeDecl, UnresolvedEntry, ValueType, ViewDecl,
 } from "./extensions/types.js";
 export {
-  isViewEntry, manifestProblems, missingRequirements, parseManifest, targetOf, viewsFor,
+  groupClosed, isViewEntry, manifestProblems, missingRequirements, parseManifest, targetOf, viewsFor,
 } from "./extensions/manifest.js";
 export {
   compileEntry, compiledTarget, defaultOf, entryProblems, isTextList, pickChoices, pickClashes, pickLists, renameStages,

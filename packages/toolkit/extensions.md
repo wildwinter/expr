@@ -23,6 +23,9 @@ read the same one. It is JSON (JSON5 is read too), and is called `<id>.extension
   name: "Pattershot",
   version: "1.2.0",               // major.minor.patch
   docs: "https://example.com/pattershot",
+  groups: {                       // optional: which groups start closed (below)
+    More: { closed: true },
+  },
   targets: {
     storylets: {                  // a host: "patter" or "storylets"
       card: {                     // a node kind of that host
@@ -34,6 +37,7 @@ read the same one. It is JSON (JSON5 is read too), and is called `<id>.extension
 ```
 
 - **Identity**: `id`, `name`, `version`, and optionally `docs`, a link to the extension's own documentation.
+- **Groups**, optionally: which field groups start closed in the editor (see Closed groups, below).
 - **Targets**, by host and node kind:
 
   | Host | Node kinds | References |
@@ -90,7 +94,7 @@ and it tells the extension's views which are missing. `missingRequirements(manif
   valueHelp: { calm: "Unhurried.", tense: "Clipped." },
   default: "calm",                // optional: the type's default when absent (below)
   required: true,                 // a node of this kind must set it
-  group: "Delivery",              // a heading within the extension's group, in field order
+  group: "Delivery",              // a heading within the extension's group, in field order; `groups` can start it closed
   editorOnly: true,               // stripped at compile; editor data, never in the bundle
   editor: "sheet",                // a map of records only: one of the manifest's views edits it
 }
@@ -104,6 +108,31 @@ and it tells the extension's views which are missing. `missingRequirements(manif
   the node instead of its own grid for a map of records. It's allowed on a target's own fields only, the view must
   open in that target's host, and on a field that isn't a map of records it's warned of and ignored, as such a field
   is edited in place.
+
+### Closed groups
+
+A manifest's optional top-level `groups` says which of its field groups start closed, by the same text as a field's
+`group` heading:
+
+```json5
+groups: {
+  More: { closed: true },         // the "More" group starts closed in the editor
+}
+```
+
+- It applies in every host and node kind whose fields carry that `group` name. It is editor only and
+  never reaches a bundle. `groupClosed(manifest, group)` tells whether a group starts closed.
+- In the editor (Patterpad's inspector and Project Settings, Storyletter likewise), a closed group shows as its
+  heading with a disclosure and a count of the fields the node sets, such as "More (2 set)", with those set fields
+  listed under the heading, so a set value is never hidden. Opening it shows every field of the group. In the
+  inspector this applies once the extension's section is open; while the section is folded to the fields a node
+  sets, it shows those fields as before. Whether a group is open is remembered for the session, per extension and
+  group, from node to node. It isn't stored.
+- The check: `groups` must be an object and each group an object (`not-an-object`); `closed` must be `true` or
+  `false` (`group-closed`, an error); any other key in a group is the usual `unknown-key` warning; a group name no
+  field carries is warned of (`group-unused`) and ignored.
+- A host built before this (toolkit 1.0.x, so Patterpad 1.0.x) reports `groups` as an unknown key, a warning, ignores
+  it, and shows the group open as a plain heading. An extension that uses it should ask for the new editors.
 
 ### Removed keys
 

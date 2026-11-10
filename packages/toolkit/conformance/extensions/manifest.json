@@ -1894,6 +1894,198 @@
           "code": "editor-view"
         }
       ]
+    },
+    {
+      "name": "a group can start closed",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "scene": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                },
+                {
+                  "name": "style",
+                  "type": "text",
+                  "group": "More"
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "lens",
+                  "type": "number",
+                  "group": "More"
+                }
+              ]
+            }
+          }
+        },
+        "groups": {
+          "More": {
+            "closed": true
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a group named that no field is in is warned of",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "scene": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                },
+                {
+                  "name": "style",
+                  "type": "text",
+                  "group": "More"
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "lens",
+                  "type": "number",
+                  "group": "More"
+                }
+              ]
+            }
+          }
+        },
+        "groups": {
+          "More": {
+            "closed": false
+          },
+          "Extra": {
+            "closed": true
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "groups.Extra",
+          "code": "group-unused",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "a group is an object with closed true or false",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "scene": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                },
+                {
+                  "name": "style",
+                  "type": "text",
+                  "group": "More"
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "lens",
+                  "type": "number",
+                  "group": "More"
+                }
+              ]
+            }
+          }
+        },
+        "groups": {
+          "More": {
+            "closed": "yes",
+            "open": true
+          },
+          "Odd name": 3
+        }
+      },
+      "problems": [
+        {
+          "path": "groups.More.open",
+          "code": "unknown-key",
+          "severity": "warning"
+        },
+        {
+          "path": "groups.More.closed",
+          "code": "group-closed"
+        },
+        {
+          "path": "groups[\"Odd name\"]",
+          "code": "not-an-object"
+        }
+      ]
+    },
+    {
+      "name": "groups must be an object",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "scene": {
+              "fields": [
+                {
+                  "name": "mood",
+                  "type": "text"
+                },
+                {
+                  "name": "style",
+                  "type": "text",
+                  "group": "More"
+                }
+              ]
+            },
+            "project": {
+              "fields": [
+                {
+                  "name": "lens",
+                  "type": "number",
+                  "group": "More"
+                }
+              ]
+            }
+          }
+        },
+        "groups": [
+          "More"
+        ]
+      },
+      "problems": [
+        {
+          "path": "groups",
+          "code": "not-an-object"
+        }
+      ]
     }
   ]
 }

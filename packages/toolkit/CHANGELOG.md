@@ -1,5 +1,18 @@
 # @wildwinter/toolkit
 
+## 1.1.0
+
+### Added
+
+- **A group of fields can start closed** (`./extensions`): a manifest's optional `groups` names a field group, by the
+  same text as the fields' `group` heading, and says `{ "closed": true }` to have the editor fold it. A closed group
+  shows its heading and a count of the fields a node sets, such as "More (2 set)", with those fields listed under
+  it, so a set value is never hidden; opening it shows every field, and the editor remembers that for the session.
+  It's editor only and never reaches a bundle. The manifest check holds `groups` to its shape (`not-an-object`,
+  `group-closed`) and warns of a group no field carries (`group-unused`). `groupClosed(manifest, group)` tells
+  whether a group starts closed, and `GroupDecl` types the entry. A 1.0.x host warns of `groups` as an unknown key
+  and shows the group open, so an extension that uses it should ask for the new editors.
+
 ## 1.0.0
 
 The 1.0 release: the API of 0.4.0, unchanged, declared settled. From here the version follows semver: a patch fixes, a minor adds, and a major removes or

@@ -95,7 +95,7 @@ export interface FieldDecl extends TypeDecl {
   readonly help?: string;
   /** A node of this kind must set it. */
   readonly required?: boolean;
-  /** A heading within the extension's group in the editor. */
+  /** A heading within the extension's group in the editor. The manifest's `groups` may say it starts closed. */
   readonly group?: string;
   /** Stripped at compile: editor data, never in a bundle. A target's own fields only. */
   readonly editorOnly?: boolean;
@@ -122,6 +122,14 @@ export interface Manifest {
   readonly reads?: readonly string[];
   /** Other extensions a project must take for this one to work, by id. */
   readonly requires?: readonly string[];
+  /** How the editor shows a group of fields, by the `group` name the fields carry, in every target. Editor only. */
+  readonly groups?: Readonly<Record<string, GroupDecl>>;
+}
+
+/** How the editor shows one group of fields. */
+export interface GroupDecl {
+  /** The group starts closed: its heading, with the fields a node sets, until the author opens it. */
+  readonly closed?: boolean;
 }
 
 /** A view: a web component in the extension's installed package, opened by a host in a floating window. */
