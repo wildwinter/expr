@@ -97,6 +97,7 @@ and it tells the extension's views which are missing. `missingRequirements(manif
   group: "Delivery",              // a heading within the extension's group, in field order; `groups` can start it closed
   editorOnly: true,               // stripped at compile; editor data, never in the bundle
   editor: "sheet",                // a map of records only: one of the manifest's views edits it
+  builtIn: { stranger: { gap: 2 } }, // a map with text keys only: the entries the extension has built in (below)
 }
 ```
 
@@ -141,6 +142,27 @@ host field with the manifest's control. Both are gone: a manifest that still car
 (`removed-key`) and the key is ignored. Declare a field of the extension's own instead, which the runtimes hand
 the game with every other extension value.
 
+### Built-in entries
+
+A map with text keys can name the entries the extension already has built in, the project's own map only adding to
+them or changing one:
+
+```json5
+{ name: "relationshipClasses", type: "map", key: { type: "text" },
+  of: { type: "record", fields: [{ name: "gap", type: "number" }, { name: "shot", type: "text" }] },
+  builtIn: { stranger: { gap: 2, shot: "full" }, friend: { gap: 0.5, shot: "medium" } } }
+```
+
+- An editor shows each built-in entry as a row with its name fixed and its value as built in. Changing the value
+  makes the whole entry the project's own, written to the project's map as any entry is; a reset takes it out of the
+  project's map, back to built in. A built-in entry can't be removed or renamed. Entries the project adds are as
+  before.
+- A pick's `keys` source offers the built-in keys first, then the project's own (`pickLists`), and values are checked
+  against both.
+- They're for the editor: a bundle carries the project's map as it is, and the extension's runtime keeps its own copy.
+- Each entry must fit the map's `of` (`built-in-misfit`, at the entry's key), and only a map with text keys may have
+  them, as an object (`built-in`).
+
 ## The types
 
 | Type | Holds | Default when none is given | Merges |
@@ -181,8 +203,8 @@ A pick is a single choice whose choices come from sources the manifest names, in
 - `list`: a list of text (`{ type: "list", of: { type: "text" } }`, no `id`) on the extension's own `project`
   target, by that field's name; the project node's value, else the field's default (`pickLists`).
 - `keys`: the keys of a map with text keys (`{ type: "map", key: { type: "text" }, of: ... }`) on the extension's
-  own `project` target, by that field's name, in the map's order; the project node's value, else the field's
-  default (`pickLists`). One project table can then be both the choices and what each choice means:
+  own `project` target, by that field's name: its built-in entries' keys (above), then the project node's own in
+  the map's order, else the field's default's (`pickLists`). One project table can then be both the choices and what each choice means:
 
 ```json5
 // project: { name: "relationshipClasses", type: "map", key: { type: "text" },

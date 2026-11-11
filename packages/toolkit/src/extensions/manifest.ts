@@ -19,7 +19,7 @@ const VERSION = /^\d+\.\d+\.\d+$/;
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** The keys a declaration may carry. Anything else is most likely a misspelling. */
-const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "fields", "key", "of", "id", "min", "max", "valueHelp", "default"];
+const TYPE_KEYS = ["type", "values", "stages", "renamedStages", "to", "from", "fields", "key", "of", "id", "min", "max", "valueHelp", "default", "builtIn"];
 const FIELD_KEYS = new Set([...TYPE_KEYS, "name", "label", "help", "required", "group", "editorOnly", "editor"]);
 const BARE_KEYS = new Set(TYPE_KEYS);
 const MANIFEST_KEYS = new Set(["schema", "id", "name", "version", "docs", "targets", "views", "reads", "requires", "groups"]);
@@ -496,6 +496,19 @@ function typeProblems(host: HostName, decl: TypeDecl, path: string, named: boole
   if (named && decl.default !== undefined && sound) {
     const misfit = valueProblems(decl, decl.default).filter((p) => p.severity === "error");
     if (misfit.length > 0) out.push(err("default-misfit", at("default"), `the default does not fit: ${misfit[0]!.message}`));
+  }
+  // A map's built-in entries: the extension's own, shown under the project's, each fitting the map's values.
+  if (decl.builtIn !== undefined) {
+    if (decl.type !== "map" || !isObject(decl.key) || decl.key["type"] !== "text") {
+      out.push(err("built-in", at("builtIn"), "built-in entries belong to a map with text keys, { type: \"map\", key: { type: \"text\" }, of: ... }"));
+    } else if (!isObject(decl.builtIn)) {
+      out.push(err("built-in", at("builtIn"), "built-in entries are an object of key and value, as the map holds them"));
+    } else if (sound && isObject(decl.of)) {
+      for (const [k, v] of Object.entries(decl.builtIn)) {
+        const misfit = valueProblems(decl.of as TypeDecl, v).filter((p) => p.severity === "error");
+        if (misfit.length > 0) out.push(err("built-in-misfit", atKey(at("builtIn"), k), `the built-in entry "${k}" does not fit: ${misfit[0]!.message}`));
+      }
+    }
   }
 }
 

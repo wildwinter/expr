@@ -283,7 +283,7 @@ export function pickClashes(decl: TypeDecl, src: PickSources, path = ""): Proble
 /**
  * The text a pick's `list` and `keys` sources name, read off the extension's project entry: a list field of the
  * extension's `project` target holding text gives its entries, a map field with text keys gives its keys, in
- * its order; the entry's own value, else the field's default. Undefined for a name that is no such field.
+ * its order, after the keys it has built in (`builtIn`); the entry's own value, else the field's default. Undefined for a name that is no such field.
  */
 export function pickLists(projectTarget: TargetDecl | undefined, projectEntry: Readonly<Record<string, unknown>> | undefined): (name: string) => readonly string[] | undefined {
   return (name) => {
@@ -291,8 +291,11 @@ export function pickLists(projectTarget: TargetDecl | undefined, projectEntry: R
     if (field === undefined) return undefined;
     const held = projectEntry !== undefined && own(projectEntry, name) ? projectEntry[name] : undefined;
     if (isTextKeyedMap(field)) {
+      // The extension's built-in entries first, then the project's own (an override keeps its built-in place).
       const map = isObject(held) ? held : defaultOf(field);
-      return isObject(map) ? Object.keys(map) : [];
+      const keys = isObject(field.builtIn) ? Object.keys(field.builtIn) : [];
+      for (const k of isObject(map) ? Object.keys(map) : []) if (!keys.includes(k)) keys.push(k);
+      return keys;
     }
     if (!isTextList(field)) return undefined;
     const value = Array.isArray(held) ? held : defaultOf(field);

@@ -1536,6 +1536,70 @@
         ],
         "byCast": null
       }
+    },
+    {
+      "name": "a map's built-in keys come first, then the project's own; an override keeps its built-in place",
+      "target": {
+        "fields": [
+          {
+            "name": "relationshipClasses",
+            "type": "map",
+            "key": {
+              "type": "text"
+            },
+            "of": {
+              "type": "record",
+              "fields": [
+                {
+                  "name": "gap",
+                  "type": "number"
+                }
+              ]
+            },
+            "builtIn": {
+              "stranger": {
+                "gap": 2
+              },
+              "friend": {
+                "gap": 0.5
+              }
+            }
+          },
+          {
+            "name": "staging",
+            "type": "map",
+            "key": {
+              "type": "text"
+            },
+            "of": {
+              "type": "text"
+            },
+            "builtIn": {
+              "cinematic": "full"
+            }
+          }
+        ]
+      },
+      "entry": {
+        "relationshipClasses": {
+          "rival": {
+            "gap": 3
+          },
+          "friend": {
+            "gap": 0.8
+          }
+        }
+      },
+      "lists": {
+        "relationshipClasses": [
+          "stranger",
+          "friend",
+          "rival"
+        ],
+        "staging": [
+          "cinematic"
+        ]
+      }
     }
   ],
   "pools": [

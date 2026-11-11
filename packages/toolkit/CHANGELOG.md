@@ -1,5 +1,17 @@
 # @wildwinter/toolkit
 
+## 1.3.0
+
+### Added
+
+- **A map can show the entries an extension has built in** (`./extensions`): a `builtIn` object on a map with text
+  keys names them, each key and its value. An editor shows them with their names fixed, so a writer sees what the
+  extension already has, where before a project's table started empty. Changing one makes it the project's own entry;
+  a reset puts it back. A pick's `keys` source offers them first (`pickLists`), so a pick no longer has to repeat them
+  as fixed words. The manifest check refuses one that doesn't fit the map (`built-in-misfit`) or sits on any other
+  field (`built-in`). A 1.2.x host warns of the key as unknown and ignores it, showing the table as before, and its
+  picks don't offer the built-in keys.
+
 ## 1.2.0
 
 ### Added

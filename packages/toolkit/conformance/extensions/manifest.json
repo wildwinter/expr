@@ -2370,6 +2370,225 @@
           "code": "pick-pool"
         }
       ]
+    },
+    {
+      "name": "a map with text keys may declare built-in entries, each fitting its values",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "project": {
+              "fields": [
+                {
+                  "name": "relationshipClasses",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "gap",
+                        "type": "number"
+                      },
+                      {
+                        "name": "shot",
+                        "type": "enum",
+                        "values": [
+                          "full",
+                          "medium",
+                          "cu"
+                        ]
+                      }
+                    ]
+                  },
+                  "builtIn": {
+                    "stranger": {
+                      "gap": 2,
+                      "shot": "full"
+                    },
+                    "friend": {
+                      "gap": 0.5,
+                      "shot": "medium"
+                    }
+                  }
+                },
+                {
+                  "name": "staging",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "enum",
+                    "values": [
+                      "full",
+                      "acting",
+                      "none"
+                    ]
+                  },
+                  "builtIn": {
+                    "cinematic": "full",
+                    "bark": "none"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": []
+    },
+    {
+      "name": "a built-in entry that doesn't fit the map's values is refused, by its key",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "project": {
+              "fields": [
+                {
+                  "name": "relationshipClasses",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "name": "gap",
+                        "type": "number"
+                      },
+                      {
+                        "name": "shot",
+                        "type": "enum",
+                        "values": [
+                          "full",
+                          "medium",
+                          "cu"
+                        ]
+                      }
+                    ]
+                  },
+                  "builtIn": {
+                    "stranger": {
+                      "gap": "far",
+                      "shot": "full"
+                    },
+                    "friend": {
+                      "gap": 0.5,
+                      "shot": "medium"
+                    }
+                  }
+                },
+                {
+                  "name": "staging",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "enum",
+                    "values": [
+                      "full",
+                      "none"
+                    ]
+                  },
+                  "builtIn": {
+                    "cinematic": "wide"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.project.fields[0].builtIn.stranger",
+          "code": "built-in-misfit"
+        },
+        {
+          "path": "targets.patter.project.fields[1].builtIn.cinematic",
+          "code": "built-in-misfit"
+        }
+      ]
+    },
+    {
+      "name": "built-in entries belong to a map with text keys, as an object",
+      "manifest": {
+        "schema": "wildwinter/extension@0",
+        "id": "probe",
+        "name": "Probe",
+        "version": "1.0.0",
+        "targets": {
+          "patter": {
+            "project": {
+              "fields": [
+                {
+                  "name": "names",
+                  "type": "list",
+                  "of": {
+                    "type": "text"
+                  },
+                  "builtIn": {
+                    "a": "b"
+                  }
+                },
+                {
+                  "name": "byCast",
+                  "type": "map",
+                  "key": {
+                    "type": "reference",
+                    "to": "cast"
+                  },
+                  "of": {
+                    "type": "text"
+                  },
+                  "builtIn": {
+                    "ANNA": "x"
+                  }
+                },
+                {
+                  "name": "staging",
+                  "type": "map",
+                  "key": {
+                    "type": "text"
+                  },
+                  "of": {
+                    "type": "text"
+                  },
+                  "builtIn": [
+                    "cinematic"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "problems": [
+        {
+          "path": "targets.patter.project.fields[0].builtIn",
+          "code": "built-in"
+        },
+        {
+          "path": "targets.patter.project.fields[1].builtIn",
+          "code": "built-in"
+        },
+        {
+          "path": "targets.patter.project.fields[2].builtIn",
+          "code": "built-in"
+        }
+      ]
     }
   ]
 }

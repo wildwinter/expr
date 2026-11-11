@@ -77,6 +77,10 @@ export interface TypeDecl {
   readonly valueHelp?: Readonly<Record<string, string>>;
   /** Optional in source: the type's own default when absent (`defaultOf`). */
   readonly default?: unknown;
+  /** A map with text keys only: entries the extension has built in, under the project's own. An editor shows
+   *  each with its name fixed, a project entry of the same key overriding it whole; a pick's `keys` source
+   *  offers them first (`pickLists`). Editor only: the extension's runtime keeps its own copy. */
+  readonly builtIn?: Readonly<Record<string, unknown>>;
 }
 
 /**
